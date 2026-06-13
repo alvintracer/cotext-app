@@ -2494,6 +2494,73 @@ button:focus-visible {
   border-radius: var(--radius-sm);
 }
 
+/* Draft menu (three-dot) */
+.draft-menu-wrapper {
+  position: relative;
+  margin-left: auto;
+}
+
+.draft-menu-trigger {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 16px;
+  letter-spacing: 2px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  transition: all 0.15s;
+  opacity: 0;
+}
+
+.timeline-block.draft:hover .draft-menu-trigger {
+  opacity: 1;
+}
+
+.draft-menu-trigger:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.draft-menu-popup {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  min-width: 100px;
+  z-index: var(--z-dropdown);
+  overflow: hidden;
+}
+
+.draft-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--text-sm);
+  transition: background 0.1s;
+}
+
+.draft-menu-item:hover {
+  background: var(--surface-2);
+}
+
+.draft-menu-delete {
+  color: #ef4444;
+}
+
+.draft-menu-delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
 .timeline-content {
   font-size: var(--text-sm);
   line-height: 1.7;
@@ -3224,11 +3291,15 @@ button:focus-visible {
   }
 
   .room-header {
+    gap: 8px;
+    align-items: stretch;
+    padding: 8px 12px;
+    padding-left: 54px; /* Space for hamburger button */
     flex-direction: column;
-    gap: 6px;
-    align-items: flex-start;
-    padding: 10px 12px;
-    padding-left: 56px; /* Space for hamburger button */
+  }
+
+  .room-header-info {
+    gap: 8px;
   }
 
   .room-header-info .sync-badge {
@@ -3237,11 +3308,36 @@ button:focus-visible {
 
   .room-header-info h2 {
     font-size: var(--text-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .view-mode-tabs {
-    width: 100%;
+    width: calc(100% + 42px); /* extend to fill space under hamburger */
+    margin-left: -42px;
     overflow-x: auto;
+    justify-content: stretch;
+    background: var(--surface-2);
+    border-radius: var(--radius-md);
+    padding: 3px;
+  }
+
+  .view-mode-tab {
+    flex: 1;
+    justify-content: center;
+    padding: 6px 0;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+  }
+
+  .view-mode-tab.active {
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .view-mode-tab span {
+    display: none;
   }
 
   .room-content-split {
@@ -3312,6 +3408,11 @@ button:focus-visible {
   /* Timeline blocks */
   .timeline-block {
     padding: 12px;
+  }
+
+  /* Always show draft menu trigger on mobile (no hover) */
+  .draft-menu-trigger {
+    opacity: 0.6;
   }
 
   .timeline-image {

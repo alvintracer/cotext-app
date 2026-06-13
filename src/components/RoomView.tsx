@@ -367,6 +367,27 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
               remoteContent={remoteContent}
               workspace={workspace}
               room={room}
+              onDeleteBlock={(blockTimestamp) => {
+                // Delete the block by removing its timestamp header and all lines until the next ## header
+                const lines = content.split('\n');
+                const result: string[] = [];
+                let skipping = false;
+                for (const line of lines) {
+                  const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+                  if (tsMatch && tsMatch[1] === blockTimestamp) {
+                    skipping = true;
+                    continue;
+                  }
+                  if (skipping && (line.match(/^## \d{4}/) || line.match(/^# /))) {
+                    skipping = false;
+                  }
+                  if (!skipping) result.push(line);
+                }
+                // Clean up trailing empty lines
+                let cleaned = result.join('\n');
+                cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+                handleContentChange(cleaned);
+              }}
             />
           </div>
         )}
@@ -424,12 +445,14 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
 }
 
 // Simple timeline renderer
-function TimelineView({ content, remoteContent, workspace, room }: {
+function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock }: {
   content: string;
   remoteContent: string;
   workspace: Workspace;
   room: Room;
+  onDeleteBlock?: (timestamp: string) => void;
 }) {
+  const [openMenu, setOpenMenu] = useState<number | null>(null);
   const lines = content.split('\n');
   const remoteLines = new Set(remoteContent.split('\n'));
   const blocks: Array<{ lines: string[]; isPushed: boolean; timestamp?: string }> = [];
@@ -453,6 +476,14 @@ function TimelineView({ content, remoteContent, workspace, room }: {
   }
   if (currentBlock) blocks.push(currentBlock);
 
+  // Close menu on outside click
+  useEffect(() => {
+    if (openMenu === null) return;
+    const handler = () => setOpenMenu(null);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [openMenu]);
+
   if (blocks.length === 0) {
     return (
       <div className="timeline-empty">
@@ -474,6 +505,34 @@ function TimelineView({ content, remoteContent, workspace, room }: {
               <Clock size={12} />
               <span>{block.timestamp}</span>
               {!block.isPushed && <span className="draft-badge">Draft</span>}
+              {/* Three-dot menu for draft blocks */}
+              {!block.isPushed && block.timestamp && (
+                <div className="draft-menu-wrapper">
+                  <button
+                    className="draft-menu-trigger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenMenu(openMenu === i ? null : i);
+                    }}
+                    aria-label="More options"
+                  >
+                    ···
+                  </button>
+                  {openMenu === i && (
+                    <div className="draft-menu-popup" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="draft-menu-item draft-menu-delete"
+                        onClick={() => {
+                          setOpenMenu(null);
+                          onDeleteBlock?.(block.timestamp!);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
           <div className="timeline-content">

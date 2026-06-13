@@ -4186,7 +4186,38 @@ button:focus-visible {
 
 /* ── Invite Modal ────────────────────────────────────────── */
 .invite-modal {
-  max-width: 460px;
+  max-width: 520px;
+}
+
+.invite-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin: -20px -24px 16px;
+  padding: 0 24px;
+}
+
+.invite-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.invite-tab:hover {
+  color: var(--text);
+}
+
+.invite-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .invite-modal-repo {

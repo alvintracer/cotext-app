@@ -11,7 +11,7 @@ import ApiKeyManager from '../components/ApiKeyManager';
 import {
   FolderOpen, Plus, CaretLeft as ChevronLeft, MagnifyingGlass as Search, ChatText as MessageSquare,
   TreeStructure as FolderTree, CaretRight as ChevronRight, List as Menu, X,
-  Link as LinkIcon, Copy, Check, Users, UserPlus
+  Link as LinkIcon, Copy, Check, Users, UserPlus, Robot
 } from '@phosphor-icons/react';
 
 interface TreeItem {
@@ -60,6 +60,7 @@ export default function WorkspaceDetailPage() {
   const [inviteExpiry, setInviteExpiry] = useState<'7days' | '30days' | 'never'>('7days');
   const [generatingInvite, setGeneratingInvite] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [inviteTab, setInviteTab] = useState<'team' | 'agent'>('team');
 
   const workspace = currentWorkspace || workspaces.find((w) => w.id === workspaceId);
 
@@ -363,11 +364,6 @@ export default function WorkspaceDetailPage() {
             )}
           </div>
         </div>
-
-        {/* API Keys section */}
-        <div className="sidebar-team">
-          <ApiKeyManager workspaceId={workspace.id} repoOwner={workspace.github_owner} repoName={workspace.github_repo} />
-        </div>
       </aside>
 
       {/* Main Content */}
@@ -454,69 +450,91 @@ export default function WorkspaceDetailPage() {
       {showInviteModal && (
         <div className="modal-overlay" onClick={() => setShowInviteModal(false)}>
           <div className="modal invite-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>{t('team.modal.title')}</h2>
-            <p className="text-muted mb-4">{t('team.modal.desc')}</p>
-
-            {/* Repo info */}
-            <div className="invite-modal-repo">
-              <span className="invite-modal-repo-name">
-                {workspace.github_owner}/{workspace.github_repo}
-              </span>
+            {/* Tab header */}
+            <div className="invite-tabs">
+              <button
+                className={`invite-tab ${inviteTab === 'team' ? 'active' : ''}`}
+                onClick={() => setInviteTab('team')}
+              >
+                <Users size={16} /> {t('team.modal.title')}
+              </button>
+              <button
+                className={`invite-tab ${inviteTab === 'agent' ? 'active' : ''}`}
+                onClick={() => setInviteTab('agent')}
+              >
+                <Robot size={16} /> 에이전트 연결
+              </button>
             </div>
 
-            {!inviteLink ? (
+            {inviteTab === 'team' ? (
               <>
-                {/* Expiry selector */}
-                <div className="invite-expiry-selector">
-                  <label className="text-muted text-sm">{t('team.modal.expires')}</label>
-                  <div className="invite-expiry-options">
-                    {(['7days', '30days', 'never'] as const).map((opt) => (
-                      <button
-                        key={opt}
-                        className={`invite-expiry-opt ${inviteExpiry === opt ? 'active' : ''}`}
-                        onClick={() => setInviteExpiry(opt)}
-                      >
-                        {t(`team.modal.${opt}`)}
-                      </button>
-                    ))}
-                  </div>
+                <p className="text-muted mb-4">{t('team.modal.desc')}</p>
+
+                {/* Repo info */}
+                <div className="invite-modal-repo">
+                  <span className="invite-modal-repo-name">
+                    {workspace.github_owner}/{workspace.github_repo}
+                  </span>
                 </div>
 
-                <div className="modal-actions">
-                  <button className="btn btn-ghost" onClick={() => setShowInviteModal(false)}>Cancel</button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleGenerateInvite}
-                    disabled={generatingInvite}
-                  >
-                    <LinkIcon size={14} />
-                    {t('team.modal.generate')}
-                  </button>
-                </div>
+                {!inviteLink ? (
+                  <>
+                    {/* Expiry selector */}
+                    <div className="invite-expiry-selector">
+                      <label className="text-muted text-sm">{t('team.modal.expires')}</label>
+                      <div className="invite-expiry-options">
+                        {(['7days', '30days', 'never'] as const).map((opt) => (
+                          <button
+                            key={opt}
+                            className={`invite-expiry-opt ${inviteExpiry === opt ? 'active' : ''}`}
+                            onClick={() => setInviteExpiry(opt)}
+                          >
+                            {t(`team.modal.${opt}`)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="modal-actions">
+                      <button className="btn btn-ghost" onClick={() => setShowInviteModal(false)}>Cancel</button>
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleGenerateInvite}
+                        disabled={generatingInvite}
+                      >
+                        <LinkIcon size={14} />
+                        {t('team.modal.generate')}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Generated link */}
+                    <div className="invite-link-box">
+                      <input
+                        type="text"
+                        readOnly
+                        value={inviteLink}
+                        className="input invite-link-input"
+                        onClick={(e) => (e.target as HTMLInputElement).select()}
+                      />
+                      <button
+                        className={`btn ${copied ? 'btn-success' : 'btn-primary'} invite-copy-btn`}
+                        onClick={handleCopyLink}
+                      >
+                        {copied ? <><Check size={14} /> {t('team.modal.copied')}</> : <><Copy size={14} /> {t('team.modal.copyLink')}</>}
+                      </button>
+                    </div>
+
+                    <div className="modal-actions">
+                      <button className="btn btn-ghost" onClick={() => setShowInviteModal(false)}>Done</button>
+                    </div>
+                  </>
+                )}
               </>
             ) : (
-              <>
-                {/* Generated link */}
-                <div className="invite-link-box">
-                  <input
-                    type="text"
-                    readOnly
-                    value={inviteLink}
-                    className="input invite-link-input"
-                    onClick={(e) => (e.target as HTMLInputElement).select()}
-                  />
-                  <button
-                    className={`btn ${copied ? 'btn-success' : 'btn-primary'} invite-copy-btn`}
-                    onClick={handleCopyLink}
-                  >
-                    {copied ? <><Check size={14} /> {t('team.modal.copied')}</> : <><Copy size={14} /> {t('team.modal.copyLink')}</>}
-                  </button>
-                </div>
-
-                <div className="modal-actions">
-                  <button className="btn btn-ghost" onClick={() => setShowInviteModal(false)}>Done</button>
-                </div>
-              </>
+              /* Agent tab */
+              <ApiKeyManager workspaceId={workspace.id} repoOwner={workspace.github_owner} repoName={workspace.github_repo} />
             )}
           </div>
         </div>

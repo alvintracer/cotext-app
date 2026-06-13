@@ -41,6 +41,7 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
   const [shareExpiry, setShareExpiry] = useState<string>('24h');
   const [shareCreating, setShareCreating] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [shareScope, setShareScope] = useState<'room' | 'workspace'>('room');
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // Load initial content
@@ -466,11 +467,13 @@ ${filteredContent}
         .from('shared_links')
         .insert({
           workspace_id: workspace.id,
-          room_id: room.id,
+          room_id: shareScope === 'room' ? room.id : null,
           user_id: user.id,
           source_filter: 'me',
           expires_at: expiresAt,
-          label: `${room.path} — ${workspace.github_repo}`,
+          label: shareScope === 'room'
+            ? `${room.path} — ${workspace.github_repo}`
+            : `All chats — ${workspace.github_repo}`,
         })
         .select('token')
         .single();
@@ -485,7 +488,7 @@ ${filteredContent}
     } finally {
       setShareCreating(false);
     }
-  }, [user, workspace, room, shareExpiry]);
+  }, [user, workspace, room, shareExpiry, shareScope]);
 
   if (loading) {
     return (
@@ -555,6 +558,13 @@ ${filteredContent}
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
                 Create a secure link to share this room's context. Recipients can view and copy the content without needing a GitHub account.
               </p>
+              <div className="share-options">
+                <label>Scope</label>
+                <select value={shareScope} onChange={e => { setShareScope(e.target.value as 'room' | 'workspace'); setShareLink(null); }}>
+                  <option value="room">This chat ({room.path})</option>
+                  <option value="workspace">All chats ({workspace.github_repo})</option>
+                </select>
+              </div>
               <div className="share-options">
                 <label>Expires in</label>
                 <select value={shareExpiry} onChange={e => setShareExpiry(e.target.value)}>

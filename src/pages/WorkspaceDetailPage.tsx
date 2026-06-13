@@ -8,15 +8,31 @@ import { githubApi } from '../lib/supabase/functions';
 import type { Room } from '../types/room';
 import RoomView from '../components/RoomView';
 import {
-  FolderOpen, Plus, ChevronLeft, Search, MessageSquare,
-  FolderTree, ChevronRight, Menu, X
-} from 'lucide-react';
+  FolderOpen, Plus, CaretLeft as ChevronLeft, MagnifyingGlass as Search, ChatText as MessageSquare,
+  TreeStructure as FolderTree, CaretRight as ChevronRight, List as Menu, X,
+  Link as LinkIcon, Copy, Check, Users, UserPlus
+} from '@phosphor-icons/react';
 
 interface TreeItem {
   name: string;
   path: string;
   type: 'file' | 'dir';
   children?: TreeItem[];
+}
+
+interface Teammate {
+  user_id: string;
+  display_name: string;
+  github_username: string;
+}
+
+function generateInviteCode(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
 }
 
 export default function WorkspaceDetailPage() {
@@ -35,6 +51,14 @@ export default function WorkspaceDetailPage() {
   const [selectedPath, setSelectedPath] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Team & Invite state
+  const [teammates, setTeammates] = useState<Teammate[]>([]);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
+  const [inviteExpiry, setInviteExpiry] = useState<'7days' | '30days' | 'never'>('7days');
+  const [generatingInvite, setGeneratingInvite] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const workspace = currentWorkspace || workspaces.find((w) => w.id === workspaceId);
 
@@ -69,6 +93,27 @@ export default function WorkspaceDetailPage() {
     loadRooms();
   }, [loadRooms]);
 
+  // Load teammates
+  useEffect(() => {
+    if (!workspace) return;
+
+    const loadTeammates = async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_repo_teammates', {
+          p_github_owner: workspace.github_owner,
+          p_github_repo: workspace.github_repo,
+        });
+        if (!error && data) {
+          setTeammates(data as Teammate[]);
+        }
+      } catch (err) {
+        console.error('Failed to load teammates:', err);
+      }
+    };
+
+    loadTeammates();
+  }, [workspace]);
+
   // Load repo tree for adding new room
   const loadTree = useCallback(async () => {
     if (!workspace) return;
@@ -82,7 +127,6 @@ export default function WorkspaceDetailPage() {
       setTree(result.tree || []);
     } catch (err) {
       console.error('Failed to load tree:', err);
-      // If tree fails (empty repo or API issue), allow manual path entry
       setTree([]);
     } finally {
       setLoadingTree(false);
@@ -119,6 +163,52 @@ export default function WorkspaceDetailPage() {
       console.error('Failed to create room:', err);
     }
   }, [workspace, user, selectedPath]);
+
+  // Generate invite link
+  const handleGenerateInvite = useCallback(async () => {
+    if (!workspace || !user) return;
+    setGeneratingInvite(true);
+    setCopied(false);
+
+    try {
+      const code = generateInviteCode();
+      let expiresAt: string | null = null;
+
+      if (inviteExpiry === '7days') {
+        expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      } else if (inviteExpiry === '30days') {
+        expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      }
+
+      const { error } = await supabase
+        .from('workspace_invites')
+        .insert({
+          invite_code: code,
+          created_by: user.id,
+          github_owner: workspace.github_owner,
+          github_repo: workspace.github_repo,
+          default_branch: workspace.default_branch,
+          suggested_name: workspace.name,
+          expires_at: expiresAt,
+        });
+
+      if (error) throw error;
+
+      const origin = window.location.origin;
+      setInviteLink(`${origin}/invite/${code}`);
+    } catch (err) {
+      console.error('Failed to generate invite:', err);
+    } finally {
+      setGeneratingInvite(false);
+    }
+  }, [workspace, user, inviteExpiry]);
+
+  const handleCopyLink = useCallback(() => {
+    if (!inviteLink) return;
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [inviteLink]);
 
   const filteredRooms = rooms.filter((r) =>
     r.path.toLowerCase().includes(searchQuery.toLowerCase())
@@ -164,6 +254,17 @@ export default function WorkspaceDetailPage() {
               {workspace.github_owner}/{workspace.github_repo}
             </span>
           </div>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => {
+              setShowInviteModal(true);
+              setInviteLink('');
+              setCopied(false);
+            }}
+            title={t('team.invite')}
+          >
+            <LinkIcon size={16} />
+          </button>
         </div>
 
         <div className="sidebar-search">
@@ -202,7 +303,7 @@ export default function WorkspaceDetailPage() {
                 className={`room-item ${selectedRoom?.id === room.id ? 'active' : ''}`}
                 onClick={() => {
                   setSelectedRoom(room);
-                  setSidebarOpen(false); // Auto-close on mobile
+                  setSidebarOpen(false);
                 }}
               >
                 <MessageSquare size={14} />
@@ -213,6 +314,53 @@ export default function WorkspaceDetailPage() {
               </button>
             ))
           )}
+        </div>
+
+        {/* Team section */}
+        <div className="sidebar-team">
+          <div className="sidebar-team-header">
+            <Users size={14} />
+            <span>{t('team.title')}</span>
+            <span className="team-count">{teammates.length + 1}</span>
+          </div>
+          <div className="sidebar-team-list">
+            {/* Current user */}
+            <div className="team-member">
+              <img
+                src={user?.user_metadata?.avatar_url || `https://github.com/${user?.user_metadata?.user_name}.png?size=24`}
+                alt=""
+                className="team-member-avatar"
+              />
+              <span className="team-member-name">
+                {user?.user_metadata?.user_name || 'You'}
+                <span className="team-member-you">({t('team.you')})</span>
+              </span>
+            </div>
+            {/* Teammates */}
+            {teammates.map((mate) => (
+              <div key={mate.user_id} className="team-member">
+                <img
+                  src={`https://github.com/${mate.github_username}.png?size=24`}
+                  alt=""
+                  className="team-member-avatar"
+                />
+                <span className="team-member-name">{mate.display_name || mate.github_username}</span>
+              </div>
+            ))}
+            {teammates.length === 0 && (
+              <button
+                className="btn btn-ghost btn-xs team-invite-btn"
+                onClick={() => {
+                  setShowInviteModal(true);
+                  setInviteLink('');
+                  setCopied(false);
+                }}
+              >
+                <UserPlus size={12} />
+                <span>{t('team.invite')}</span>
+              </button>
+            )}
+          </div>
         </div>
       </aside>
 
@@ -292,6 +440,78 @@ export default function WorkspaceDetailPage() {
                 {t('modal.btn.openChat')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Modal */}
+      {showInviteModal && (
+        <div className="modal-overlay" onClick={() => setShowInviteModal(false)}>
+          <div className="modal invite-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>{t('team.modal.title')}</h2>
+            <p className="text-muted mb-4">{t('team.modal.desc')}</p>
+
+            {/* Repo info */}
+            <div className="invite-modal-repo">
+              <span className="invite-modal-repo-name">
+                {workspace.github_owner}/{workspace.github_repo}
+              </span>
+            </div>
+
+            {!inviteLink ? (
+              <>
+                {/* Expiry selector */}
+                <div className="invite-expiry-selector">
+                  <label className="text-muted text-sm">{t('team.modal.expires')}</label>
+                  <div className="invite-expiry-options">
+                    {(['7days', '30days', 'never'] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        className={`invite-expiry-opt ${inviteExpiry === opt ? 'active' : ''}`}
+                        onClick={() => setInviteExpiry(opt)}
+                      >
+                        {t(`team.modal.${opt}`)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="modal-actions">
+                  <button className="btn btn-ghost" onClick={() => setShowInviteModal(false)}>Cancel</button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleGenerateInvite}
+                    disabled={generatingInvite}
+                  >
+                    <LinkIcon size={14} />
+                    {t('team.modal.generate')}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Generated link */}
+                <div className="invite-link-box">
+                  <input
+                    type="text"
+                    readOnly
+                    value={inviteLink}
+                    className="input invite-link-input"
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <button
+                    className={`btn ${copied ? 'btn-success' : 'btn-primary'} invite-copy-btn`}
+                    onClick={handleCopyLink}
+                  >
+                    {copied ? <><Check size={14} /> {t('team.modal.copied')}</> : <><Copy size={14} /> {t('team.modal.copyLink')}</>}
+                  </button>
+                </div>
+
+                <div className="modal-actions">
+                  <button className="btn btn-ghost" onClick={() => setShowInviteModal(false)}>Done</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

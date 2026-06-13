@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, Camera, Plus, X, Type } from 'lucide-react';
+import { PaperPlaneRight as Send, Paperclip, Camera, Plus, X, TextT as Type } from '@phosphor-icons/react';
 import { getPlatformServices } from '../lib/platform/index';
 import { isImageFile, compressImage, formatFileSize } from '../lib/image/compress';
 import { recognizeText } from '../lib/ocr';

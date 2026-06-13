@@ -43,6 +43,31 @@ type TranslationKey =
   | 'modal.title.addChat'
   | 'modal.desc.addChat'
   | 'modal.btn.openChat'
+  | 'invite.title'
+  | 'invite.desc'
+  | 'invite.accept'
+  | 'invite.accepting'
+  | 'invite.expired'
+  | 'invite.invalid'
+  | 'invite.loginRequired'
+  | 'invite.loginBtn'
+  | 'invite.alreadyConnected'
+  | 'invite.goToWorkspace'
+  | 'invite.invitedBy'
+  | 'invite.repo'
+  | 'team.title'
+  | 'team.invite'
+  | 'team.empty'
+  | 'team.you'
+  | 'team.modal.title'
+  | 'team.modal.desc'
+  | 'team.modal.generate'
+  | 'team.modal.copied'
+  | 'team.modal.copyLink'
+  | 'team.modal.expires'
+  | 'team.modal.7days'
+  | 'team.modal.30days'
+  | 'team.modal.never'
   ;
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {
@@ -89,6 +114,31 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'modal.title.addChat': 'Add Chat',
     'modal.desc.addChat': 'Select a directory from {repo} to open as a chat.',
     'modal.btn.openChat': 'Open as Chat',
+    'invite.title': 'Join Workspace',
+    'invite.desc': 'You\'ve been invited to connect a repository as a workspace.',
+    'invite.accept': 'Connect Workspace',
+    'invite.accepting': 'Connecting...',
+    'invite.expired': 'This invite link has expired.',
+    'invite.invalid': 'Invalid or expired invite link.',
+    'invite.loginRequired': 'Log in with GitHub to accept this invite.',
+    'invite.loginBtn': 'Log in with GitHub',
+    'invite.alreadyConnected': 'You\'re already connected to this repository.',
+    'invite.goToWorkspace': 'Go to Workspace',
+    'invite.invitedBy': 'Invited by',
+    'invite.repo': 'Repository',
+    'team.title': 'Team',
+    'team.invite': 'Invite',
+    'team.empty': 'No teammates yet',
+    'team.you': 'you',
+    'team.modal.title': 'Invite to Workspace',
+    'team.modal.desc': 'Share this link so teammates can connect to the same repository.',
+    'team.modal.generate': 'Generate Link',
+    'team.modal.copied': 'Copied!',
+    'team.modal.copyLink': 'Copy Link',
+    'team.modal.expires': 'Expires in',
+    'team.modal.7days': '7 days',
+    'team.modal.30days': '30 days',
+    'team.modal.never': 'Never',
   },
   ko: {
     'nav.workspaces': '워크스페이스',
@@ -133,6 +183,31 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'modal.title.addChat': '채팅 추가',
     'modal.desc.addChat': '{repo}에서 채팅으로 열 디렉토리를 선택하세요.',
     'modal.btn.openChat': '채팅으로 열기',
+    'invite.title': '워크스페이스 참여',
+    'invite.desc': '레포지토리를 워크스페이스로 연결하는 초대를 받았습니다.',
+    'invite.accept': '워크스페이스 연결',
+    'invite.accepting': '연결 중...',
+    'invite.expired': '만료된 초대 링크입니다.',
+    'invite.invalid': '유효하지 않거나 만료된 초대 링크입니다.',
+    'invite.loginRequired': '초대를 수락하려면 GitHub으로 로그인하세요.',
+    'invite.loginBtn': 'GitHub으로 로그인',
+    'invite.alreadyConnected': '이미 연결된 레포지토리입니다.',
+    'invite.goToWorkspace': '워크스페이스로 이동',
+    'invite.invitedBy': '초대한 사람',
+    'invite.repo': '레포지토리',
+    'team.title': '팀',
+    'team.invite': '초대',
+    'team.empty': '아직 팀원이 없습니다',
+    'team.you': '나',
+    'team.modal.title': '워크스페이스 초대',
+    'team.modal.desc': '팀원이 같은 레포지토리에 연결할 수 있도록 이 링크를 공유하세요.',
+    'team.modal.generate': '링크 생성',
+    'team.modal.copied': '복사됨!',
+    'team.modal.copyLink': '링크 복사',
+    'team.modal.expires': '만료 기간',
+    'team.modal.7days': '7일',
+    'team.modal.30days': '30일',
+    'team.modal.never': '무제한',
   }
 };
 

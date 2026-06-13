@@ -10,7 +10,7 @@ import type { Workspace } from '../types/workspace';
 import MorphingComposer from './MorphingComposer';
 import CommitBar from './CommitBar';
 import CotextEditor from './CotextEditor';
-import { AlertTriangle, Check, Loader2, Eye, Split, MessageSquare, Code, Clock, MoreVertical, Trash2 } from 'lucide-react';
+import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2 } from '@phosphor-icons/react';
 
 interface RoomViewProps {
   room: Room;

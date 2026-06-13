@@ -6,10 +6,12 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { WorkspaceProvider } from './contexts/WorkspaceContext';
 import AppLayout from './components/layout/AppLayout';
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import WorkspacesPage from './pages/WorkspacesPage';
 import WorkspaceDetailPage from './pages/WorkspaceDetailPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
+import InvitePage from './pages/InvitePage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,11 +53,13 @@ function AppRoutes() {
 
   return (
     <Routes>
+      <Route path="/" element={<LandingPage />} />
       <Route
         path="/login"
         element={user && !loading ? <Navigate to="/workspaces" replace /> : <LoginPage />}
       />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route path="/invite/:code" element={<InvitePage />} />
       <Route
         element={
           <ProtectedRoute>

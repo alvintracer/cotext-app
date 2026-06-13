@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useNavigate } from 'react-router-dom';
-import { Plus, GitBranch, FolderGit2, ChevronRight, Link, FilePlus, Loader2, Search } from 'lucide-react';
+import { Plus, GitBranch, FolderSimple as FolderGit2, CaretRight as ChevronRight, Link, FilePlus, Spinner as Loader2, MagnifyingGlass as Search } from '@phosphor-icons/react';
 import { githubApi } from '../lib/supabase/functions';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Workspace } from '../types/workspace';

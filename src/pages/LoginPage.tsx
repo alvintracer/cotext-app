@@ -1,6 +1,6 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Sun, Moon, Monitor, GitBranch } from 'lucide-react';
+import { Sun, Moon, Monitor, GithubLogo } from '@phosphor-icons/react';
 
 export default function LoginPage() {
   const { signInWithGitHub, loading } = useAuth();
@@ -39,7 +39,7 @@ export default function LoginPage() {
           onClick={signInWithGitHub}
           disabled={loading}
         >
-          <GitBranch size={20} />
+          <GithubLogo size={20} />
           <span>{loading ? 'Connecting...' : 'Sign in with GitHub'}</span>
         </button>
 

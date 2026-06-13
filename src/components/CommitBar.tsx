@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Loader2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Spinner as Loader2 } from '@phosphor-icons/react';
 import type { SyncStatus } from '../types/room';
 
 interface CommitBarProps {

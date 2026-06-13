@@ -7,9 +7,10 @@ import { keymap } from '@codemirror/view';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { search } from '@codemirror/search';
 import {
-  Heading1, Heading2, Heading3, Bold, Italic, List, ListOrdered,
-  Code, Quote, Table, Link, Minus, ChevronUp, X, CheckSquare
-} from 'lucide-react';
+  TextHOne as Heading1, TextHTwo as Heading2, TextHThree as Heading3,
+  TextB as Bold, TextItalic as Italic, ListBullets as List, ListNumbers as ListOrdered,
+  Code, Quotes as Quote, Table, Link, Minus, CaretUp as ChevronUp, X, CheckSquare
+} from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CotextEditorProps {

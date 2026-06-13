@@ -1,7 +1,7 @@
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { Sun, Moon, Monitor, LogOut, User } from 'lucide-react';
+import { Sun, Moon, Monitor, SignOut as LogOut, User } from '@phosphor-icons/react';
 
 import { useLanguage } from '../../contexts/LanguageContext';
 

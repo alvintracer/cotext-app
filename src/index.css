@@ -3529,3 +3529,358 @@ button:focus-visible {
     display: none !important;
   }
 }
+
+/* ── Invite Page ─────────────────────────────────────────── */
+.invite-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.invite-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px;
+  max-width: 440px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+
+.invite-card .invite-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 32px;
+  cursor: pointer;
+}
+
+.invite-card h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.invite-desc {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 24px;
+}
+
+.invite-loading {
+  padding: 40px 0;
+  display: flex;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.invite-error {
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: var(--text-muted);
+}
+
+.invite-error h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.invite-repo-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.invite-repo-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--accent-muted);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.invite-repo-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.invite-repo-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.invite-repo-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.invite-repo-branch {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.invite-inviter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  justify-content: center;
+}
+
+.invite-inviter-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.invite-inviter-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.invite-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.invite-login-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.invite-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 1rem;
+}
+
+.invite-already {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--success, #22c55e);
+  font-size: 0.9rem;
+  padding: 8px 0;
+}
+
+.invite-success {
+  color: var(--success, #22c55e);
+  animation: invite-check 0.5s ease;
+}
+
+@keyframes invite-check {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ── Team Section (Sidebar) ──────────────────────────────── */
+.sidebar-team {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+
+.sidebar-team-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.team-count {
+  background: var(--accent-muted);
+  color: var(--accent);
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.sidebar-team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.team-member {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.team-member-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.team-member-name {
+  font-size: 0.8rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-member-you {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  margin-left: 4px;
+}
+
+.team-invite-btn {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--accent);
+  opacity: 0.8;
+}
+
+.team-invite-btn:hover {
+  opacity: 1;
+}
+
+/* ── Invite Modal ────────────────────────────────────────── */
+.invite-modal {
+  max-width: 460px;
+}
+
+.invite-modal-repo {
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.invite-modal-repo-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  font-family: var(--font-mono);
+}
+
+.invite-expiry-selector {
+  margin-bottom: 20px;
+}
+
+.invite-expiry-selector label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.invite-expiry-options {
+  display: flex;
+  gap: 8px;
+}
+
+.invite-expiry-opt {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.invite-expiry-opt:hover {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.invite-expiry-opt.active {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.invite-link-box {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.invite-link-input {
+  flex: 1;
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  background: var(--bg);
+}
+
+.invite-copy-btn {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-success {
+  background: var(--success, #22c55e) !important;
+  border-color: var(--success, #22c55e) !important;
+  color: #fff !important;
+}
+
+/* ── Responsive: Invite Page ─────────────────────────────── */
+@media (max-width: 640px) {
+  .invite-card {
+    padding: 28px 20px;
+    border-radius: 12px;
+  }
+
+  .invite-card h1 {
+    font-size: 1.25rem;
+  }
+}

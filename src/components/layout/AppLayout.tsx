@@ -16,11 +16,7 @@ export default function AppLayout() {
       <header className="app-header">
         <div className="app-header-left">
           <button className="app-logo" onClick={() => navigate('/workspaces')}>
-            <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-              <rect x="2" y="2" width="28" height="28" rx="8" fill="var(--accent)" opacity="0.15" />
-              <path d="M8 12h16M8 16h12M8 20h8" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="24" cy="20" r="4" fill="var(--accent)" opacity="0.6" />
-            </svg>
+            <span className="app-logo-mark">:&gt;</span>
             <span className="app-logo-text">Cotext</span>
           </button>
         </div>

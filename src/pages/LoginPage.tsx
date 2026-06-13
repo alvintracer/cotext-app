@@ -23,11 +23,7 @@ export default function LoginPage() {
       <div className="login-card">
         <div className="login-logo">
           <div className="login-logo-icon">
-            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="2" y="2" width="28" height="28" rx="8" fill="var(--accent)" opacity="0.15" />
-              <path d="M8 12h16M8 16h12M8 20h8" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="24" cy="20" r="4" fill="var(--accent)" opacity="0.6" />
-            </svg>
+            <span className="login-logo-mark">:&gt;</span>
           </div>
           <h1 className="login-title">Cotext</h1>
           <p className="login-subtitle">GitHub-native context capture</p>

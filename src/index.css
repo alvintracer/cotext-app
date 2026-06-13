@@ -1325,9 +1325,21 @@ button:focus-visible {
 .login-logo-icon {
   width: 64px;
   height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-logo-mark {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 42px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
 }
 
 .login-title {
+  font-family: 'Quicksand', sans-serif;
   font-size: 36px;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -1446,10 +1458,20 @@ button:focus-visible {
   background: var(--surface-2);
 }
 
-.app-logo-text {
-  font-size: 18px;
+.app-logo-mark {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 22px;
   font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
   letter-spacing: -0.02em;
+}
+
+.app-logo-text {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--text);
 }
 

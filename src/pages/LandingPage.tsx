@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight, Sun, Moon, Monitor, PaperPlaneRight as Send,
   Image as ImageIcon, DeviceMobile as Smartphone, Robot as Bot, Check, Stack as Layers,
-  ChatText as MessageSquare, GitBranch, GithubLogo, Package,
+  ChatText as MessageSquare, GitBranch, GithubLogo, Package, ShareNetwork,
 } from '@phosphor-icons/react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -47,7 +47,7 @@ const CONTENT = {
     howTitle: '연결하고, 적고, 발행한다',
     s1t: 'GitHub 연결', s1d: 'repo를 workspace로 연결하거나 새로 만듭니다. 디렉토리를 채팅방처럼 엽니다.',
     s2t: '채팅하듯 캡처', s2d: '텍스트·이미지·파일을 남기면 Markdown과 assets로 정리되어 쌓입니다.',
-    s3t: '컨텍스트 발행', s3d: 'push로 repo에 정착. 구조화된 블록을 묶어 에이전트에게 그대로 전달.',
+    s3t: '에이전트 연결', s3d: '링크 버튼으로 팀 초대 또는 AI 연결. 플랫폼 선택하면 복사할 프롬프트/MCP 설정이 자동 생성.',
     ctaTitle: '당신의 컨텍스트를 깨우세요',
     ctaDesc: '흩어진 메모를 사람과 AI가 함께 쓰는 GitHub-native 컨텍스트 풀로.',
     ctaBtn: 'Launch Cotext',
@@ -93,20 +93,20 @@ const CONTENT = {
     f3Title: 'Structured for agents — from the moment you type',
     f3DescA: 'Instead of AI classifying later, you add lightweight types and tags as you write. Decisions, sources, ideas and questions become structured blocks — bundle them into a ',
     f3DescB: ' you can feed to any LLM.',
-    f3l1: 'decision / source / idea / question blocks',
-    f3l2: 'Publish context packs by room/tag filter (clipboard / repo commit)',
-    f3l3: 'Repo-as-MCP — any agent connects to the same pool',
+    f3l1: 'Source tags distinguish human vs AI — visual badges per author',
+    f3l2: 'Context Packs via clipboard, share link, or repo commit',
+    f3l3: 'MCP + REST API — connect ChatGPT, Claude, Cursor, Antigravity',
     gridKicker: 'Down to the details',
-    gridTitle: 'Light, fast, everywhere',
+    gridTitle: 'Light, fast, open',
     g1t: 'Auto image compression', g1d: 'Any image is compressed to ≤500KB (WebP) before upload. Your repo stays light — no LFS needed.',
-    g2t: 'Light / dark', g2d: 'Token-based themes with no flash on first paint. Follows your system setting too.',
+    g2t: 'Token-gated sharing', g2d: 'Share context with expiring URLs and scope controls. Even private repos, no login required.',
     g3t: 'Mobile · PWA', g3d: 'Responsive layout and installable PWA. Later wrapped as a Capacitor native app.',
-    g4t: 'Multi-LLM fan-out', g4d: 'Send one context to multiple models at once, compare answers, and save the one you pick.',
+    g4t: 'AI agent connect', g4d: 'One API key connects ChatGPT, Claude, Gemini, Cursor, and Antigravity. Prompt/MCP config auto-generated.',
     howKicker: 'Three steps',
     howTitle: 'Connect, capture, publish',
     s1t: 'Connect GitHub', s1d: 'Link a repo as a workspace or create one. Open a directory like a chat room.',
     s2t: 'Capture like chatting', s2d: "Drop text, images and files — they're organized into Markdown and assets.",
-    s3t: 'Publish context', s3d: 'Push to settle into the repo. Bundle structured blocks and hand them to your agents.',
+    s3t: 'Connect agents', s3d: 'Hit the link button to invite teammates or connect AI. Pick a platform, copy the prompt/config, done.',
     ctaTitle: 'Wake up your context',
     ctaDesc: 'Turn scattered notes into a GitHub-native context pool shared by humans and AI.',
     ctaBtn: 'Launch Cotext',
@@ -314,7 +314,7 @@ export default function LandingPage() {
             <p>{c.g1d}</p>
           </div>
           <div className="lp-grid-card">
-            <span className="ic"><Sun size={20} /></span>
+            <span className="ic"><ShareNetwork size={20} /></span>
             <h4>{c.g2t}</h4>
             <p>{c.g2d}</p>
           </div>
@@ -325,7 +325,7 @@ export default function LandingPage() {
           </div>
           <div className="lp-grid-card">
             <span className="ic"><Bot size={20} /></span>
-            <h4>{c.g4t}<span className="lp-soon">SOON</span></h4>
+            <h4>{c.g4t}</h4>
             <p>{c.g4d}</p>
           </div>
         </div>

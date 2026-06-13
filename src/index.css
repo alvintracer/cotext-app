@@ -1759,20 +1759,26 @@ button:focus-visible {
   z-index: var(--z-modal);
 }
 
-.ws-modal {
+.ws-modal-container {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: calc(var(--z-modal) + 1);
+  padding: 16px;
+}
+
+.ws-modal {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  width: calc(100% - 32px);
+  width: 100%;
   max-width: 460px;
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+  position: relative;
 }
 
 .ws-modal-handle {
@@ -3277,15 +3283,12 @@ button:focus-visible {
   }
 
   /* Workspace modal: bottom sheet on mobile */
+  .ws-modal-container {
+    align-items: flex-end;
+    padding: 0;
+  }
+
   .ws-modal {
-    position: fixed;
-    top: auto;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    transform: none;
-    max-width: 100%;
-    width: 100%;
     border-radius: 16px 16px 0 0;
     max-height: 85vh;
   }

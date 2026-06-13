@@ -3,9 +3,12 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Sun, Moon, Monitor, LogOut, User } from 'lucide-react';
 
+import { useLanguage } from '../../contexts/LanguageContext';
+
 export default function AppLayout() {
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { language, setLanguage } = useLanguage();
   const navigate = useNavigate();
 
   const themeIcon = theme === 'dark' ? <Moon size={16} /> : theme === 'light' ? <Sun size={16} /> : <Monitor size={16} />;
@@ -22,6 +25,14 @@ export default function AppLayout() {
         </div>
 
         <div className="app-header-right">
+          <button
+            className="icon-button font-medium text-sm"
+            style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setLanguage(language === 'en' ? 'ko' : 'en')}
+            title="Toggle Language"
+          >
+            {language === 'en' ? 'A' : '한'}
+          </button>
           <button
             className="icon-button"
             onClick={() => setTheme(nextTheme)}

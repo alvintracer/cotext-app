@@ -4,12 +4,14 @@ import { getPlatformServices } from '../lib/platform/index';
 import { isImageFile, compressImage, formatFileSize } from '../lib/image/compress';
 import { recognizeText } from '../lib/ocr';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface MorphingComposerProps {
   onSend: (message: string, files?: File[]) => void;
 }
 
 export default function MorphingComposer({ onSend }: MorphingComposerProps) {
+  const { t } = useLanguage();
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [filePreview, setFilePreview] = useState<Array<{ name: string; size: string; preview?: string; isImage?: boolean }>>([]);
@@ -183,7 +185,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
                       className={`ocr-button ${ocrState.running && ocrState.index === i ? 'ocr-running' : ''}`}
                       onClick={() => handleOcr(i)}
                       disabled={ocrState.running}
-                      title="텍스트 추출 (OCR)"
+                      title={t('composer.ocr')}
                     >
                       {ocrState.running && ocrState.index === i ? (
                         <>
@@ -201,7 +203,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
                       ) : (
                         <>
                           <Type size={12} />
-                          <span>텍스트 추출</span>
+                          <span>{t('composer.ocr')}</span>
                         </>
                       )}
                     </button>
@@ -224,7 +226,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
               const f = await platform.pickFile();
               if (f.length > 0) handleFileSelect(f);
             }}
-            title="Attach file"
+            title={t('composer.attach')}
           >
             <Paperclip size={16} />
           </button>
@@ -233,7 +235,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
             onClick={async () => {
               try { const photo = await platform.takePhoto(); handleFileSelect([photo]); } catch {}
             }}
-            title="Take photo"
+            title={t('composer.photo')}
           >
             <Camera size={16} />
           </button>
@@ -268,7 +270,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
                     }}
                   >
                     <Paperclip size={14} />
-                    <span>파일 첨부</span>
+                    <span>{t('composer.attach')}</span>
                   </button>
                   <button
                     className="attach-popup-item"
@@ -278,7 +280,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
                     }}
                   >
                     <Camera size={14} />
-                    <span>사진 촬영</span>
+                    <span>{t('composer.photo')}</span>
                   </button>
                 </motion.div>
               )}
@@ -292,7 +294,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder="메모 입력… (Enter: 전송)"
+            placeholder={t('composer.placeholder')}
             rows={1}
           />
         </div>

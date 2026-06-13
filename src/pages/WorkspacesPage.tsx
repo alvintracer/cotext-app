@@ -6,6 +6,7 @@ import { Plus, GitBranch, FolderGit2, ChevronRight, Link, FilePlus, Loader2, Sea
 import { githubApi } from '../lib/supabase/functions';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Workspace } from '../types/workspace';
+import { useLanguage } from '../contexts/LanguageContext';
 
 type ModalMode = 'choose' | 'create' | 'connect';
 
@@ -21,6 +22,7 @@ export default function WorkspacesPage() {
   const { user } = useAuth();
   const { workspaces, loading, createWorkspace, selectWorkspace } = useWorkspace();
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -138,23 +140,23 @@ export default function WorkspacesPage() {
       return (
         <div className="ws-modal-content">
           <div className="ws-modal-header">
-            <h2>새 워크스페이스</h2>
-            <p className="text-muted">GitHub 저장소를 연결하거나 새로 만들어보세요.</p>
+            <h2>{t('modal.title.choose')}</h2>
+            <p className="text-muted">{t('modal.desc.choose')}</p>
           </div>
           <div className="ws-mode-choices">
             <button className="ws-mode-card" onClick={() => { setMode('connect'); setStep(1); }}>
               <div className="ws-mode-icon connect"><Link size={24} /></div>
               <div className="ws-mode-info">
-                <h3>기존 레포 연결</h3>
-                <p>이미 있는 GitHub 저장소를 선택합니다</p>
+                <h3>{t('modal.mode.connect')}</h3>
+                <p>{t('modal.mode.connect.desc')}</p>
               </div>
               <ChevronRight size={18} className="text-muted" />
             </button>
             <button className="ws-mode-card" onClick={() => { setMode('create'); setStep(1); }}>
               <div className="ws-mode-icon create"><FilePlus size={24} /></div>
               <div className="ws-mode-info">
-                <h3>새 레포 생성</h3>
-                <p>새로운 저장소를 만들고 연결합니다</p>
+                <h3>{t('modal.mode.create')}</h3>
+                <p>{t('modal.mode.create.desc')}</p>
               </div>
               <ChevronRight size={18} className="text-muted" />
             </button>
@@ -168,15 +170,15 @@ export default function WorkspacesPage() {
       return (
         <div className="ws-modal-content">
           <div className="ws-modal-header">
-            <button className="ws-back-btn" onClick={handleBack}>← 뒤로</button>
-            <h2>레포 선택</h2>
-            <p className="text-muted">연결할 GitHub 저장소를 선택하세요.</p>
+            <button className="ws-back-btn" onClick={handleBack}>{t('modal.btn.back')}</button>
+            <h2>{t('modal.title.repo')}</h2>
+            <p className="text-muted">{t('modal.desc.repo')}</p>
           </div>
           <div className="ws-repo-search">
             <Search size={14} />
             <input
               type="text"
-              placeholder="저장소 검색..."
+              placeholder={t('modal.search.placeholder')}
               value={repoSearch}
               onChange={(e) => setRepoSearch(e.target.value)}
               autoFocus
@@ -190,7 +192,7 @@ export default function WorkspacesPage() {
               </div>
             ) : filteredRepos.length === 0 ? (
               <div className="ws-repo-empty">
-                <p>{repoSearch ? '검색 결과 없음' : '저장소가 없습니다'}</p>
+                <p>{repoSearch ? '검색 결과 없음' : t('modal.empty.repo')}</p>
               </div>
             ) : (
               filteredRepos.map((repo) => (
@@ -219,8 +221,8 @@ export default function WorkspacesPage() {
     return (
       <div className="ws-modal-content">
         <div className="ws-modal-header">
-          <button className="ws-back-btn" onClick={handleBack}>← 뒤로</button>
-          <h2>{mode === 'create' ? '새 레포 생성' : '워크스페이스 설정'}</h2>
+          <button className="ws-back-btn" onClick={handleBack}>{t('modal.btn.back')}</button>
+          <h2>{mode === 'create' ? t('modal.title.create') : t('modal.title.settings')}</h2>
           <div className="ws-steps">
             {(mode === 'create' ? [1, 2, 3] : [3]).map((s) => (
               <div key={s} className={`ws-step-dot ${step === s ? 'active' : step > s ? 'done' : ''}`} />
@@ -239,7 +241,7 @@ export default function WorkspacesPage() {
               transition={{ duration: 0.2 }}
             >
               <div className="form-group">
-                <label>Repository 이름</label>
+                <label>{t('modal.step.reponame')}</label>
                 <input
                   type="text"
                   value={repoName}
@@ -263,7 +265,7 @@ export default function WorkspacesPage() {
               transition={{ duration: 0.2 }}
             >
               <div className="form-group">
-                <label>Owner (소유자)</label>
+                <label>{t('modal.step.owner')}</label>
                 <input
                   type="text"
                   value={ownerName}
@@ -293,7 +295,7 @@ export default function WorkspacesPage() {
                 </div>
               )}
               <div className="form-group">
-                <label>워크스페이스 이름</label>
+                <label>{t('modal.step.workspace')}</label>
                 <input
                   type="text"
                   value={workspaceName}
@@ -311,7 +313,7 @@ export default function WorkspacesPage() {
         <div className="ws-modal-footer">
           {step < 3 && mode === 'create' ? (
             <button className="btn btn-primary" onClick={handleNext} disabled={!canNext()}>
-              다음
+              {t('modal.btn.next')}
             </button>
           ) : (
             <button
@@ -320,9 +322,9 @@ export default function WorkspacesPage() {
               disabled={creating || !workspaceName.trim()}
             >
               {creating ? (
-                <><Loader2 size={14} className="spin" /> 생성 중...</>
+                <><Loader2 size={14} className="spin" /> {t('modal.btn.creating')}</>
               ) : (
-                mode === 'connect' ? '연결하기' : '생성하기'
+                mode === 'connect' ? t('modal.btn.connect') : t('modal.btn.create')
               )}
             </button>
           )}
@@ -335,12 +337,12 @@ export default function WorkspacesPage() {
     <div className="workspaces-page">
       <div className="workspaces-header">
         <div>
-          <h1>Workspaces</h1>
-          <p className="text-muted">Connect GitHub repositories as workspaces</p>
+          <h1>{t('workspaces.title')}</h1>
+          <p className="text-muted">{t('workspaces.desc')}</p>
         </div>
         <button className="btn btn-primary" onClick={openModal}>
           <Plus size={18} />
-          <span>New Workspace</span>
+          <span>{t('workspaces.new')}</span>
         </button>
       </div>
 
@@ -356,18 +358,21 @@ export default function WorkspacesPage() {
               exit={{ opacity: 0 }}
               onClick={closeModal}
             />
-            {/* Modal — desktop: center, mobile: bottom sheet */}
-            <motion.div
-              className="ws-modal"
-              initial={{ opacity: 0, y: 60, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 60, scale: 0.97 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="ws-modal-handle" />
-              {renderModalContent()}
-            </motion.div>
+            {/* Modal Container */}
+            <div className="ws-modal-container" onClick={closeModal}>
+              {/* Modal — desktop: center, mobile: bottom sheet */}
+              <motion.div
+                className="ws-modal"
+                initial={{ opacity: 0, y: 60, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 60, scale: 0.97 }}
+                transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="ws-modal-handle" />
+                {renderModalContent()}
+              </motion.div>
+            </div>
           </>
         )}
       </AnimatePresence>
@@ -376,16 +381,16 @@ export default function WorkspacesPage() {
         {loading ? (
           <div className="loading-state">
             <div className="spinner" />
-            <p>Loading workspaces...</p>
+            <p>{t('workspaces.loading')}</p>
           </div>
         ) : workspaces.length === 0 ? (
           <div className="empty-state">
             <FolderGit2 size={48} strokeWidth={1} />
-            <h3>No workspaces yet</h3>
-            <p>Create your first workspace to connect a GitHub repository.</p>
+            <h3>{t('workspaces.empty.title')}</h3>
+            <p>{t('workspaces.empty.desc')}</p>
             <button className="btn btn-primary" onClick={openModal}>
               <Plus size={18} />
-              <span>Create Workspace</span>
+              <span>{t('workspaces.new')}</span>
             </button>
           </div>
         ) : (

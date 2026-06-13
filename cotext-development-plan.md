@@ -1714,6 +1714,9 @@ Later: Cotext MCP 서버, /ask 멀티 LLM, 자동 분류/요약/중복탐지
 ~ 스택 결정: Next.js → Vite + React + Supabase 로 변경 (가벼움 + Capacitor 친화).
   토큰 사용 작업은 Supabase Edge Functions가 전담(§6, §11). 폴더구조(§19)·Phase 0(§17)·
   API 설계(§11)·테마 FOUC(§23.1) 모두 SPA 기준으로 갱신
++ 동기화 설계(§28): repo=정본, 로컬 에이전트=pull / 웹 챗=push 2-rail 모델.
+  공유 URL은 토큰게이트 엔드포인트로 private repo 지원, MCP는 로컬 우선,
+  붙여넣기 마크다운 충실도 + provenance(source 태그). 결정 SYNC-001~004
 ```
 
 ## 27. 개발 완료 현황 (MVP)
@@ -1734,3 +1737,197 @@ Cotext MVP의 핵심 기능들이 성공적으로 구현되었습니다.
 - **UI/UX**: 토큰 기반 다크/라이트 테마, 프리미엄 다크우선 디자인, FOUC 방지, 반응형 모바일 레이아웃
 
 모든 UI-facing 텍스트에서 'Room' 개념을 'Chat'으로 리네이밍하고 i18n 번역 시스템 적용까지 완료된 상태입니다.
+
+---
+
+## 28. 동기화 (Sync): 로컬·웹 에이전트와의 연결 — 제품의 핵심
+
+> §25(컨텍스트 엔지니어링)의 실행 레이어. repo에 쌓인 "나의 생각"을 내가 쓰는 모든 AI 표면(로컬 CLI 에이전트, 웹 챗)과 가장 적은 마찰로 주고받는 방법을 정의한다.
+
+### 28.0 멘탈 모델 — repo가 정본, 에이전트는 소비자/기여자
+
+동기화는 **repo ↔ 에이전트** 문제다. 소비자가 두 종류이고 능력이 달라 방식이 갈린다.
+
+```text
+                        로컬/CLI 에이전트            웹 챗
+                        (Claude Code, Cursor,       (ChatGPT, Claude.ai,
+                         Codex, Gemini CLI, Aider)   Gemini web)
+파일시스템 · git        있음                         없음 (샌드박스)
+private repo 직접 접근   됨 (이미 clone)              안 됨
+→ 방향                  PULL (에이전트가 repo를 읽음)  PUSH (Cotext가 context를 가져다줌)
+```
+
+핵심: **push냐 pull이냐는 양자택일이 아니라 소비자에 따라 정해져 있다.**
+
+### 28.1 Rail A — 로컬/CLI 에이전트 = PULL (repo가 인터페이스)
+
+이미 repo를 clone해 파일로 읽으므로 push가 불필요. **repo를 "에이전트가 읽기 좋게" 만드는 것**이 전부다.
+
+```text
+1. 에이전트 가이드 자동 유지: repo 루트에 AGENTS.md / CLAUDE.md 생성·갱신
+   (컨텍스트 위치, 블록 태그 규칙, 읽는 법)
+2. 인덱스 생성: .cotext/INDEX.md — 룸·태그·최근 결정 지도
+3. Cotext 로컬 MCP 서버 (우선 구현): clone된 파일을 읽어
+   list_rooms / get_room / search_context / get_pack / append_note 노출
+   → 무인증·오프라인·빠름. CLI 기본값
+4. 인바운드: 에이전트가 .cotext/*.md 수정 → commit → Cotext가 pull
+```
+
+→ **로컬은 push 안 함.** 에이전트가 pull(파일/MCP), 에이전트가 commit, Cotext가 pull. repo가 계속 정본.
+
+### 28.2 Rail B — 웹 챗 = PUSH (+ 가능하면 Pull)
+
+private repo를 못 보니 컨텍스트를 **가져다줘야** 한다. 쉬운 순서로:
+
+```text
+1. Context Pack 복사 (기본·무설정·범용) ⭐
+   룸/태그/타입 필터 → "LLM용 복사" → 클립보드 마크다운(출처·날짜·구조 범례 헤더)
+   → ChatGPT/Claude/Gemini 어디든 붙여넣기. 가장 마찰 적고 전 모델 호환
+
+2. 토큰게이트 공유 URL (웹의 pull, private 지원) — §28.3
+   Cotext 서버가 우리 토큰으로 GitHub 인증 → plain 마크다운으로 중계
+   cotext.app/p/<token> → 챗에 URL만 붙여 "읽어". 만료·회수·사용횟수 제어
+
+3. 원격 MCP 커넥터 (가장 통합적, 나중)
+   Claude.ai 원격 MCP 커넥터에 Cotext 원격 MCP를 꽂으면 live pull + write-back
+   (같은 원격 MCP가 ChatGPT Actions에도 재사용)
+
+4. 인바운드: AI 답변(마크다운) 복사 → 컴포저에 붙여넣고 전송 → 룸 append → push
+```
+
+### 28.3 공유 URL: 왜 토큰게이트 Cotext 엔드포인트인가 (private 지원 결정)
+
+```text
+Public raw GitHub (raw.githubusercontent.com):
+  - public repo: 깔끔한 URL로 됨
+  - private repo: 불가 (private raw는 수 분 만에 만료되는 임시 서명 토큰이 URL에 박힘 → 공유 불가)
+
+토큰게이트 Cotext 엔드포인트 (cotext.app/p/<token>):
+  - Cotext 서버(Edge Function)가 저장된 GitHub 토큰으로 인증 → plain 마크다운 반환
+  - private repo 지원 (웹 에이전트는 private 인증 수단이 없으니 서버가 대신 인증)
+  - 공유 토큰은 Cotext가 통제: 만료, 회수(revoke), 사용횟수, 범위(특정 룸/팩)
+```
+
+→ **결정: 공유 URL은 토큰게이트 Cotext 엔드포인트로 간다 (private repo 지원 필수).**
+
+### 28.4 private repo를 MCP가 읽는 방식
+
+```text
+로컬 MCP : collaborator로 clone한 로컬 사본을 읽음 → git pull로 최신화.
+           당신의 git 권한으로 동작 (별도 토큰 불필요)
+원격 MCP : Cotext 서버가 저장된 토큰으로 GitHub API 호출 → MCP 클라이언트에 중계
+           (§6 보안 모델 그대로: 토큰은 서버에만)
+```
+
+즉 Cotext 웹에서 push → GitHub → 로컬 MCP가 `git pull`로 최신 컨텍스트를 받아 에이전트에 제공. private여도 양쪽 다 읽을 수 있다.
+
+### 28.5 붙여넣기 마크다운 충실도 (web → Cotext 인바운드)
+
+```text
+현재: 컴포저가 <textarea>라 ChatGPT/Claude 복사본의 text/plain(=마크다운 원문)이
+      그대로 들어가고 전송도 그 문자열 그대로 → 이미 보존됨
+
+보강:
+  - paste 핸들러에서 text/plain이 비었거나 마크다운 마커가 없고 text/html만 있으면
+    Turndown으로 HTML→마크다운 변환 후 삽입 (렌더된 아티팩트·일부 Gemini 대비)
+  - 이미지는 기존 압축 파이프라인(§8.5)
+```
+
+### 28.6 Provenance — 생각의 출처 분리 (무결성 핵심)
+
+North Star가 "**나로부터 출발한** 생각"이므로, AI 답변이 repo에 섞여도 구분돼야 한다.
+
+```text
+인바운드 블록에 source 태그: source: me | chatgpt | claude | gemini | agent
+→ 사람 생각 vs AI 생성을 항상 구분. 풀이 모델 에코로 오염되는 것 방지.
+  나중 에이전트가 "내 신호 vs 생성된 노이즈"를 분별 가능.
+```
+
+### 28.7 Cotext MCP 툴 (로컬 우선 → 원격 동형)
+
+```text
+list_rooms()                        룸 목록 + 메타
+get_room(path)                      해당 룸 cotext.md 전문
+search_context(query, type?, tag?)  태그/타입 필터 검색
+get_pack(filter)                    Context Pack(LLM-ready) 생성·반환
+append_note(room, block, source)    블록 추가(인바운드, provenance 포함)
+```
+
+로컬 MCP와 원격 MCP는 **같은 툴 인터페이스**를 갖는다(로컬=파일 read, 원격=서버 API). → 한 번 설계로 CLI와 Claude.ai 양쪽 커버.
+
+### 28.8 단계적 도입 (결정: 로컬 MCP 먼저)
+
+```text
+1차 (지금): Context Pack 복사 + 붙여넣기 md 충실도/provenance + AGENTS.md/INDEX 자동 유지
+2차:        Cotext 로컬 MCP (npx cotext-mcp, clone된 repo 대상) ← 우선
+3차:        토큰게이트 공유 URL 엔드포인트 (private 지원)
+4차:        원격 MCP(호스티드) → Claude.ai 커넥터 + ChatGPT Actions, /ask 멀티 LLM(§25.4)
+```
+
+### 28.9 "Sync with Agents" 원클릭 부트스트랩 (핸드셰이크)
+
+Cotext의 **"Sync with Agents" 버튼** → 모달 → 대상 선택 → **맞춤 프롬프트 복사**. 프롬프트는 짧게 유지하고, 무거운 규칙은 repo 안 가이드(§28.10)를 가리킨다(= 단일 정본). 복사해서 로컬/원격 MCP나 챗에 붙여넣으면 에이전트가 알아서 Cotext 구조를 이해하고 연결된다.
+
+```text
+[Local — clone된 repo의 CLI: Claude Code/Cursor/Codex/Aider]
+이 저장소는 Cotext 컨텍스트 풀이야. 먼저 .cotext/COTEXT_GUIDE.md를 읽고 규칙을 따라.
+작업 전 git pull로 최신 컨텍스트를 받고, 채택한 내용은 GUIDE의 블록 형식(type·tags·source)으로
+해당 룸 .cotext/cotext.md에 append한 뒤 git push 해. (Cotext MCP 있으면 search_context 사용)
+
+[Web chat — ChatGPT/Claude/Gemini]
+아래 가이드를 먼저 읽고 규칙을 이해해. 네가 생성한 내용은 반드시 source:claude(또는 gpt/gemini)로
+태그해 내 생각과 분리해. 채택한 결과는 마크다운으로 줘 — 내가 Cotext에 붙여넣어 저장할게.
+--- GUIDE ---  <COTEXT_GUIDE.md 인라인 또는 토큰게이트 공유 URL(§28.3)>
+--- CONTEXT --- <Context Pack 인라인 또는 공유 URL>
+
+[Remote MCP — Claude.ai 커넥터 / ChatGPT Actions (later)]
+Cotext MCP를 사용해. 먼저 guide 리소스를 읽고, list_rooms→get_room/search_context로 컨텍스트를
+가져와. 새 내용은 append_note(room, block, source)로 저장하되 source를 꼭 채워.
+```
+
+### 28.10 생성되는 가이드 파일 — repo가 스스로를 설명한다
+
+Cotext가 repo에 가이드를 **자동 생성·유지**한다. 에이전트는 "이것부터 읽어"로 시작한다.
+
+```text
+.cotext/COTEXT_GUIDE.md   ← 정본 가이드 (Cotext가 소유·자동 갱신)
+  1) Cotext란: repo=정본, 이 폴더 구조가 곧 컨텍스트 풀
+  2) 구조 지도: 룸 = <dir>/.cotext/cotext.md, 인덱스 = .cotext/INDEX.md, assets/
+  3) 블록 형식: type/status/tags + source(provenance) — 규칙 1순위
+  4) 읽는 순서: GUIDE → INDEX → 해당 룸
+  5) pull/push 프로토콜(의무): 읽기 전 git pull → 블록 형식 작성 → git push
+     (웹은 마크다운으로 받아 Cotext에 붙여넣어 저장)
+  6) MCP 툴 목록(있으면)   7) 금지: source 미표기 AI 출력 혼입 금지 등
+
+.cotext/INDEX.md          ← 룸·태그·최근 결정 지도 (자동)
+AGENTS.md / CLAUDE.md     ← repo 루트의 "얇은 포인터"(관리 블록):
+  "이 repo는 Cotext 사용 — .cotext/COTEXT_GUIDE.md를 먼저 읽어라"
+  기존 파일이 있으면 마커(<!-- cotext:start -->…<!-- cotext:end -->)로 감싼
+  블록만 갱신하고 통째로 덮어쓰지 않는다(비파괴).
+```
+
+이는 사용자가 로컬에 만든 LLM 위키(START_HERE/AGENTS)의 **직계 후손**이지만 — Cotext가 **자동 생성·유지**하고, 개념을 줄여(읽기 → pull → 블록 작성 → push) **더 직관적**이며, **git pull/push를 의무 프로토콜로 박아** 어느 환경에서든 동일하게 연결된다.
+
+### 28.11 루프 위생 — 내 생각만 골라 보내기
+
+provenance 태그(§28.6) 덕에 Context Pack에 필터를 둔다.
+
+```text
+pack 옵션: source = me-only | all
+  me-only: AI가 생성했던 블록을 제외하고 "내 생각"만 모델에 주입
+  → 모델이 자기 에코를 다시 먹는 오염/루프 방지 (North Star "나로부터 출발한 생각" 보존)
+```
+
+### 28.12 동기화 핵심 결정
+
+```text
+SYNC-001  공유 URL = 토큰게이트 Cotext 엔드포인트 (private repo 지원). public raw는 채택 안 함.
+SYNC-002  MCP는 로컬 MCP 먼저, 원격 MCP는 동형 인터페이스로 후속.
+SYNC-003  repo는 항상 단일 정본. 로컬=pull, 웹=push(+조건부 pull), 인바운드는 항상 repo로 회수.
+SYNC-004  인바운드 블록은 source 태그로 provenance를 기록한다.
+SYNC-005  "Sync with Agents" 부트스트랩 프롬프트는 짧게, 규칙은 repo 내 .cotext/COTEXT_GUIDE.md
+          (Cotext 자동 생성·유지)가 단일 정본. AGENTS.md/CLAUDE.md는 이를 가리키는 얇은
+          관리 블록(기존 파일 비파괴).
+SYNC-006  가이드는 "git pull → 블록 형식 작성 → git push"를 의무 프로토콜로 명시.
+          Context Pack은 source=me-only 필터로 AI 에코 재주입을 방지(루프 위생).
+```

@@ -2323,6 +2323,26 @@ button:focus-visible {
   border: 1px solid var(--error-border);
 }
 
+/* ── Room Header Actions ─────────────────────────────────── */
+.room-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.context-pack-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.context-pack-btn.copied {
+  color: var(--success, #22c55e) !important;
+}
+
 /* ── View Mode Tabs ──────────────────────────────────────── */
 .view-mode-tabs {
   display: flex;

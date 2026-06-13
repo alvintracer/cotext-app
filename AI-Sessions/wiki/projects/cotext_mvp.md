@@ -18,6 +18,12 @@
 ## 다음 단계
 MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context Pack 뷰어, 태그 및 구조화 기능 강화, 그리고 LLM 통합을 준비하는 과정이 포함될 수 있습니다.
 
+동기화(Sync) 로드맵 (계획서 §28, 결정 D-004~006):
+1. Context Pack 복사 + 붙여넣기 마크다운 충실도 + provenance(source 태그) + AGENTS.md/INDEX 자동 유지
+2. **Cotext 로컬 MCP** (clone된 repo 대상, 우선)
+3. 토큰게이트 공유 URL 엔드포인트 (private repo 지원)
+4. 원격 MCP(호스티드) → Claude.ai 커넥터 / ChatGPT Actions, 멀티 LLM 팬아웃
+
 ## 관련 문서
 - [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]] — 스택·토큰·이미지 압축 등 핵심 결정
 - [[AI-Sessions/wiki/design/cotext-brand-and-landing]] — 브랜드·디자인 시스템·랜딩

@@ -16,3 +16,5 @@ YYYY-MM-DD HH:mm | command | summary | linked files
 2026-06-14 04:35 | ingest | cotext-development-plan 정리 및 MVP 완료 현황 업데이트 | [[AI-Sessions/wiki/sources/01_cotext-development-plan_summary]], [[AI-Sessions/wiki/projects/cotext_mvp]]
 2026-06-14 04:38 | save | 랜딩 페이지·브랜드/디자인 시스템 정리, 핵심 아키텍처 결정(Vite·토큰·이미지압축) 승격 | [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]], [[AI-Sessions/wiki/design/cotext-brand-and-landing]], [[AI-Sessions/wiki/projects/cotext_mvp]]
 2026-06-14 04:42 | save | 아이콘 라이브러리를 lucide-react→@phosphor-icons/react 전면 교체, ESLint로 lucide 및 Sparkle/MagicWand 금지 | [[AI-Sessions/wiki/design/cotext-brand-and-landing]]
+2026-06-14 04:50 | save | 동기화 설계(§28) 정식화: repo=정본 2-rail(로컬 pull/웹 push), 토큰게이트 공유URL(private 지원), 로컬 MCP 우선, provenance. 결정 D-004~006 승격 | [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]], [[AI-Sessions/wiki/projects/cotext_mvp]]
+2026-06-14 04:55 | save | "Sync with Agents" 핸드셰이크 + 자동 .cotext/COTEXT_GUIDE.md 가이드(§28.9~28.12), me-only 루프위생. 결정 D-007 승격 | [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]]

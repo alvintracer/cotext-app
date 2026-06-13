@@ -10,7 +10,8 @@ import type { Workspace } from '../types/workspace';
 import MorphingComposer from './MorphingComposer';
 import CommitBar from './CommitBar';
 import CotextEditor from './CotextEditor';
-import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2 } from '@phosphor-icons/react';
+import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export } from '@phosphor-icons/react';
+import { generateCotextGuide, generateCotextIndex, generateAgentsPointerBlock, upsertPointerBlock } from '../lib/contextGuide';
 
 interface RoomViewProps {
   room: Room;
@@ -34,6 +35,7 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
   const [viewMode, setViewMode] = useState<ViewMode>('chat');
   const [commitMessage, setCommitMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [copiedPack, setCopiedPack] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // Load initial content
@@ -273,6 +275,9 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
         .eq('id', room.id);
 
       onRoomUpdate({ ...room, last_known_sha: result.sha });
+
+      // Sync guide files (best-effort, non-blocking)
+      syncGuideFiles().catch(err => console.error('Guide sync failed:', err));
     } catch (err: any) {
       setSyncStatus('error');
       setError(err.message || 'Failed to push to GitHub');
@@ -299,6 +304,103 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
     }
   }, [workspace, room, handlePush]);
 
+  // Copy Context Pack for LLM
+  const handleCopyContextPack = useCallback(async () => {
+    const now = new Date().toISOString().split('T')[0];
+    const pack = `# ${t('contextPack.title')} — ${workspace.github_owner}/${workspace.github_repo}
+
+> Source: \`${workspace.github_owner}/${workspace.github_repo}\` / \`${room.path}\`
+> Generated: ${now}
+> Blocks: human-authored (source: me)
+
+---
+
+${content}
+`;
+    try {
+      await navigator.clipboard.writeText(pack);
+      setCopiedPack(true);
+      setTimeout(() => setCopiedPack(false), 2000);
+    } catch {
+      // Fallback
+      const textarea = document.createElement('textarea');
+      textarea.value = pack;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopiedPack(true);
+      setTimeout(() => setCopiedPack(false), 2000);
+    }
+  }, [content, workspace, room, t]);
+
+  // Sync guide files to repo (COTEXT_GUIDE.md, INDEX.md, AGENTS.md pointer)
+  const syncGuideFiles = useCallback(async () => {
+    if (!workspace || !user) return;
+
+    // Fetch all rooms for this workspace to build the index
+    const { data: allRooms } = await supabase
+      .from('rooms')
+      .select('path, updated_at')
+      .eq('workspace_id', workspace.id)
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false });
+
+    const roomList = (allRooms || []).map(r => ({ path: r.path, updatedAt: r.updated_at }));
+
+    // Generate guide content
+    const guideContent = generateCotextGuide(workspace.github_owner, workspace.github_repo, roomList);
+    const indexContent = generateCotextIndex(workspace.github_owner, workspace.github_repo, roomList);
+    const pointerBlock = generateAgentsPointerBlock();
+
+    const pushFile = async (path: string, fileContent: string, msg: string) => {
+      try {
+        // Try to get existing SHA
+        let existingSha: string | null = null;
+        try {
+          const existing = await githubApi.getRoomContent(
+            workspace.github_owner, workspace.github_repo, workspace.default_branch, path
+          );
+          existingSha = existing.sha;
+        } catch { /* File doesn't exist yet */ }
+
+        await githubApi.pushRoom(
+          workspace.github_owner, workspace.github_repo, workspace.default_branch,
+          path, fileContent, existingSha, msg
+        );
+      } catch (err) {
+        console.warn(`Failed to sync ${path}:`, err);
+      }
+    };
+
+    // Push guide files
+    await pushFile('.cotext/COTEXT_GUIDE.md', guideContent, 'cotext: sync guide');
+    await pushFile('.cotext/INDEX.md', indexContent, 'cotext: sync index');
+
+    // AGENTS.md thin pointer (non-destructive)
+    try {
+      let agentsContent = '';
+      let agentsSha: string | null = null;
+      try {
+        const existing = await githubApi.getRoomContent(
+          workspace.github_owner, workspace.github_repo, workspace.default_branch, 'AGENTS.md'
+        );
+        agentsContent = existing.content;
+        agentsSha = existing.sha;
+      } catch { /* Doesn't exist */ }
+
+      const updatedAgents = upsertPointerBlock(agentsContent, pointerBlock);
+      if (updatedAgents !== agentsContent) {
+        await githubApi.pushRoom(
+          workspace.github_owner, workspace.github_repo, workspace.default_branch,
+          'AGENTS.md', updatedAgents, agentsSha, 'cotext: sync agents pointer'
+        );
+      }
+    } catch (err) {
+      console.warn('Failed to sync AGENTS.md:', err);
+    }
+  }, [workspace, user]);
+
   if (loading) {
     return (
       <div className="room-loading">
@@ -322,20 +424,29 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
             {syncStatus === 'error' && <><AlertTriangle size={12} /> Error</>}
           </span>
         </div>
-        <div className="view-mode-tabs">
-          {(['chat', 'editor', 'split', 'preview'] as ViewMode[]).map((mode) => (
-            <button
-              key={mode}
-              className={`view-mode-tab ${viewMode === mode ? 'active' : ''}`}
-              onClick={() => setViewMode(mode)}
-            >
-              {mode === 'chat' && <MessageSquare size={14} />}
-              {mode === 'editor' && <Code size={14} />}
-              {mode === 'split' && <Split size={14} />}
-              {mode === 'preview' && <Eye size={14} />}
-              <span>{mode.charAt(0).toUpperCase() + mode.slice(1)}</span>
-            </button>
-          ))}
+        <div className="room-header-actions">
+          <button
+            className={`btn btn-ghost btn-sm context-pack-btn ${copiedPack ? 'copied' : ''}`}
+            onClick={handleCopyContextPack}
+            title={t('contextPack.copy')}
+          >
+            {copiedPack ? <><Check size={14} /> {t('contextPack.copied')}</> : <><Export size={14} /> {t('contextPack.copy')}</>}
+          </button>
+          <div className="view-mode-tabs">
+            {(['chat', 'editor', 'split', 'preview'] as ViewMode[]).map((mode) => (
+              <button
+                key={mode}
+                className={`view-mode-tab ${viewMode === mode ? 'active' : ''}`}
+                onClick={() => setViewMode(mode)}
+              >
+                {mode === 'chat' && <MessageSquare size={14} />}
+                {mode === 'editor' && <Code size={14} />}
+                {mode === 'split' && <Split size={14} />}
+                {mode === 'preview' && <Eye size={14} />}
+                <span>{mode.charAt(0).toUpperCase() + mode.slice(1)}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

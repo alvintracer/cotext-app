@@ -68,6 +68,10 @@ type TranslationKey =
   | 'team.modal.7days'
   | 'team.modal.30days'
   | 'team.modal.never'
+  | 'contextPack.copy'
+  | 'contextPack.copied'
+  | 'contextPack.title'
+  | 'sync.guideGenerated'
   ;
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {
@@ -139,6 +143,10 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'team.modal.7days': '7 days',
     'team.modal.30days': '30 days',
     'team.modal.never': 'Never',
+    'contextPack.copy': 'Copy for LLM',
+    'contextPack.copied': 'Copied!',
+    'contextPack.title': 'Context Pack',
+    'sync.guideGenerated': 'Guide files synced',
   },
   ko: {
     'nav.workspaces': '워크스페이스',
@@ -208,6 +216,10 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'team.modal.7days': '7일',
     'team.modal.30days': '30일',
     'team.modal.never': '무제한',
+    'contextPack.copy': 'LLM용 복사',
+    'contextPack.copied': '복사됨!',
+    'contextPack.title': 'Context Pack',
+    'sync.guideGenerated': '가이드 파일 동기화됨',
   }
 };
 

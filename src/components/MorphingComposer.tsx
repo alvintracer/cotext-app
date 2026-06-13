@@ -5,6 +5,7 @@ import { isImageFile, compressImage, formatFileSize } from '../lib/image/compres
 import { recognizeText } from '../lib/ocr';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../contexts/LanguageContext';
+import TurndownService from 'turndown';
 
 interface MorphingComposerProps {
   onSend: (message: string, files?: File[]) => void;
@@ -95,6 +96,23 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
     if (imageFiles.length > 0) {
       e.preventDefault();
       await handleFileSelect(imageFiles);
+      return;
+    }
+
+    // HTML → markdown fallback: if plain text has no markdown markers but HTML exists
+    const plainText = e.clipboardData.getData('text/plain');
+    const htmlText = e.clipboardData.getData('text/html');
+    if (htmlText && plainText && !plainText.includes('#') && !plainText.includes('```') && !plainText.includes('- ') && htmlText.includes('<')) {
+      try {
+        const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
+        const md = td.turndown(htmlText);
+        if (md && md !== plainText) {
+          e.preventDefault();
+          setText((prev) => prev + md);
+        }
+      } catch {
+        // Fallback: let default paste handle it
+      }
     }
   }, [handleFileSelect]);
 

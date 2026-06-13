@@ -8,7 +8,7 @@ import type { Room } from '../types/room';
 import RoomView from '../components/RoomView';
 import {
   FolderOpen, Plus, ChevronLeft, Search, MessageSquare,
-  FolderTree, ChevronRight
+  FolderTree, ChevronRight, Menu, X
 } from 'lucide-react';
 
 interface TreeItem {
@@ -32,7 +32,7 @@ export default function WorkspaceDetailPage() {
   const [loadingTree, setLoadingTree] = useState(false);
   const [selectedPath, setSelectedPath] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const workspace = currentWorkspace || workspaces.find((w) => w.id === workspaceId);
 
@@ -133,6 +133,23 @@ export default function WorkspaceDetailPage() {
 
   return (
     <div className="workspace-detail">
+      {/* Mobile sidebar toggle */}
+      <button
+        className="mobile-sidebar-toggle"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+      >
+        {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+      </button>
+
+      {/* Backdrop for mobile sidebar */}
+      {sidebarOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside className={`workspace-sidebar ${sidebarOpen ? 'open' : 'collapsed'}`}>
         <div className="sidebar-header">
@@ -181,7 +198,10 @@ export default function WorkspaceDetailPage() {
               <button
                 key={room.id}
                 className={`room-item ${selectedRoom?.id === room.id ? 'active' : ''}`}
-                onClick={() => setSelectedRoom(room)}
+                onClick={() => {
+                  setSelectedRoom(room);
+                  setSidebarOpen(false); // Auto-close on mobile
+                }}
               >
                 <MessageSquare size={14} />
                 <span className="room-item-path">{room.path}</span>

@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase/client';
 import { githubApi, fetchAssetBlobUrl } from '../lib/supabase/functions';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { appendMessage, createInitialContent, createImageLink, createFileLink, generateAssetFileName } from '../lib/markdown/index';
+import { appendMessage, createInitialContent, createImageLink, createFileLink, generateAssetFileName, parseBlocks } from '../lib/markdown/index';
 import { compressImage, formatFileSize, isImageFile, MAX_FILE_SIZE } from '../lib/image/compress';
 import type { Room, LocalDraft, SyncStatus } from '../types/room';
 import type { Workspace } from '../types/workspace';
@@ -307,15 +307,55 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
   // Copy Context Pack for LLM
   const handleCopyContextPack = useCallback(async () => {
     const now = new Date().toISOString().split('T')[0];
+
+    // Filter: only include human-authored blocks (source: me or no source tag = legacy)
+    const blocks = parseBlocks(content);
+    const meBlocks = blocks.filter(b => !b.source || b.source === 'me');
+
+    // Reconstruct content from me-only blocks
+    let filteredContent = content;
+    if (meBlocks.length < blocks.length) {
+      // Get the content before the first block (header/title)
+      const firstBlockIdx = content.indexOf('## ');
+      const header = firstBlockIdx > 0 ? content.substring(0, firstBlockIdx) : '';
+      const blockTexts = meBlocks.map(b =>
+        `## ${b.timestamp}\n<!-- source: me -->\n${b.content.trimEnd()}`
+      );
+      filteredContent = header + blockTexts.join('\n\n') + '\n';
+    }
+
+    const totalBlocks = blocks.length;
+    const includedBlocks = meBlocks.length;
+    const filterNote = totalBlocks > includedBlocks
+      ? `> Filter: ${includedBlocks}/${totalBlocks} blocks (me-only, ${totalBlocks - includedBlocks} agent blocks excluded)`
+      : `> Blocks: ${totalBlocks} total (all human-authored)`;
+
     const pack = `# ${t('contextPack.title')} — ${workspace.github_owner}/${workspace.github_repo}
 
 > Source: \`${workspace.github_owner}/${workspace.github_repo}\` / \`${room.path}\`
 > Generated: ${now}
-> Blocks: human-authored (source: me)
+${filterNote}
+
+## Instructions for Agent
+
+This is a **Context Pack** from Cotext — a structured context pool stored in a GitHub repo.
+The blocks below are my notes, decisions, and context. Use them to understand my thinking.
+
+**Rules:**
+1. When you generate content I'll save back, use this block format:
+   \`\`\`
+   ## YYYY-MM-DD HH:mm
+   <!-- source: chatgpt -->  ← or claude, gemini, etc.
+
+   Your content here.
+   \`\`\`
+2. Always tag your source — never omit \`<!-- source: ... -->\`.
+3. My blocks (\`source: me\`) are primary. Don't summarize or rewrite them.
+4. Give me results as **markdown** so I can paste them back into Cotext.
 
 ---
 
-${content}
+${filteredContent}
 `;
     try {
       await navigator.clipboard.writeText(pack);

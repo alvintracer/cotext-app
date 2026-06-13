@@ -1955,11 +1955,17 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+  flex: 1;
 }
 
 .room-header-info h2 {
   font-size: var(--text-base);
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .sync-badge {
@@ -1993,7 +1999,7 @@ button:focus-visible {
 .sync-badge-syncing {
   background: var(--accent-muted);
   color: var(--accent);
-  border: 1px solid rgba(139, 92, 246, 0.25);
+  border: 1px solid var(--accent-glow);
 }
 
 .sync-badge-error {
@@ -2666,9 +2672,18 @@ button:focus-visible {
 
   .room-header {
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     align-items: flex-start;
-    padding: 8px 12px;
+    padding: 10px 12px;
+    padding-left: 56px; /* Space for hamburger button */
+  }
+
+  .room-header-info .sync-badge {
+    display: none;
+  }
+
+  .room-header-info h2 {
+    font-size: var(--text-sm);
   }
 
   .view-mode-tabs {

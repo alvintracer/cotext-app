@@ -1,6 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect x="2" y="2" width="28" height="28" rx="8" fill="#8b5cf6" opacity="0.15"/>
-  <rect x="2" y="2" width="28" height="28" rx="8" stroke="#8b5cf6" stroke-width="1.5" opacity="0.3"/>
-  <path d="M8 12h16M8 16h12M8 20h8" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="24" cy="20" r="4" fill="#8b5cf6" opacity="0.6"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <!-- Accent Blue Background with slight transparency -->
+  <rect x="0" y="0" width="128" height="128" rx="28" fill="#3b9eff" opacity="0.15"/>
+  <rect x="0" y="0" width="128" height="128" rx="28" stroke="#3b9eff" stroke-width="4" opacity="0.3"/>
+  
+  <!-- :> Text -->
+  <text x="64" y="86" font-family="'Quicksand', sans-serif" font-weight="700" font-size="82" fill="#3b9eff" text-anchor="middle" letter-spacing="-0.02em">:&gt;</text>
 </svg>

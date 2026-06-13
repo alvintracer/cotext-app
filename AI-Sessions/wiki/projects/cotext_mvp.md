@@ -31,6 +31,11 @@
   - `context-share` Edge Function (공개, 토큰 검증)
   - Share 버튼 + 모달 (만료: 1h/24h/7d/30d/never)
   - `/share/:token` 페이지 (비로그인 접근 가능)
+- (2026-06-14) **§28.8 4차 원격 MCP API 완료**:
+  - `api_keys` 테이블 + `validate_api_key` RPC
+  - `context-api` Edge Function (REST API, 7개 엔드포인트)
+  - `ApiKeyManager` 컴포넌트 (워크스페이스 사이드바)
+  - Bearer `ctx_xxx` 토큰 인증, read/write scope
 
 ## 다음 단계
 MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context Pack 뷰어, 태그 및 구조화 기능 강화, 그리고 LLM 통합을 준비하는 과정이 포함될 수 있습니다.
@@ -39,7 +44,9 @@ MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context
 1. ~~Context Pack 복사 + 붙여넣기 마크다운 충실도 + provenance(source 태그) + AGENTS.md/INDEX 자동 유지~~ ✅ 완료
 2. ~~**Cotext 로컬 MCP** (clone된 repo 대상)~~ ✅ 완료 (`packages/cotext-mcp`)
 3. ~~토큰게이트 공유 URL 엔드포인트 (private repo 지원)~~ ✅ 완료 (`context-share`, `/share/:token`)
-4. 원격 MCP(호스티드) → Claude.ai 커넥터 / ChatGPT Actions, 멀티 LLM 팬아웃 ← 다음
+4. ~~원격 MCP(호스티드)~~ ✅ 완료 (`context-api`, `api_keys`)
+
+**§28 Sync 로드맵 전체 완료! 🎉**
 
 ## 관련 문서
 - [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]] — 스택·토큰·이미지 압축 등 핵심 결정

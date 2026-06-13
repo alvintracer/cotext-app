@@ -87,6 +87,12 @@ type TranslationKey =
   | 'share.creating'
   | 'share.copy'
   | 'share.copied'
+  | 'apiKey.title'
+  | 'apiKey.desc'
+  | 'apiKey.create'
+  | 'apiKey.labelPlaceholder'
+  | 'apiKey.empty'
+  | 'apiKey.usage'
   ;
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {
@@ -177,6 +183,12 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'share.creating': 'Creating...',
     'share.copy': 'Copy',
     'share.copied': 'Copied!',
+    'apiKey.title': 'API Keys',
+    'apiKey.desc': 'Use API keys to connect AI agents (ChatGPT, Claude, etc.) to your workspace via the remote API.',
+    'apiKey.create': 'Create Key',
+    'apiKey.labelPlaceholder': 'Key label (e.g., chatgpt, claude)',
+    'apiKey.empty': 'No API keys yet',
+    'apiKey.usage': 'Usage',
   },
   ko: {
     'nav.workspaces': '워크스페이스',
@@ -265,6 +277,12 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'share.creating': '생성 중...',
     'share.copy': '복사',
     'share.copied': '복사됨!',
+    'apiKey.title': 'API 키',
+    'apiKey.desc': 'AI 에이전트(ChatGPT, Claude 등)를 원격 API로 워크스페이스에 연결하려면 API 키를 사용하세요.',
+    'apiKey.create': '키 생성',
+    'apiKey.labelPlaceholder': '키 라벨 (예: chatgpt, claude)',
+    'apiKey.empty': 'API 키가 없습니다',
+    'apiKey.usage': '사용법',
   }
 };
 

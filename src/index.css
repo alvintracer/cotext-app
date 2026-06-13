@@ -2479,6 +2479,130 @@ button:focus-visible {
   color: var(--accent);
   margin-bottom: 12px;
 }
+
+/* ── API Key Manager ─────────────────────────────────────── */
+.api-key-manager {
+  padding: 16px 0;
+}
+
+.api-key-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.api-key-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0 0 16px;
+}
+
+.api-key-create {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.api-key-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.api-key-empty {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 20px;
+}
+
+.api-key-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.api-key-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.api-key-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.api-key-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.api-key-value {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-family: var(--font-mono, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-key-meta {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.api-key-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.api-key-actions .icon-button.danger {
+  color: var(--error, #ef4444);
+}
+
+.api-key-usage {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.api-key-usage h4 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.api-key-code {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  font-size: 0.75rem;
+  font-family: var(--font-mono, monospace);
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+
 /* ── View Mode Tabs ──────────────────────────────────────── */
 .view-mode-tabs {
   display: flex;

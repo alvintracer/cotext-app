@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase/client';
 import { githubApi } from '../lib/supabase/functions';
 import type { Room } from '../types/room';
 import RoomView from '../components/RoomView';
+import ApiKeyManager from '../components/ApiKeyManager';
 import {
   FolderOpen, Plus, CaretLeft as ChevronLeft, MagnifyingGlass as Search, ChatText as MessageSquare,
   TreeStructure as FolderTree, CaretRight as ChevronRight, List as Menu, X,
@@ -361,6 +362,11 @@ export default function WorkspaceDetailPage() {
               </button>
             )}
           </div>
+        </div>
+
+        {/* API Keys section */}
+        <div className="sidebar-team">
+          <ApiKeyManager workspaceId={workspace.id} />
         </div>
       </aside>
 

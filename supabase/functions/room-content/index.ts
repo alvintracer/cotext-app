@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
 
     const { token } = await getGitHubToken(authHeader)
     const body = await req.json().catch(() => ({}))
-    const { owner, repo, branch = 'main', path } = body
+    const { owner, repo, branch = 'main', path, raw = false } = body
 
     if (!owner || !repo || !path) {
       return new Response(JSON.stringify({ error: 'owner, repo, and path are required' }), {
@@ -58,15 +58,23 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json()
+    const rawBase64 = data.content ? data.content.replace(/\n/g, '') : ''
 
-    // Decode base64 content properly (handles UTF-8 / Korean)
+    // Raw mode: return base64 as-is (for binary files like images)
+    if (raw) {
+      return new Response(JSON.stringify({ base64: rawBase64, sha: data.sha }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Text mode: decode base64 to UTF-8 string
     let content = ''
-    if (data.content) {
+    if (rawBase64) {
       try {
-        content = base64ToUtf8(data.content.replace(/\n/g, ''))
+        content = base64ToUtf8(rawBase64)
       } catch (e) {
         console.error('[room-content] base64 decode error:', e)
-        content = atob(data.content.replace(/\n/g, ''))
+        content = atob(rawBase64)
       }
     }
 

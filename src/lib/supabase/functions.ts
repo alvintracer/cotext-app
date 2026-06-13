@@ -37,4 +37,62 @@ export const githubApi = {
   async uploadAsset(owner: string, repo: string, branch: string, path: string, base64Content: string, message: string) {
     return invokeFunction('room-push', { owner, repo, branch, path, content: base64Content, message, isBase64: true });
   },
+
+  // Fetch raw base64 content (for binary files like images)
+  async fetchAssetBase64(owner: string, repo: string, branch: string, path: string) {
+    return invokeFunction<{ base64: string; sha: string | null }>('room-content', { owner, repo, branch, path, raw: true });
+  },
 };
+
+// Cache for blob URLs to avoid re-fetching
+const blobUrlCache = new Map<string, string>();
+
+/**
+ * Fetch a GitHub asset (image) and return a blob URL.
+ * Results are cached to avoid repeated fetches.
+ */
+export async function fetchAssetBlobUrl(
+  owner: string, repo: string, branch: string, assetPath: string
+): Promise<string | null> {
+  const cacheKey = `${owner}/${repo}/${branch}/${assetPath}`;
+
+  if (blobUrlCache.has(cacheKey)) {
+    return blobUrlCache.get(cacheKey)!;
+  }
+
+  try {
+    const result = await githubApi.fetchAssetBase64(owner, repo, branch, assetPath);
+    if (!result.base64) return null;
+
+    // Determine mime type from extension
+    const ext = assetPath.split('.').pop()?.toLowerCase() || '';
+    const mimeTypes: Record<string, string> = {
+      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+      gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+    };
+    const mime = mimeTypes[ext] || 'application/octet-stream';
+
+    // Convert base64 to blob
+    const byteChars = atob(result.base64);
+    const byteArray = new Uint8Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) {
+      byteArray[i] = byteChars.charCodeAt(i);
+    }
+    const blob = new Blob([byteArray], { type: mime });
+    const url = URL.createObjectURL(blob);
+
+    blobUrlCache.set(cacheKey, url);
+    return url;
+  } catch (err) {
+    console.error('[fetchAssetBlobUrl] Failed:', assetPath, err);
+    return null;
+  }
+}
+
+// Store a local blob URL for an uploaded file (instant preview)
+export function cacheLocalAssetUrl(owner: string, repo: string, branch: string, assetPath: string, file: File) {
+  const cacheKey = `${owner}/${repo}/${branch}/${assetPath}`;
+  const url = URL.createObjectURL(file);
+  blobUrlCache.set(cacheKey, url);
+  return url;
+}

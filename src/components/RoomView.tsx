@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase/client';
-import { githubApi } from '../lib/supabase/functions';
+import { githubApi, fetchAssetBlobUrl } from '../lib/supabase/functions';
 import { useAuth } from '../contexts/AuthContext';
 import { appendMessage, createInitialContent, createImageLink, createFileLink, generateAssetFileName } from '../lib/markdown/index';
 import { compressImage, formatFileSize, isImageFile, MAX_FILE_SIZE } from '../lib/image/compress';
@@ -383,9 +383,9 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
 
         {viewMode === 'preview' && (
           <div className="room-preview">
-            <div className="markdown-preview" dangerouslySetInnerHTML={{
-              __html: simpleMarkdownToHtml(content, workspace, room)
-            }} />
+            <div className="markdown-preview">
+              <BlockContent text={content} workspace={workspace} room={room} />
+            </div>
           </div>
         )}
       </div>
@@ -464,9 +464,7 @@ function TimelineView({ content, remoteContent, workspace, room }: {
             </div>
           )}
           <div className="timeline-content">
-            <div dangerouslySetInnerHTML={{
-              __html: simpleMarkdownToHtml(block.lines.join('\n'), workspace, room)
-            }} />
+            <BlockContent text={block.lines.join('\n')} workspace={workspace} room={room} />
           </div>
         </div>
       ))}
@@ -474,12 +472,110 @@ function TimelineView({ content, remoteContent, workspace, room }: {
   );
 }
 
-// Helper: simple markdown to HTML with GitHub image URL resolution
-function simpleMarkdownToHtml(md: string, workspace: Workspace, room: Room): string {
-  // Build base URL for resolving relative image paths
-  const basePath = room.cotext_file_path.replace(/[^/]+$/, '');
-  const rawBase = `https://raw.githubusercontent.com/${workspace.github_owner}/${workspace.github_repo}/${workspace.default_branch}/${basePath}`;
+// Render a block's content with inline images loaded from GitHub
+function BlockContent({ text, workspace, room }: { text: string; workspace: Workspace; room: Room }) {
+  // Split text into segments: regular text and image references
+  const segments: Array<{ type: 'text' | 'image'; content: string; alt?: string; assetPath?: string }> = [];
+  const imageRegex = /!\[([^\]]*)\]\(\.\/(assets\/[^)]+)\)/g;
+  let lastIndex = 0;
+  let match;
 
+  while ((match = imageRegex.exec(text)) !== null) {
+    // Text before this image
+    if (match.index > lastIndex) {
+      segments.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+    }
+    segments.push({ type: 'image', content: match[0], alt: match[1], assetPath: match[2] });
+    lastIndex = match.index + match[0].length;
+  }
+  // Remaining text
+  if (lastIndex < text.length) {
+    segments.push({ type: 'text', content: text.slice(lastIndex) });
+  }
+
+  return (
+    <>
+      {segments.map((seg, i) => {
+        if (seg.type === 'image' && seg.assetPath) {
+          const basePath = room.cotext_file_path.replace(/[^/]+$/, '');
+          const fullAssetPath = `${basePath}${seg.assetPath}`;
+          return (
+            <GitHubImage
+              key={i}
+              owner={workspace.github_owner}
+              repo={workspace.github_repo}
+              branch={workspace.default_branch}
+              path={fullAssetPath}
+              alt={seg.alt || seg.assetPath.split('/').pop() || 'image'}
+            />
+          );
+        }
+        return <span key={i} dangerouslySetInnerHTML={{ __html: simpleMarkdownToHtml(seg.content) }} />;
+      })}
+    </>
+  );
+}
+
+// GitHub image component that fetches from private repos via Edge Function
+function GitHubImage({ owner, repo, branch, path, alt }: {
+  owner: string; repo: string; branch: string; path: string; alt: string;
+}) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+
+    fetchAssetBlobUrl(owner, repo, branch, path)
+      .then((url) => {
+        if (!cancelled) {
+          setSrc(url);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError(true);
+          setLoading(false);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [owner, repo, branch, path]);
+
+  if (loading) {
+    return (
+      <div className="timeline-image loading">
+        <div className="image-loading-placeholder">
+          <Loader2 size={20} className="spinner-icon" />
+        </div>
+        <span className="image-caption">{alt}</span>
+      </div>
+    );
+  }
+
+  if (error || !src) {
+    return (
+      <div className="timeline-image error">
+        <div className="image-error-placeholder">⚠️ Failed to load</div>
+        <span className="image-caption">{alt}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="timeline-image">
+      <img src={src} alt={alt} loading="lazy" />
+      <span className="image-caption">{alt}</span>
+    </div>
+  );
+}
+
+// Helper: simple markdown to HTML (text only, no images - images handled by BlockContent)
+function simpleMarkdownToHtml(md: string): string {
   let html = md
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -490,13 +586,8 @@ function simpleMarkdownToHtml(md: string, workspace: Workspace, room: Room): str
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // Images: resolve relative ./assets/ paths to GitHub raw URLs
-    .replace(/!\[([^\]]*)\]\(\.\/(assets\/[^)]+)\)/g, (_match, alt, assetPath) => {
-      const fullUrl = `${rawBase}${assetPath}`;
-      return `<div class="timeline-image"><img alt="${alt}" src="${fullUrl}" loading="lazy" /><span class="image-caption">${alt || assetPath.split('/').pop()}</span></div>`;
-    })
-    // Images: absolute URLs
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<div class="timeline-image"><img alt="$1" src="$2" loading="lazy" /></div>')
+    // Absolute URL images (public)
+    .replace(/!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g, '<div class="timeline-image"><img alt="$1" src="$2" loading="lazy" /></div>')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
     .replace(/^- (.+)$/gm, '<li>$1</li>')
     .replace(/((<li>.*<\/li>))/gs, '<ul>$1</ul>')
@@ -520,3 +611,4 @@ function fileToBase64(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+

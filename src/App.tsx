@@ -12,6 +12,7 @@ import WorkspacesPage from './pages/WorkspacesPage';
 import WorkspaceDetailPage from './pages/WorkspaceDetailPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import InvitePage from './pages/InvitePage';
+import SharePage from './pages/SharePage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,6 +61,7 @@ function AppRoutes() {
       />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route path="/invite/:code" element={<InvitePage />} />
+      <Route path="/share/:token" element={<SharePage />} />
       <Route
         element={
           <ProtectedRoute>

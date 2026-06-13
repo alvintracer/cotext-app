@@ -10,7 +10,7 @@ import type { Workspace } from '../types/workspace';
 import MorphingComposer from './MorphingComposer';
 import CommitBar from './CommitBar';
 import CotextEditor from './CotextEditor';
-import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export } from '@phosphor-icons/react';
+import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X } from '@phosphor-icons/react';
 import { generateCotextGuide, generateCotextIndex, generateAgentsPointerBlock, upsertPointerBlock } from '../lib/contextGuide';
 
 interface RoomViewProps {
@@ -36,6 +36,11 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
   const [commitMessage, setCommitMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [copiedPack, setCopiedPack] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [shareExpiry, setShareExpiry] = useState<string>('24h');
+  const [shareCreating, setShareCreating] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // Load initial content
@@ -441,6 +446,47 @@ ${filteredContent}
     }
   }, [workspace, user]);
 
+  // Create a share link
+  const handleCreateShareLink = useCallback(async () => {
+    if (!user || !workspace) return;
+    setShareCreating(true);
+    try {
+      // Calculate expiry
+      let expiresAt: string | null = null;
+      const now = new Date();
+      switch (shareExpiry) {
+        case '1h': expiresAt = new Date(now.getTime() + 3600000).toISOString(); break;
+        case '24h': expiresAt = new Date(now.getTime() + 86400000).toISOString(); break;
+        case '7d': expiresAt = new Date(now.getTime() + 604800000).toISOString(); break;
+        case '30d': expiresAt = new Date(now.getTime() + 2592000000).toISOString(); break;
+        case 'never': expiresAt = null; break;
+      }
+
+      const { data, error: insertError } = await supabase
+        .from('shared_links')
+        .insert({
+          workspace_id: workspace.id,
+          room_id: room.id,
+          user_id: user.id,
+          source_filter: 'me',
+          expires_at: expiresAt,
+          label: `${room.path} — ${workspace.github_repo}`,
+        })
+        .select('token')
+        .single();
+
+      if (insertError) throw insertError;
+
+      const baseUrl = window.location.origin;
+      setShareLink(`${baseUrl}/share/${data.token}`);
+    } catch (err) {
+      console.error('Failed to create share link:', err);
+      setError('Failed to create share link');
+    } finally {
+      setShareCreating(false);
+    }
+  }, [user, workspace, room, shareExpiry]);
+
   if (loading) {
     return (
       <div className="room-loading">
@@ -472,6 +518,13 @@ ${filteredContent}
           >
             {copiedPack ? <><Check size={14} /> {t('contextPack.copied')}</> : <><Export size={14} /> {t('contextPack.copy')}</>}
           </button>
+          <button
+            className="btn btn-ghost btn-sm context-pack-btn"
+            onClick={() => setShowShareModal(true)}
+            title="Share"
+          >
+            <ShareNetwork size={14} /> Share
+          </button>
           <div className="view-mode-tabs">
             {(['chat', 'editor', 'split', 'preview'] as ViewMode[]).map((mode) => (
               <button
@@ -489,6 +542,56 @@ ${filteredContent}
           </div>
         </div>
       </div>
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <div className="modal-overlay" onClick={() => setShowShareModal(false)}>
+          <div className="modal-content share-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3><ShareNetwork size={18} /> Share Context</h3>
+              <button className="icon-button" onClick={() => setShowShareModal(false)}><X size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                Create a secure link to share this room's context. Recipients can view and copy the content without needing a GitHub account.
+              </p>
+              <div className="share-options">
+                <label>Expires in</label>
+                <select value={shareExpiry} onChange={e => setShareExpiry(e.target.value)}>
+                  <option value="1h">1 hour</option>
+                  <option value="24h">24 hours</option>
+                  <option value="7d">7 days</option>
+                  <option value="30d">30 days</option>
+                  <option value="never">Never</option>
+                </select>
+              </div>
+              {shareLink ? (
+                <div className="share-link-result">
+                  <input type="text" value={shareLink} readOnly className="share-link-input" />
+                  <button
+                    className={`btn btn-primary btn-sm ${shareCopied ? 'copied' : ''}`}
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(shareLink);
+                      setShareCopied(true);
+                      setTimeout(() => setShareCopied(false), 2000);
+                    }}
+                  >
+                    {shareCopied ? <><Check size={14} /> Copied</> : <><LinkIcon size={14} /> Copy</>}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  onClick={handleCreateShareLink}
+                  disabled={shareCreating}
+                >
+                  {shareCreating ? <><Loader2 size={14} className="spin" /> Creating...</> : <><LinkIcon size={14} /> Create Link</>}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error banner */}
       {error && (

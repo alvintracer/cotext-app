@@ -2626,6 +2626,20 @@ button:focus-visible {
   margin: 0 0 12px;
 }
 
+.connect-group {
+  margin-bottom: 12px;
+}
+
+.connect-group-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
 .connect-platforms {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));

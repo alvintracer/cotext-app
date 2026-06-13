@@ -20,14 +20,20 @@ interface Props {
   repoName?: string;
 }
 
-type Platform = 'chatgpt' | 'claude-web' | 'claude-desktop' | 'cursor' | 'custom';
+type Platform = 'chatgpt' | 'claude-web' | 'gemini' | 'antigravity' | 'claude-desktop' | 'cursor' | 'custom';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 
 function generatePrompt(platform: Platform, apiKey: string, repoOwner: string, repoName: string): string {
   const baseUrl = `${SUPABASE_URL}/functions/v1/context-api`;
 
-  if (platform === 'chatgpt' || platform === 'claude-web') {
+  // Web AI platforms — paste prompt into chat
+  if (['chatgpt', 'claude-web', 'gemini', 'antigravity'].includes(platform)) {
+    const agentName = platform === 'chatgpt' ? 'chatgpt' 
+      : platform === 'claude-web' ? 'claude'
+      : platform === 'gemini' ? 'gemini' 
+      : 'antigravity';
+
     return `You have access to a Cotext context pool for the project "${repoOwner}/${repoName}".
 
 ## How to read context
@@ -57,23 +63,24 @@ POST ${baseUrl}/rooms/{ROOM_PATH}/append
 Authorization: Bearer ${apiKey}
 Content-Type: application/json
 
-{"content": "YOUR_MARKDOWN_HERE", "source": "agent"}
+{"content": "YOUR_MARKDOWN_HERE", "source": "${agentName}"}
 \`\`\`
 
 ## Rules
 - Always read context FIRST before answering project-related questions.
-- When writing back, use source: "agent" (or your specific name like "chatgpt" or "claude").
+- When writing back, use source: "${agentName}".
 - My notes (source: me) are primary. Don't summarize or rewrite them.
 - Use markdown format for all content.
 `;
   }
 
+  // MCP platforms — config JSON with remote mode env vars
   if (platform === 'claude-desktop') {
     return JSON.stringify({
       "mcpServers": {
         "cotext": {
           "command": "npx",
-          "args": ["-y", "cotext-mcp"],
+          "args": ["-y", "cotext-mcp@latest"],
           "env": {
             "COTEXT_API_KEY": apiKey,
             "COTEXT_API_URL": baseUrl
@@ -88,7 +95,11 @@ Content-Type: application/json
       "mcpServers": {
         "cotext": {
           "command": "npx",
-          "args": ["-y", "cotext-mcp"]
+          "args": ["-y", "cotext-mcp@latest"],
+          "env": {
+            "COTEXT_API_KEY": apiKey,
+            "COTEXT_API_URL": baseUrl
+          }
         }
       }
     }, null, 2);
@@ -106,8 +117,36 @@ Endpoints:
   GET  /pack/:path         → Context Pack (me-only)
   POST /rooms/:path/append → Append block (source required)
   GET  /guide              → COTEXT_GUIDE.md
+
+Header:
+  Authorization: Bearer ${apiKey}
 `;
 }
+
+interface PlatformGroup {
+  label: string;
+  items: { id: Platform; label: string; desc: string }[];
+}
+
+const platformGroups: PlatformGroup[] = [
+  {
+    label: '웹 AI 채팅',
+    items: [
+      { id: 'chatgpt', label: 'ChatGPT', desc: '프롬프트 붙여넣기' },
+      { id: 'claude-web', label: 'Claude.ai', desc: '프롬프트 붙여넣기' },
+      { id: 'gemini', label: 'Gemini', desc: '프롬프트 붙여넣기' },
+      { id: 'antigravity', label: 'Antigravity', desc: '프롬프트 붙여넣기' },
+    ],
+  },
+  {
+    label: 'IDE / MCP',
+    items: [
+      { id: 'claude-desktop', label: 'Claude Desktop', desc: 'MCP 설정' },
+      { id: 'cursor', label: 'Cursor / Windsurf', desc: 'MCP 설정' },
+      { id: 'custom', label: '직접 설정', desc: 'API 정보' },
+    ],
+  },
+];
 
 export default function ApiKeyManager({ workspaceId, repoOwner = '', repoName = '' }: Props) {
   const { user } = useAuth();
@@ -173,13 +212,8 @@ export default function ApiKeyManager({ workspaceId, repoOwner = '', repoName = 
 
   const maskKey = (key: string) => key.substring(0, 8) + '•'.repeat(20) + key.substring(key.length - 4);
 
-  const platforms: { id: Platform; label: string; desc: string }[] = [
-    { id: 'chatgpt', label: 'ChatGPT', desc: '대화에 붙여넣기' },
-    { id: 'claude-web', label: 'Claude.ai', desc: '대화에 붙여넣기' },
-    { id: 'claude-desktop', label: 'Claude Desktop', desc: 'MCP 설정 JSON' },
-    { id: 'cursor', label: 'Cursor / Windsurf', desc: 'MCP 설정 JSON' },
-    { id: 'custom', label: '직접 설정', desc: 'API 정보 복사' },
-  ];
+  const isMcpPlatform = selectedPlatform === 'claude-desktop' || selectedPlatform === 'cursor';
+  const isWebPlatform = ['chatgpt', 'claude-web', 'gemini', 'antigravity'].includes(selectedPlatform);
 
   if (loading) return <div className="spinner" />;
 
@@ -263,25 +297,30 @@ export default function ApiKeyManager({ workspaceId, repoOwner = '', repoName = 
             </div>
             <div className="modal-body">
               <p className="connect-desc">
-                어떤 AI에 연결할지 선택하세요. 복사된 내용을 해당 AI에 붙여넣으면 바로 사용할 수 있습니다.
+                연결할 AI를 선택하세요. 복사된 내용을 붙여넣으면 바로 사용 가능합니다.
               </p>
 
-              <div className="connect-platforms">
-                {platforms.map(p => (
-                  <button
-                    key={p.id}
-                    className={`connect-platform-btn ${selectedPlatform === p.id ? 'active' : ''}`}
-                    onClick={() => { setSelectedPlatform(p.id); setPromptCopied(false); }}
-                  >
-                    <span className="connect-platform-label">{p.label}</span>
-                    <span className="connect-platform-desc">{p.desc}</span>
-                  </button>
-                ))}
-              </div>
+              {platformGroups.map(group => (
+                <div key={group.label} className="connect-group">
+                  <span className="connect-group-label">{group.label}</span>
+                  <div className="connect-platforms">
+                    {group.items.map(p => (
+                      <button
+                        key={p.id}
+                        className={`connect-platform-btn ${selectedPlatform === p.id ? 'active' : ''}`}
+                        onClick={() => { setSelectedPlatform(p.id); setPromptCopied(false); }}
+                      >
+                        <span className="connect-platform-label">{p.label}</span>
+                        <span className="connect-platform-desc">{p.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
 
               <div className="connect-preview">
                 <div className="connect-preview-header">
-                  <span>{selectedPlatform === 'claude-desktop' || selectedPlatform === 'cursor' ? '설정 JSON' : '프롬프트'}</span>
+                  <span>{isMcpPlatform ? 'MCP 설정 JSON' : selectedPlatform === 'custom' ? 'API 정보' : '프롬프트'}</span>
                   <button
                     className={`btn btn-primary btn-sm ${promptCopied ? 'copied' : ''}`}
                     onClick={handleCopyPrompt}
@@ -294,19 +333,14 @@ export default function ApiKeyManager({ workspaceId, repoOwner = '', repoName = 
                 </pre>
               </div>
 
-              {(selectedPlatform === 'chatgpt' || selectedPlatform === 'claude-web') && (
+              {isWebPlatform && (
                 <p className="connect-hint">
-                  💡 위 프롬프트를 복사해서 ChatGPT/Claude 대화창에 붙여넣으세요. AI가 자동으로 API를 사용합니다.
+                  💡 위 프롬프트를 복사해서 대화창에 붙여넣으세요. AI가 자동으로 Cotext API를 사용합니다.
                 </p>
               )}
-              {selectedPlatform === 'claude-desktop' && (
+              {isMcpPlatform && (
                 <p className="connect-hint">
-                  💡 <code>claude_desktop_config.json</code>에 위 JSON을 추가하세요.
-                </p>
-              )}
-              {selectedPlatform === 'cursor' && (
-                <p className="connect-hint">
-                  💡 <code>.cursor/mcp.json</code>에 위 JSON을 추가하세요. 로컬 repo clone이 필요합니다.
+                  💡 위 JSON을 MCP 설정 파일에 추가하세요. <code>cotext-mcp</code>가 원격 모드로 API에 연결됩니다.
                 </p>
               )}
             </div>

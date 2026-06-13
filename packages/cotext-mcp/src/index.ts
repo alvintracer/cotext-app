@@ -7,7 +7,33 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'glob';
 
+// --- Mode detection ---
+
+const API_KEY = process.env.COTEXT_API_KEY;
+const API_URL = process.env.COTEXT_API_URL;
+const REMOTE_MODE = !!(API_KEY && API_URL);
+
 // --- Helpers ---
+
+async function apiFetch(endpoint: string, options: { method?: string; body?: string } = {}): Promise<any> {
+  const res = await fetch(`${API_URL}/${endpoint}`, {
+    method: options.method || 'GET',
+    headers: {
+      'Authorization': `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: options.body,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`API error ${res.status}: ${text}`);
+  }
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return res.json();
+  }
+  return res.text();
+}
 
 function findRepoRoot(startDir: string): string | null {
   let dir = startDir;
@@ -67,10 +93,17 @@ function formatBlockForAppend(content: string, source: string): string {
 
 // --- Server ---
 
-const repoRoot = findRepoRoot(process.cwd());
-if (!repoRoot) {
-  console.error('Error: Not inside a git repo or Cotext workspace. Run this from inside a cloned repo.');
-  process.exit(1);
+let repoRoot: string;
+if (REMOTE_MODE) {
+  repoRoot = 'remote';
+  console.error(`Cotext MCP (remote mode) — API: ${API_URL}`);
+} else {
+  const found = findRepoRoot(process.cwd());
+  if (!found) {
+    console.error('Error: Not inside a git repo or Cotext workspace.');
+    process.exit(1);
+  }
+  repoRoot = found;
 }
 
 const server = new McpServer({
@@ -84,6 +117,13 @@ server.tool(
   'List all Cotext rooms in this repository',
   {},
   async () => {
+    if (REMOTE_MODE) {
+      const result = await apiFetch('rooms');
+      return {
+        content: [{ type: 'text' as const, text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) }],
+      };
+    }
+
     const pattern = path.join(repoRoot, '**/.cotext/cotext.md').replace(/\\/g, '/');
     const files = await glob(pattern, { ignore: '**/node_modules/**' });
 
@@ -111,6 +151,13 @@ server.tool(
   'Get the full content of a specific Cotext room',
   { room_path: z.string().describe('Room path (e.g., "src/features" or "root")') },
   async ({ room_path }) => {
+    if (REMOTE_MODE) {
+      const result = await apiFetch(`rooms/${encodeURIComponent(room_path)}`);
+      return {
+        content: [{ type: 'text' as const, text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) }],
+      };
+    }
+
     const cotextPath = room_path === 'root'
       ? path.join(repoRoot, '.cotext', 'cotext.md')
       : path.join(repoRoot, room_path, '.cotext', 'cotext.md');
@@ -140,6 +187,13 @@ server.tool(
     source_filter: z.string().optional().describe('Filter by source tag: "me", "agent", "chatgpt", etc.'),
   },
   async ({ query, source_filter }) => {
+    if (REMOTE_MODE) {
+      const result = await apiFetch(`search?q=${encodeURIComponent(query)}${source_filter ? `&source=${source_filter}` : ''}`);
+      return {
+        content: [{ type: 'text' as const, text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) }],
+      };
+    }
+
     const pattern = path.join(repoRoot, '**/.cotext/cotext.md').replace(/\\/g, '/');
     const files = await glob(pattern, { ignore: '**/node_modules/**' });
     const results: Array<{ room: string; timestamp: string; source?: string; snippet: string }> = [];
@@ -184,6 +238,13 @@ server.tool(
     source_filter: z.string().optional().default('me').describe('Source filter: "me" (default, human only), "all" (include agent blocks)'),
   },
   async ({ room_path, source_filter }) => {
+    if (REMOTE_MODE) {
+      const result = await apiFetch(`pack/${encodeURIComponent(room_path)}?source=${source_filter}`);
+      return {
+        content: [{ type: 'text' as const, text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) }],
+      };
+    }
+
     const cotextPath = room_path === 'root'
       ? path.join(repoRoot, '.cotext', 'cotext.md')
       : path.join(repoRoot, room_path, '.cotext', 'cotext.md');
@@ -224,6 +285,16 @@ server.tool(
     source: z.string().default('agent').describe('Source tag: "agent", "claude", "chatgpt", "gemini", etc.'),
   },
   async ({ room_path, content: blockContent, source }) => {
+    if (REMOTE_MODE) {
+      const result = await apiFetch(`rooms/${encodeURIComponent(room_path)}/append`, {
+        method: 'POST',
+        body: JSON.stringify({ content: blockContent, source }),
+      });
+      return {
+        content: [{ type: 'text' as const, text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) }],
+      };
+    }
+
     const cotextDir = room_path === 'root'
       ? path.join(repoRoot, '.cotext')
       : path.join(repoRoot, room_path, '.cotext');
@@ -260,6 +331,17 @@ server.resource(
   'guide',
   'cotext://guide',
   async (uri) => {
+    if (REMOTE_MODE) {
+      const result = await apiFetch('guide');
+      return {
+        contents: [{
+          uri: uri.href,
+          mimeType: 'text/markdown',
+          text: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
+        }],
+      };
+    }
+
     const guidePath = path.join(repoRoot, '.cotext', 'COTEXT_GUIDE.md');
     if (fs.existsSync(guidePath)) {
       return {
@@ -284,7 +366,7 @@ server.resource(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`Cotext MCP Server running — repo: ${repoRoot}`);
+  console.error(`Cotext MCP Server running — ${REMOTE_MODE ? `remote: ${API_URL}` : `repo: ${repoRoot}`}`);
 }
 
 main().catch((err) => {

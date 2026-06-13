@@ -34,6 +34,15 @@ type TranslationKey =
   | 'composer.attach'
   | 'composer.photo'
   | 'composer.ocr'
+  | 'sidebar.search.placeholder'
+  | 'sidebar.newChat'
+  | 'sidebar.emptyChats'
+  | 'chat.selectPrompt'
+  | 'chat.selectDesc'
+  | 'chat.loading'
+  | 'modal.title.addChat'
+  | 'modal.desc.addChat'
+  | 'modal.btn.openChat'
   ;
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {
@@ -71,6 +80,15 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'composer.attach': 'Attach file',
     'composer.photo': 'Take photo',
     'composer.ocr': 'Extract Text',
+    'sidebar.search.placeholder': 'Search chats...',
+    'sidebar.newChat': 'New Chat',
+    'sidebar.emptyChats': 'No chats yet',
+    'chat.selectPrompt': 'Select a chat',
+    'chat.selectDesc': 'Choose a chat from the sidebar or create a new one to start capturing context.',
+    'chat.loading': 'Loading chat...',
+    'modal.title.addChat': 'Add Chat',
+    'modal.desc.addChat': 'Select a directory from {repo} to open as a chat.',
+    'modal.btn.openChat': 'Open as Chat',
   },
   ko: {
     'nav.workspaces': '워크스페이스',
@@ -106,6 +124,15 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'composer.attach': '파일 첨부',
     'composer.photo': '사진 촬영',
     'composer.ocr': '텍스트 추출',
+    'sidebar.search.placeholder': '채팅 검색...',
+    'sidebar.newChat': '새 채팅',
+    'sidebar.emptyChats': '채팅이 없습니다',
+    'chat.selectPrompt': '채팅을 선택하세요',
+    'chat.selectDesc': '사이드바에서 채팅을 선택하거나 새 채팅을 만들어 컨텍스트 캡처를 시작하세요.',
+    'chat.loading': '채팅 불러오는 중...',
+    'modal.title.addChat': '채팅 추가',
+    'modal.desc.addChat': '{repo}에서 채팅으로 열 디렉토리를 선택하세요.',
+    'modal.btn.openChat': '채팅으로 열기',
   }
 };
 

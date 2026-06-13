@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase/client';
 import { githubApi, fetchAssetBlobUrl } from '../lib/supabase/functions';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { appendMessage, createInitialContent, createImageLink, createFileLink, generateAssetFileName } from '../lib/markdown/index';
 import { compressImage, formatFileSize, isImageFile, MAX_FILE_SIZE } from '../lib/image/compress';
 import type { Room, LocalDraft, SyncStatus } from '../types/room';
@@ -21,6 +22,7 @@ type ViewMode = 'chat' | 'editor' | 'split' | 'preview';
 
 export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProps) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [content, setContent] = useState('');
   const [remoteContent, setRemoteContent] = useState('');
   const [remoteSha, setRemoteSha] = useState<string | null>(room.last_known_sha);
@@ -301,7 +303,7 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
     return (
       <div className="room-loading">
         <div className="spinner" />
-        <p>Loading room...</p>
+        <p>{t('chat.loading')}</p>
       </div>
     );
   }

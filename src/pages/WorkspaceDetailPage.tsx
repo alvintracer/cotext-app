@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase/client';
 import { githubApi } from '../lib/supabase/functions';
 import type { Room } from '../types/room';
@@ -23,6 +24,7 @@ export default function WorkspaceDetailPage() {
   const { workspaces, currentWorkspace, selectWorkspace } = useWorkspace();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const [rooms, setRooms] = useState<Room[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
@@ -168,7 +170,7 @@ export default function WorkspaceDetailPage() {
           <Search size={14} />
           <input
             type="text"
-            placeholder="Search rooms..."
+            placeholder={t('sidebar.search.placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -180,7 +182,7 @@ export default function WorkspaceDetailPage() {
             loadTree();
           }}>
             <Plus size={14} />
-            <span>New Room</span>
+            <span>{t('sidebar.newChat')}</span>
           </button>
         </div>
 
@@ -191,7 +193,7 @@ export default function WorkspaceDetailPage() {
             </div>
           ) : filteredRooms.length === 0 ? (
             <div className="empty-state-sm">
-              <p className="text-muted">No rooms yet</p>
+              <p className="text-muted">{t('sidebar.emptyChats')}</p>
             </div>
           ) : (
             filteredRooms.map((room) => (
@@ -230,8 +232,8 @@ export default function WorkspaceDetailPage() {
         ) : (
           <div className="empty-room-state">
             <FolderOpen size={48} strokeWidth={1} />
-            <h3>Select a room</h3>
-            <p className="text-muted">Choose a room from the sidebar or create a new one to start capturing context.</p>
+            <h3>{t('chat.selectPrompt')}</h3>
+            <p className="text-muted">{t('chat.selectDesc')}</p>
           </div>
         )}
       </main>
@@ -240,9 +242,9 @@ export default function WorkspaceDetailPage() {
       {showAddRoom && (
         <div className="modal-overlay" onClick={() => setShowAddRoom(false)}>
           <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
-            <h2>Add Room</h2>
+            <h2>{t('modal.title.addChat')}</h2>
             <p className="text-muted mb-4">
-              Select a directory from {workspace.github_owner}/{workspace.github_repo} to open as a room.
+              {t('modal.desc.addChat').replace('{repo}', `${workspace.github_owner}/${workspace.github_repo}`)}
             </p>
 
             <div className="form-group">
@@ -287,7 +289,7 @@ export default function WorkspaceDetailPage() {
                 onClick={handleAddRoom}
                 disabled={!selectedPath.trim()}
               >
-                Open as Room
+                {t('modal.btn.openChat')}
               </button>
             </div>
           </div>

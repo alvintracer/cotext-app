@@ -173,12 +173,12 @@ export default function ApiKeyManager({ workspaceId, repoOwner = '', repoName = 
 
   const maskKey = (key: string) => key.substring(0, 8) + '•'.repeat(20) + key.substring(key.length - 4);
 
-  const platforms: { id: Platform; label: string; desc: string; icon: string }[] = [
-    { id: 'chatgpt', label: 'ChatGPT', desc: '대화에 붙여넣기', icon: '🤖' },
-    { id: 'claude-web', label: 'Claude.ai', desc: '대화에 붙여넣기', icon: '🟠' },
-    { id: 'claude-desktop', label: 'Claude Desktop', desc: 'MCP 설정 JSON', icon: '💻' },
-    { id: 'cursor', label: 'Cursor / Windsurf', desc: 'MCP 설정 JSON', icon: '⚡' },
-    { id: 'custom', label: '직접 설정', desc: 'API 정보 복사', icon: '🔧' },
+  const platforms: { id: Platform; label: string; desc: string }[] = [
+    { id: 'chatgpt', label: 'ChatGPT', desc: '대화에 붙여넣기' },
+    { id: 'claude-web', label: 'Claude.ai', desc: '대화에 붙여넣기' },
+    { id: 'claude-desktop', label: 'Claude Desktop', desc: 'MCP 설정 JSON' },
+    { id: 'cursor', label: 'Cursor / Windsurf', desc: 'MCP 설정 JSON' },
+    { id: 'custom', label: '직접 설정', desc: 'API 정보 복사' },
   ];
 
   if (loading) return <div className="spinner" />;
@@ -227,7 +227,7 @@ export default function ApiKeyManager({ workspaceId, repoOwner = '', repoName = 
                   {revealedId === k.id ? <EyeSlash size={16} /> : <Eye size={16} />}
                 </button>
                 <button
-                  className="icon-button"
+                  className="icon-button connect-ai-btn"
                   onClick={() => setConnectModal({ keyId: k.id, key: k.key })}
                   title="Connect to AI"
                 >
@@ -273,7 +273,6 @@ export default function ApiKeyManager({ workspaceId, repoOwner = '', repoName = 
                     className={`connect-platform-btn ${selectedPlatform === p.id ? 'active' : ''}`}
                     onClick={() => { setSelectedPlatform(p.id); setPromptCopied(false); }}
                   >
-                    <span className="connect-platform-icon">{p.icon}</span>
                     <span className="connect-platform-label">{p.label}</span>
                     <span className="connect-platform-desc">{p.desc}</span>
                   </button>

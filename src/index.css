@@ -2578,6 +2578,18 @@ button:focus-visible {
   color: var(--error, #ef4444);
 }
 
+.api-key-actions .connect-ai-btn {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  transition: all 0.2s;
+}
+
+.api-key-actions .connect-ai-btn:hover {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
 .api-key-usage {
   margin-top: 16px;
   border-top: 1px solid var(--border);

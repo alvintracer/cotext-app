@@ -1874,10 +1874,14 @@ button:focus-visible {
   height: 100%;
   gap: 16px;
   color: var(--text-muted);
+  padding: 24px;
+  text-align: center;
 }
 
-.empty-room-state h3 {
-  color: var(--text);
+.empty-room-state p {
+  max-width: 280px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 /* ── Tree List ───────────────────────────────────────────── */
@@ -2301,17 +2305,54 @@ button:focus-visible {
   flex-shrink: 0;
 }
 
-.morphing-composer.state-collapsed {
-  background: var(--surface);
+/* Mobile bottom action row — hidden on desktop */
+.composer-mobile-actions {
+  display: none;
 }
 
-.morphing-composer.state-expanded {
-  background: var(--surface);
+/* Attach popup */
+.composer-attach-wrapper {
+  position: relative;
 }
 
-.morphing-composer.state-composer {
-  background: var(--surface);
-  border-top: 2px solid var(--accent);
+.attach-popup {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  overflow: hidden;
+  z-index: var(--z-dropdown);
+  min-width: 140px;
+}
+
+.attach-popup-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.attach-popup-item:hover {
+  background: var(--surface-3, var(--border));
+}
+
+.composer-plus-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
 }
 
 .composer-input-area {
@@ -2649,10 +2690,32 @@ button:focus-visible {
     border-left: none;
     border-right: none;
     border-bottom: none;
+    padding: 8px 10px;
+  }
+
+  /* Hide desktop-only tools and actions */
+  .composer-tools-desktop,
+  .composer-actions-desktop {
+    display: none !important;
+  }
+
+  /* Show mobile action row */
+  .composer-mobile-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 6px;
+    gap: 8px;
   }
 
   .composer-input-area {
-    padding: 6px 8px;
+    padding: 0;
+    gap: 0;
+  }
+
+  .composer-textarea {
+    padding: 10px 12px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
   }
 
   /* Timeline blocks */

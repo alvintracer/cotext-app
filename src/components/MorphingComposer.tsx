@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, Camera } from 'lucide-react';
+import { Send, Paperclip, Camera, Plus, X } from 'lucide-react';
 import { getPlatformServices } from '../lib/platform/index';
 import { isImageFile, compressImage, formatFileSize } from '../lib/image/compress';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,7 +13,9 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [filePreview, setFilePreview] = useState<Array<{ name: string; size: string; preview?: string }>>([]);
   const [compressing, setCompressing] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const attachMenuRef = useRef<HTMLDivElement>(null);
   const platform = getPlatformServices();
 
   // Auto-resize textarea
@@ -24,6 +26,18 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
     const maxHeight = 200;
     ta.style.height = Math.min(ta.scrollHeight, maxHeight) + 'px';
   }, [text]);
+
+  // Close attach menu on outside click
+  useEffect(() => {
+    if (!showAttachMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
+        setShowAttachMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showAttachMenu]);
 
   // Handle file selection
   const handleFileSelect = useCallback(async (selectedFiles: File[]) => {
@@ -157,7 +171,8 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
 
       {/* Input area */}
       <div className="composer-input-area">
-        <div className="composer-tools">
+        {/* Desktop: inline buttons. Mobile: hidden (moved to bottom row) */}
+        <div className="composer-tools composer-tools-desktop">
           <button
             className="icon-button"
             onClick={async () => {
@@ -189,11 +204,12 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder="메모 입력… (Enter to send, Shift+Enter for newline)"
+          placeholder="메모 입력… (Enter: 전송)"
           rows={1}
         />
 
-        <div className="composer-actions">
+        {/* Desktop send button */}
+        <div className="composer-actions composer-actions-desktop">
           <button
             className="send-button"
             onClick={handleSend}
@@ -202,6 +218,63 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
             <Send size={16} />
           </button>
         </div>
+      </div>
+
+      {/* Mobile bottom row: attach + send (shown only on mobile) */}
+      <div className="composer-mobile-actions">
+        <div className="composer-attach-wrapper" ref={attachMenuRef}>
+          <button
+            className="icon-button composer-plus-btn"
+            onClick={() => setShowAttachMenu(!showAttachMenu)}
+            title="Attach"
+          >
+            {showAttachMenu ? <X size={16} /> : <Plus size={16} />}
+          </button>
+          <AnimatePresence>
+            {showAttachMenu && (
+              <motion.div
+                className="attach-popup"
+                initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+              >
+                <button
+                  className="attach-popup-item"
+                  onClick={async () => {
+                    setShowAttachMenu(false);
+                    const files = await platform.pickFile();
+                    if (files.length > 0) handleFileSelect(files);
+                  }}
+                >
+                  <Paperclip size={14} />
+                  <span>파일 첨부</span>
+                </button>
+                <button
+                  className="attach-popup-item"
+                  onClick={async () => {
+                    setShowAttachMenu(false);
+                    try {
+                      const photo = await platform.takePhoto();
+                      handleFileSelect([photo]);
+                    } catch {}
+                  }}
+                >
+                  <Camera size={14} />
+                  <span>사진 촬영</span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <button
+          className="send-button"
+          onClick={handleSend}
+          disabled={!text.trim() && files.length === 0}
+        >
+          <Send size={16} />
+        </button>
       </div>
 
       {compressing && (

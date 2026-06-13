@@ -1,6 +1,13 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { getGitHubToken, ensureRepoExists } from '../_shared/github.ts'
 
+// Decode base64 to UTF-8 string (handles Korean/Unicode properly)
+function base64ToUtf8(base64: string): string {
+  const binString = atob(base64)
+  const bytes = Uint8Array.from(binString, (c) => c.charCodeAt(0))
+  return new TextDecoder().decode(bytes)
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -51,13 +58,24 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json()
-    const content = data.content ? atob(data.content.replace(/\n/g, '')) : ''
+
+    // Decode base64 content properly (handles UTF-8 / Korean)
+    let content = ''
+    if (data.content) {
+      try {
+        content = base64ToUtf8(data.content.replace(/\n/g, ''))
+      } catch (e) {
+        console.error('[room-content] base64 decode error:', e)
+        content = atob(data.content.replace(/\n/g, ''))
+      }
+    }
 
     return new Response(JSON.stringify({ content, sha: data.sha }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[room-content] Error:', message)
     const status = message === 'Unauthorized' ? 401 : 500
     return new Response(JSON.stringify({ error: message }), {
       status, headers: { ...corsHeaders, 'Content-Type': 'application/json' }

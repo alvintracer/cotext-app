@@ -28,8 +28,13 @@ Deno.serve(async (req) => {
     await ensureRepoExists(token, owner, repo)
 
     // If isBase64 is true, content is already base64 (e.g. binary files like images)
-    // Otherwise, base64 encode the text content
-    const encoded = isBase64 ? content : btoa(unescape(encodeURIComponent(content)))
+    // Otherwise, encode UTF-8 text to base64
+    let encoded = content
+    if (!isBase64) {
+      const bytes = new TextEncoder().encode(content)
+      const binString = Array.from(bytes, (b) => String.fromCharCode(b)).join('')
+      encoded = btoa(binString)
+    }
 
     const payload: any = {
       message: message || `Update ${path}`,

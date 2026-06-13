@@ -721,8 +721,8 @@ function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock }
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const lines = content.split('\n');
   const remoteLines = new Set(remoteContent.split('\n'));
-  const blocks: Array<{ lines: string[]; isPushed: boolean; timestamp?: string }> = [];
-  let currentBlock: { lines: string[]; isPushed: boolean; timestamp?: string } | null = null;
+  const blocks: Array<{ lines: string[]; isPushed: boolean; timestamp?: string; source?: string }> = [];
+  let currentBlock: { lines: string[]; isPushed: boolean; timestamp?: string; source?: string } | null = null;
 
   for (const line of lines) {
     const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
@@ -737,7 +737,12 @@ function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock }
       if (currentBlock) blocks.push(currentBlock);
       currentBlock = { lines: [line], isPushed: true };
     } else if (currentBlock) {
-      currentBlock.lines.push(line);
+      const sourceMatch = line.match(/^<!-- source: (\w+) -->/);
+      if (sourceMatch && !currentBlock.source) {
+        currentBlock.source = sourceMatch[1];
+      } else {
+        currentBlock.lines.push(line);
+      }
     }
   }
   if (currentBlock) blocks.push(currentBlock);
@@ -771,6 +776,7 @@ function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock }
               <Clock size={12} />
               <span>{block.timestamp}</span>
               {!block.isPushed && <span className="draft-badge">Draft</span>}
+              {block.source && <span className={`source-badge source-${block.source}`}>{block.source}</span>}
               {/* Three-dot menu for draft blocks */}
               {!block.isPushed && block.timestamp && (
                 <div className="draft-menu-wrapper">

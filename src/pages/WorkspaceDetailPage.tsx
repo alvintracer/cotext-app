@@ -84,6 +84,27 @@ export default function WorkspaceDetailPage() {
 
       if (error) throw error;
       setRooms(data || []);
+
+      // Auto-create guide room if it doesn't exist
+      if (data && data.length === 0 && user) {
+        try {
+          const { data: guideRoom } = await supabase
+            .from('rooms')
+            .insert({
+              workspace_id: workspaceId,
+              user_id: user.id,
+              path: 'COTEXT_GUIDE',
+              name: '📘 Cotext Guide',
+            })
+            .select()
+            .single();
+          if (guideRoom) {
+            setRooms([guideRoom]);
+          }
+        } catch (err) {
+          console.error('Failed to create guide room:', err);
+        }
+      }
     } catch (err) {
       console.error('Failed to load rooms:', err);
     } finally {

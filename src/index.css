@@ -2905,6 +2905,28 @@ button:focus-visible {
   border-radius: var(--radius-sm);
 }
 
+.source-badge {
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  text-transform: lowercase;
+}
+
+.source-me {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
+.source-agent,
+.source-claude,
+.source-chatgpt,
+.source-gemini,
+.source-antigravity {
+  background: color-mix(in srgb, #a855f7 15%, transparent);
+  color: #a855f7;
+}
+
 /* Draft menu (three-dot) */
 .draft-menu-wrapper {
   position: relative;

@@ -28,7 +28,7 @@ function generatePrompt(platform: Platform, apiKey: string, repoOwner: string, r
   const baseUrl = `${SUPABASE_URL}/functions/v1/context-api`;
 
   // Web AI platforms — paste prompt into chat
-  if (['chatgpt', 'claude-web', 'gemini', 'antigravity'].includes(platform)) {
+  if (['chatgpt', 'claude-web', 'gemini'].includes(platform)) {
     const agentName = platform === 'chatgpt' ? 'chatgpt' 
       : platform === 'claude-web' ? 'claude'
       : platform === 'gemini' ? 'gemini' 
@@ -90,7 +90,7 @@ Content-Type: application/json
     }, null, 2);
   }
 
-  if (platform === 'cursor') {
+  if (platform === 'cursor' || platform === 'antigravity') {
     return JSON.stringify({
       "mcpServers": {
         "cotext": {
@@ -135,7 +135,6 @@ const platformGroups: PlatformGroup[] = [
       { id: 'chatgpt', label: 'ChatGPT', desc: '프롬프트 붙여넣기' },
       { id: 'claude-web', label: 'Claude.ai', desc: '프롬프트 붙여넣기' },
       { id: 'gemini', label: 'Gemini', desc: '프롬프트 붙여넣기' },
-      { id: 'antigravity', label: 'Antigravity', desc: '프롬프트 붙여넣기' },
     ],
   },
   {
@@ -143,6 +142,7 @@ const platformGroups: PlatformGroup[] = [
     items: [
       { id: 'claude-desktop', label: 'Claude Desktop', desc: 'MCP 설정' },
       { id: 'cursor', label: 'Cursor / Windsurf', desc: 'MCP 설정' },
+      { id: 'antigravity', label: 'Antigravity', desc: 'MCP 설정' },
       { id: 'custom', label: '직접 설정', desc: 'API 정보' },
     ],
   },
@@ -212,8 +212,8 @@ export default function ApiKeyManager({ workspaceId, repoOwner = '', repoName = 
 
   const maskKey = (key: string) => key.substring(0, 8) + '•'.repeat(20) + key.substring(key.length - 4);
 
-  const isMcpPlatform = selectedPlatform === 'claude-desktop' || selectedPlatform === 'cursor';
-  const isWebPlatform = ['chatgpt', 'claude-web', 'gemini', 'antigravity'].includes(selectedPlatform);
+  const isMcpPlatform = ['claude-desktop', 'cursor', 'antigravity'].includes(selectedPlatform);
+  const isWebPlatform = ['chatgpt', 'claude-web', 'gemini'].includes(selectedPlatform);
 
   if (loading) return <div className="spinner" />;
 

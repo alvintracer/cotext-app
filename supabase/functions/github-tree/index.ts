@@ -1,5 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts'
-import { getGitHubToken, githubFetch } from '../_shared/github.ts'
+import { getGitHubToken, ensureRepoExists } from '../_shared/github.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -24,16 +24,39 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Get tree from GitHub
-    const treePath = path ? `/${path}` : ''
-    const data = await githubFetch(token, `/repos/${owner}/${repo}/contents${treePath}?ref=${branch}`)
+    // Ensure repo exists
+    await ensureRepoExists(token, owner, repo)
 
-    // Normalize: GitHub returns single object for files, array for dirs
+    const treePath = path ? `/${path}` : ''
+    const res = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents${treePath}?ref=${branch}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'Cotext-App',
+        },
+      }
+    )
+
+    // 404 = empty repo or path doesn't exist
+    if (res.status === 404) {
+      return new Response(JSON.stringify({ tree: [] }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    if (!res.ok) {
+      const errBody = await res.text()
+      throw new Error(`GitHub API error ${res.status}: ${errBody}`)
+    }
+
+    const data = await res.json()
     const items = Array.isArray(data) ? data : [data]
     const tree = items.map((item: any) => ({
       name: item.name,
       path: item.path,
-      type: item.type, // 'file' or 'dir'
+      type: item.type,
       size: item.size || 0,
       sha: item.sha,
     }))
@@ -43,7 +66,7 @@ Deno.serve(async (req) => {
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    const status = message === 'Unauthorized' ? 401 : message.includes('not connected') ? 403 : 500
+    const status = message === 'Unauthorized' ? 401 : 500
     return new Response(JSON.stringify({ error: message }), {
       status, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })

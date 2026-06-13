@@ -1,5 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts'
-import { getGitHubToken, githubFetch } from '../_shared/github.ts'
+import { getGitHubToken, ensureRepoExists } from '../_shared/github.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -24,9 +24,33 @@ Deno.serve(async (req) => {
       })
     }
 
-    const data = await githubFetch(token, `/repos/${owner}/${repo}/contents/${path}?ref=${branch}`)
+    // Ensure repo exists
+    await ensureRepoExists(token, owner, repo)
 
-    // Decode base64 content
+    const res = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'Cotext-App',
+        },
+      }
+    )
+
+    // 404 = file doesn't exist yet, return empty
+    if (res.status === 404) {
+      return new Response(JSON.stringify({ content: '', sha: null }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    if (!res.ok) {
+      const errBody = await res.text()
+      throw new Error(`GitHub API error ${res.status}: ${errBody}`)
+    }
+
+    const data = await res.json()
     const content = data.content ? atob(data.content.replace(/\n/g, '')) : ''
 
     return new Response(JSON.stringify({ content, sha: data.sha }), {
@@ -34,12 +58,6 @@ Deno.serve(async (req) => {
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    // 404 = file doesn't exist yet, return empty
-    if (message.includes('404')) {
-      return new Response(JSON.stringify({ content: '', sha: null }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
     const status = message === 'Unauthorized' ? 401 : 500
     return new Response(JSON.stringify({ error: message }), {
       status, headers: { ...corsHeaders, 'Content-Type': 'application/json' }

@@ -50,3 +50,51 @@ export async function githubFetch(token: string, path: string, options: RequestI
 
   return res.json()
 }
+
+/**
+ * Ensure a GitHub repo exists. Creates it if it doesn't.
+ * Returns true if repo exists (or was created).
+ */
+export async function ensureRepoExists(token: string, owner: string, repo: string): Promise<boolean> {
+  const checkRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'Cotext-App',
+    },
+  })
+
+  if (checkRes.ok) return true
+
+  if (checkRes.status === 404) {
+    console.log(`[github] Repo ${owner}/${repo} not found, creating...`)
+    const createRes = await fetch('https://api.github.com/user/repos', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'Cotext-App',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: repo,
+        private: true,
+        auto_init: true,
+        description: `Cotext workspace for ${repo}`,
+      }),
+    })
+
+    if (createRes.ok) {
+      console.log(`[github] Repo ${owner}/${repo} created successfully`)
+      // Wait a moment for GitHub to initialize the repo
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      return true
+    }
+
+    const errText = await createRes.text()
+    console.error(`[github] Failed to create repo: ${createRes.status} ${errText}`)
+    throw new Error(`Failed to create repo ${owner}/${repo}: ${errText}`)
+  }
+
+  return false
+}

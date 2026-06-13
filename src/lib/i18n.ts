@@ -72,6 +72,21 @@ type TranslationKey =
   | 'contextPack.copied'
   | 'contextPack.title'
   | 'sync.guideGenerated'
+  | 'share.title'
+  | 'share.desc'
+  | 'share.scope'
+  | 'share.scopeRoom'
+  | 'share.scopeAll'
+  | 'share.expires'
+  | 'share.1h'
+  | 'share.24h'
+  | 'share.7d'
+  | 'share.30d'
+  | 'share.never'
+  | 'share.createLink'
+  | 'share.creating'
+  | 'share.copy'
+  | 'share.copied'
   ;
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {
@@ -147,6 +162,21 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'contextPack.copied': 'Copied!',
     'contextPack.title': 'Context Pack',
     'sync.guideGenerated': 'Guide files synced',
+    'share.title': 'Share Context',
+    'share.desc': 'Create a secure link to share context. Recipients can view and copy without a GitHub account.',
+    'share.scope': 'Scope',
+    'share.scopeRoom': 'This chat',
+    'share.scopeAll': 'All chats',
+    'share.expires': 'Expires in',
+    'share.1h': '1 hour',
+    'share.24h': '24 hours',
+    'share.7d': '7 days',
+    'share.30d': '30 days',
+    'share.never': 'Never',
+    'share.createLink': 'Create Link',
+    'share.creating': 'Creating...',
+    'share.copy': 'Copy',
+    'share.copied': 'Copied!',
   },
   ko: {
     'nav.workspaces': '워크스페이스',
@@ -220,6 +250,21 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'contextPack.copied': '복사됨!',
     'contextPack.title': 'Context Pack',
     'sync.guideGenerated': '가이드 파일 동기화됨',
+    'share.title': '컨텍스트 공유',
+    'share.desc': '보안 링크를 생성하여 컨텍스트를 공유합니다. GitHub 계정 없이도 열람 가능합니다.',
+    'share.scope': '범위',
+    'share.scopeRoom': '이 채팅만',
+    'share.scopeAll': '전체 채팅',
+    'share.expires': '만료 기간',
+    'share.1h': '1시간',
+    'share.24h': '24시간',
+    'share.7d': '7일',
+    'share.30d': '30일',
+    'share.never': '무제한',
+    'share.createLink': '링크 생성',
+    'share.creating': '생성 중...',
+    'share.copy': '복사',
+    'share.copied': '복사됨!',
   }
 };
 

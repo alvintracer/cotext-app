@@ -524,9 +524,9 @@ ${filteredContent}
           <button
             className="btn btn-ghost btn-sm context-pack-btn"
             onClick={() => setShowShareModal(true)}
-            title="Share"
+            title={t('share.title')}
           >
-            <ShareNetwork size={14} /> Share
+            <ShareNetwork size={14} /> {t('share.title')}
           </button>
           <div className="view-mode-tabs">
             {(['chat', 'editor', 'split', 'preview'] as ViewMode[]).map((mode) => (
@@ -551,28 +551,28 @@ ${filteredContent}
         <div className="modal-overlay" onClick={() => setShowShareModal(false)}>
           <div className="modal-content share-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3><ShareNetwork size={18} /> Share Context</h3>
+              <h3><ShareNetwork size={18} /> {t('share.title')}</h3>
               <button className="icon-button" onClick={() => setShowShareModal(false)}><X size={16} /></button>
             </div>
             <div className="modal-body">
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-                Create a secure link to share this room's context. Recipients can view and copy the content without needing a GitHub account.
+                {t('share.desc')}
               </p>
               <div className="share-options">
-                <label>Scope</label>
+                <label>{t('share.scope')}</label>
                 <select value={shareScope} onChange={e => { setShareScope(e.target.value as 'room' | 'workspace'); setShareLink(null); }}>
-                  <option value="room">This chat ({room.path})</option>
-                  <option value="workspace">All chats ({workspace.github_repo})</option>
+                  <option value="room">{t('share.scopeRoom')} ({room.path})</option>
+                  <option value="workspace">{t('share.scopeAll')} ({workspace.github_repo})</option>
                 </select>
               </div>
               <div className="share-options">
-                <label>Expires in</label>
+                <label>{t('share.expires')}</label>
                 <select value={shareExpiry} onChange={e => setShareExpiry(e.target.value)}>
-                  <option value="1h">1 hour</option>
-                  <option value="24h">24 hours</option>
-                  <option value="7d">7 days</option>
-                  <option value="30d">30 days</option>
-                  <option value="never">Never</option>
+                  <option value="1h">{t('share.1h')}</option>
+                  <option value="24h">{t('share.24h')}</option>
+                  <option value="7d">{t('share.7d')}</option>
+                  <option value="30d">{t('share.30d')}</option>
+                  <option value="never">{t('share.never')}</option>
                 </select>
               </div>
               {shareLink ? (
@@ -586,7 +586,7 @@ ${filteredContent}
                       setTimeout(() => setShareCopied(false), 2000);
                     }}
                   >
-                    {shareCopied ? <><Check size={14} /> Copied</> : <><LinkIcon size={14} /> Copy</>}
+                    {shareCopied ? <><Check size={14} /> {t('share.copied')}</> : <><LinkIcon size={14} /> {t('share.copy')}</>}
                   </button>
                 </div>
               ) : (
@@ -595,7 +595,7 @@ ${filteredContent}
                   onClick={handleCreateShareLink}
                   disabled={shareCreating}
                 >
-                  {shareCreating ? <><Loader2 size={14} className="spin" /> Creating...</> : <><LinkIcon size={14} /> Create Link</>}
+                  {shareCreating ? <><Loader2 size={14} className="spin" /> {t('share.creating')}</> : <><LinkIcon size={14} /> {t('share.createLink')}</>}
                 </button>
               )}
             </div>

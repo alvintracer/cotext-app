@@ -2305,8 +2305,8 @@ button:focus-visible {
   flex-shrink: 0;
 }
 
-/* Mobile bottom action row — hidden on desktop */
-.composer-mobile-actions {
+/* Mobile-only elements hidden on desktop */
+.composer-mobile-only {
   display: none;
 }
 
@@ -2347,12 +2347,39 @@ button:focus-visible {
   background: var(--surface-3, var(--border));
 }
 
-.composer-plus-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
+/* Input wrapper: holds the + button and textarea together */
+.composer-input-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+}
+
+.composer-input-wrapper .composer-textarea {
+  flex: 1;
+}
+
+/* Inline + button (inside input, mobile only) */
+.composer-inline-plus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  margin-bottom: 4px;
+  margin-right: 4px;
+}
+
+.composer-inline-plus:hover {
+  color: var(--accent);
   background: var(--surface-2);
-  border: 1px solid var(--border);
 }
 
 .composer-input-area {
@@ -2690,22 +2717,17 @@ button:focus-visible {
     border-left: none;
     border-right: none;
     border-bottom: none;
-    padding: 8px 10px;
+    padding: 6px 10px;
   }
 
-  /* Hide desktop-only tools and actions */
-  .composer-tools-desktop,
-  .composer-actions-desktop {
+  /* Hide desktop-only tools and send button */
+  .composer-desktop-only {
     display: none !important;
   }
 
-  /* Show mobile action row */
-  .composer-mobile-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-top: 6px;
-    gap: 8px;
+  /* Show mobile-only + button inside input */
+  .composer-mobile-only {
+    display: flex !important;
   }
 
   .composer-input-area {
@@ -2714,8 +2736,9 @@ button:focus-visible {
   }
 
   .composer-textarea {
-    padding: 10px 12px;
+    padding: 8px 12px;
     font-size: 16px; /* Prevents iOS zoom on focus */
+    min-height: 38px;
   }
 
   /* Timeline blocks */

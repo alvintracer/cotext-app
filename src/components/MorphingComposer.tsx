@@ -50,7 +50,6 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
         try {
           const result = await compressImage(file);
           processed.push(result.file);
-          
           const previewUrl = URL.createObjectURL(result.file);
           previews.push({
             name: result.file.name,
@@ -68,10 +67,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
         }
       } else {
         processed.push(file);
-        previews.push({
-          name: file.name,
-          size: formatFileSize(file.size),
-        });
+        previews.push({ name: file.name, size: formatFileSize(file.size) });
       }
     }
 
@@ -80,31 +76,25 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
     setCompressing(false);
   }, []);
 
-  // Handle paste events for images
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
     const imageFiles: File[] = [];
-
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile();
         if (file) imageFiles.push(file);
       }
     }
-
     if (imageFiles.length > 0) {
       e.preventDefault();
       await handleFileSelect(imageFiles);
     }
   }, [handleFileSelect]);
 
-  // Handle drop events
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     const droppedFiles = Array.from(e.dataTransfer.files);
-    if (droppedFiles.length > 0) {
-      await handleFileSelect(droppedFiles);
-    }
+    if (droppedFiles.length > 0) await handleFileSelect(droppedFiles);
   }, [handleFileSelect]);
 
   const handleSend = useCallback(() => {
@@ -113,11 +103,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
     setText('');
     setFiles([]);
     setFilePreview([]);
-    
-    // Clean up previews
-    filePreview.forEach((fp) => {
-      if (fp.preview) URL.revokeObjectURL(fp.preview);
-    });
+    filePreview.forEach((fp) => { if (fp.preview) URL.revokeObjectURL(fp.preview); });
   }, [text, files, onSend, filePreview]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -155,9 +141,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
           >
             {filePreview.map((fp, i) => (
               <div key={i} className="file-preview-item">
-                {fp.preview && (
-                  <img src={fp.preview} alt={fp.name} className="file-preview-thumb" />
-                )}
+                {fp.preview && <img src={fp.preview} alt={fp.name} className="file-preview-thumb" />}
                 <div className="file-preview-info">
                   <span className="file-preview-name">{fp.name}</span>
                   <span className="file-preview-size">{fp.size}</span>
@@ -171,13 +155,13 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
 
       {/* Input area */}
       <div className="composer-input-area">
-        {/* Desktop: inline buttons. Mobile: hidden (moved to bottom row) */}
-        <div className="composer-tools composer-tools-desktop">
+        {/* Desktop: inline tool buttons */}
+        <div className="composer-tools composer-desktop-only">
           <button
             className="icon-button"
             onClick={async () => {
-              const files = await platform.pickFile();
-              if (files.length > 0) handleFileSelect(files);
+              const f = await platform.pickFile();
+              if (f.length > 0) handleFileSelect(f);
             }}
             title="Attach file"
           >
@@ -186,10 +170,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
           <button
             className="icon-button"
             onClick={async () => {
-              try {
-                const photo = await platform.takePhoto();
-                handleFileSelect([photo]);
-              } catch {}
+              try { const photo = await platform.takePhoto(); handleFileSelect([photo]); } catch {}
             }}
             title="Take photo"
           >
@@ -197,19 +178,66 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
           </button>
         </div>
 
-        <textarea
-          ref={textareaRef}
-          className="composer-textarea"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          placeholder="메모 입력… (Enter: 전송)"
-          rows={1}
-        />
+        {/* Input wrapper — on mobile, + button sits inside */}
+        <div className="composer-input-wrapper">
+          {/* Mobile: + button inside input */}
+          <div className="composer-attach-wrapper composer-mobile-only" ref={attachMenuRef}>
+            <button
+              className="composer-inline-plus"
+              onClick={() => setShowAttachMenu(!showAttachMenu)}
+              aria-label="Attach"
+            >
+              {showAttachMenu ? <X size={18} /> : <Plus size={18} />}
+            </button>
+            <AnimatePresence>
+              {showAttachMenu && (
+                <motion.div
+                  className="attach-popup"
+                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <button
+                    className="attach-popup-item"
+                    onClick={async () => {
+                      setShowAttachMenu(false);
+                      const f = await platform.pickFile();
+                      if (f.length > 0) handleFileSelect(f);
+                    }}
+                  >
+                    <Paperclip size={14} />
+                    <span>파일 첨부</span>
+                  </button>
+                  <button
+                    className="attach-popup-item"
+                    onClick={async () => {
+                      setShowAttachMenu(false);
+                      try { const photo = await platform.takePhoto(); handleFileSelect([photo]); } catch {}
+                    }}
+                  >
+                    <Camera size={14} />
+                    <span>사진 촬영</span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-        {/* Desktop send button */}
-        <div className="composer-actions composer-actions-desktop">
+          <textarea
+            ref={textareaRef}
+            className="composer-textarea"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            placeholder="메모 입력… (Enter: 전송)"
+            rows={1}
+          />
+        </div>
+
+        {/* Desktop: send button */}
+        <div className="composer-actions composer-desktop-only">
           <button
             className="send-button"
             onClick={handleSend}
@@ -218,63 +246,6 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
             <Send size={16} />
           </button>
         </div>
-      </div>
-
-      {/* Mobile bottom row: attach + send (shown only on mobile) */}
-      <div className="composer-mobile-actions">
-        <div className="composer-attach-wrapper" ref={attachMenuRef}>
-          <button
-            className="icon-button composer-plus-btn"
-            onClick={() => setShowAttachMenu(!showAttachMenu)}
-            title="Attach"
-          >
-            {showAttachMenu ? <X size={16} /> : <Plus size={16} />}
-          </button>
-          <AnimatePresence>
-            {showAttachMenu && (
-              <motion.div
-                className="attach-popup"
-                initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                transition={{ duration: 0.15 }}
-              >
-                <button
-                  className="attach-popup-item"
-                  onClick={async () => {
-                    setShowAttachMenu(false);
-                    const files = await platform.pickFile();
-                    if (files.length > 0) handleFileSelect(files);
-                  }}
-                >
-                  <Paperclip size={14} />
-                  <span>파일 첨부</span>
-                </button>
-                <button
-                  className="attach-popup-item"
-                  onClick={async () => {
-                    setShowAttachMenu(false);
-                    try {
-                      const photo = await platform.takePhoto();
-                      handleFileSelect([photo]);
-                    } catch {}
-                  }}
-                >
-                  <Camera size={14} />
-                  <span>사진 촬영</span>
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <button
-          className="send-button"
-          onClick={handleSend}
-          disabled={!text.trim() && files.length === 0}
-        >
-          <Send size={16} />
-        </button>
       </div>
 
       {compressing && (

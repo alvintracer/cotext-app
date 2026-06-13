@@ -1777,10 +1777,10 @@ button:focus-visible {
 @media (min-width: 769px) {
   .workspace-sidebar {
     transform: none !important;
-  }
-  .workspace-sidebar:not(.collapsed) {
-    width: 280px;
-    min-width: 280px;
+    width: 280px !important;
+    min-width: 280px !important;
+    overflow: visible;
+    position: relative !important;
   }
 }
 

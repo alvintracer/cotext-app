@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
-  <!-- Accent Blue Background with slight transparency -->
-  <rect x="0" y="0" width="128" height="128" rx="28" fill="#3b9eff" opacity="0.15"/>
-  <rect x="0" y="0" width="128" height="128" rx="28" stroke="#3b9eff" stroke-width="4" opacity="0.3"/>
-  
-  <!-- :> Text -->
-  <text x="64" y="86" font-family="'Quicksand', sans-serif" font-weight="700" font-size="82" fill="#3b9eff" text-anchor="middle" letter-spacing="-0.02em">:&gt;</text>
+  <!-- Subtle bg, NO stroke -->
+  <rect width="128" height="128" rx="28" fill="#3b9eff" opacity="0.15"/>
+
+  <!-- :> Text — blue, bigger to fill the square -->
+  <text x="64" y="96" font-family="'Quicksand', sans-serif" font-weight="700" font-size="100" fill="#3b9eff" text-anchor="middle" letter-spacing="-0.04em">:&gt;</text>
 </svg>

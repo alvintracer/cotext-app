@@ -2328,6 +2328,7 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .context-pack-btn {
@@ -2337,6 +2338,7 @@ button:focus-visible {
   font-size: 0.75rem;
   white-space: nowrap;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .context-pack-btn.copied {
@@ -3333,8 +3335,21 @@ button:focus-visible {
     text-overflow: ellipsis;
   }
 
+  .room-header-actions {
+    width: 100%;
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .context-pack-btn {
+    order: 2;
+    margin-left: auto;
+  }
+
   .view-mode-tabs {
-    width: calc(100% + 42px); /* extend to fill space under hamburger */
+    flex: 1;
+    min-width: 0;
+    width: calc(100% + 42px);
     margin-left: -42px;
     overflow-x: auto;
     justify-content: stretch;

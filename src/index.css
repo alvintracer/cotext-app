@@ -1749,6 +1749,293 @@ button:focus-visible {
 .text-xs { font-size: var(--text-xs); }
 .text-lg { font-size: var(--text-lg); }
 
+/* ── Workspace Modal ─────────────────────────────────────── */
+.ws-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: var(--z-modal);
+}
+
+.ws-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: calc(var(--z-modal) + 1);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  width: calc(100% - 32px);
+  max-width: 460px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+}
+
+.ws-modal-handle {
+  display: none;
+}
+
+.ws-modal-content {
+  padding: 28px;
+}
+
+.ws-modal-header {
+  margin-bottom: 20px;
+}
+
+.ws-modal-header h2 {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.ws-modal-header p {
+  font-size: var(--text-sm);
+}
+
+.ws-back-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 12px;
+}
+
+.ws-back-btn:hover {
+  text-decoration: underline;
+}
+
+/* Mode selection cards */
+.ws-mode-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ws-mode-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.ws-mode-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.ws-mode-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ws-mode-icon.connect {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.ws-mode-icon.create {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.ws-mode-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ws-mode-info h3 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.ws-mode-info p {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* Repo search */
+.ws-repo-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+}
+
+.ws-repo-search input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.ws-repo-search svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Repo list */
+.ws-repo-list {
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ws-repo-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.12s;
+  text-align: left;
+}
+
+.ws-repo-item:hover {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+.ws-repo-item svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ws-repo-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ws-repo-name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ws-repo-desc {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ws-repo-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  background: var(--draft-bg);
+  color: var(--draft);
+  border: 1px solid var(--draft-border);
+  flex-shrink: 0;
+}
+
+.ws-repo-loading,
+.ws-repo-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Step dots */
+.ws-steps {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.ws-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: all 0.2s;
+}
+
+.ws-step-dot.active {
+  background: var(--accent);
+  transform: scale(1.25);
+}
+
+.ws-step-dot.done {
+  background: var(--success);
+}
+
+/* Step content animation container */
+.ws-step-content {
+  min-height: 80px;
+}
+
+.form-hint {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+/* Selected repo badge */
+.ws-selected-repo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--accent-muted);
+  color: var(--accent);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+/* Modal footer */
+.ws-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+}
+
 /* ── Workspace Detail Page ───────────────────────────────── */
 .workspace-detail {
   display: flex;
@@ -2987,6 +3274,33 @@ button:focus-visible {
 
   .app-logo-text {
     font-size: var(--text-sm);
+  }
+
+  /* Workspace modal: bottom sheet on mobile */
+  .ws-modal {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transform: none;
+    max-width: 100%;
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+    max-height: 85vh;
+  }
+
+  .ws-modal-handle {
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--text-dim);
+    margin: 10px auto 0;
+  }
+
+  .ws-modal-content {
+    padding: 20px 16px 24px;
   }
 
   /* Markdown toolbar: hide desktop, show mobile */

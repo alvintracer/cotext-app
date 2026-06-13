@@ -1,45 +1,335 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useNavigate } from 'react-router-dom';
-import { Plus, GitBranch, FolderGit2, ChevronRight } from 'lucide-react';
+import { Plus, GitBranch, FolderGit2, ChevronRight, Link, FilePlus, Loader2, Search } from 'lucide-react';
+import { githubApi } from '../lib/supabase/functions';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { Workspace } from '../types/workspace';
+
+type ModalMode = 'choose' | 'create' | 'connect';
+
+interface GithubRepo {
+  name: string;
+  full_name: string;
+  owner: { login: string };
+  private: boolean;
+  description: string | null;
+}
 
 export default function WorkspacesPage() {
   const { user } = useAuth();
   const { workspaces, loading, createWorkspace, selectWorkspace } = useWorkspace();
   const navigate = useNavigate();
-  const [showCreate, setShowCreate] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newRepo, setNewRepo] = useState('');
-  const [newOwner, setNewOwner] = useState('');
+
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [mode, setMode] = useState<ModalMode>('choose');
+  const [step, setStep] = useState(1);
+
+  // Form fields
+  const [repoName, setRepoName] = useState('');
+  const [ownerName, setOwnerName] = useState('');
+  const [workspaceName, setWorkspaceName] = useState('');
   const [creating, setCreating] = useState(false);
 
+  // Connect mode: repo list
+  const [repos, setRepos] = useState<GithubRepo[]>([]);
+  const [loadingRepos, setLoadingRepos] = useState(false);
+  const [repoSearch, setRepoSearch] = useState('');
+
+  const defaultOwner = user?.user_metadata?.user_name || '';
+
+  const resetModal = useCallback(() => {
+    setMode('choose');
+    setStep(1);
+    setRepoName('');
+    setOwnerName('');
+    setWorkspaceName('');
+    setRepoSearch('');
+  }, []);
+
+  const openModal = useCallback(() => {
+    resetModal();
+    setShowModal(true);
+  }, [resetModal]);
+
+  const closeModal = useCallback(() => {
+    setShowModal(false);
+  }, []);
+
+  // Load repos when connect mode is selected
+  useEffect(() => {
+    if (mode === 'connect' && repos.length === 0 && !loadingRepos) {
+      setLoadingRepos(true);
+      githubApi.listRepos()
+        .then((data) => {
+          setRepos(data.repos || []);
+        })
+        .catch((err) => console.error('Failed to load repos:', err))
+        .finally(() => setLoadingRepos(false));
+    }
+  }, [mode, repos.length, loadingRepos]);
+
+  const filteredRepos = repos.filter((r) =>
+    r.full_name.toLowerCase().includes(repoSearch.toLowerCase())
+  );
+
+  const handleSelectRepo = useCallback((repo: GithubRepo) => {
+    setRepoName(repo.name);
+    setOwnerName(repo.owner.login);
+    setWorkspaceName(repo.name);
+    setStep(3); // Jump to workspace name step
+  }, []);
+
   const handleCreate = useCallback(async () => {
-    if (!newName.trim() || !newRepo.trim()) return;
+    if (!workspaceName.trim() || !repoName.trim()) return;
     setCreating(true);
     try {
-      const owner = newOwner.trim() || user?.user_metadata?.user_name || '';
+      const owner = ownerName.trim() || defaultOwner;
       await createWorkspace({
-        name: newName.trim(),
+        name: workspaceName.trim(),
         github_owner: owner,
-        github_repo: newRepo.trim(),
+        github_repo: repoName.trim(),
       });
-      setShowCreate(false);
-      setNewName('');
-      setNewRepo('');
-      setNewOwner('');
+      closeModal();
     } catch (err) {
       console.error('Failed to create workspace:', err);
     } finally {
       setCreating(false);
     }
-  }, [newName, newRepo, newOwner, user, createWorkspace]);
+  }, [workspaceName, repoName, ownerName, defaultOwner, createWorkspace, closeModal]);
 
   const handleOpenWorkspace = useCallback((ws: Workspace) => {
     selectWorkspace(ws);
     navigate(`/workspace/${ws.id}`);
   }, [selectWorkspace, navigate]);
+
+  // Step navigation
+  const canNext = () => {
+    if (step === 1) return repoName.trim().length > 0;
+    if (step === 2) return true; // owner has default
+    return workspaceName.trim().length > 0;
+  };
+
+  const handleNext = () => {
+    if (step === 1) {
+      setOwnerName(ownerName || defaultOwner);
+      setStep(2);
+    } else if (step === 2) {
+      if (!workspaceName) setWorkspaceName(repoName);
+      setStep(3);
+    }
+  };
+
+  const handleBack = () => {
+    if (mode === 'connect' && step === 3) {
+      // Go back to repo selection
+      setStep(1);
+      return;
+    }
+    if (step > 1) setStep(step - 1);
+    else setMode('choose');
+  };
+
+  const renderModalContent = () => {
+    // Step 0: Choose mode
+    if (mode === 'choose') {
+      return (
+        <div className="ws-modal-content">
+          <div className="ws-modal-header">
+            <h2>새 워크스페이스</h2>
+            <p className="text-muted">GitHub 저장소를 연결하거나 새로 만들어보세요.</p>
+          </div>
+          <div className="ws-mode-choices">
+            <button className="ws-mode-card" onClick={() => { setMode('connect'); setStep(1); }}>
+              <div className="ws-mode-icon connect"><Link size={24} /></div>
+              <div className="ws-mode-info">
+                <h3>기존 레포 연결</h3>
+                <p>이미 있는 GitHub 저장소를 선택합니다</p>
+              </div>
+              <ChevronRight size={18} className="text-muted" />
+            </button>
+            <button className="ws-mode-card" onClick={() => { setMode('create'); setStep(1); }}>
+              <div className="ws-mode-icon create"><FilePlus size={24} /></div>
+              <div className="ws-mode-info">
+                <h3>새 레포 생성</h3>
+                <p>새로운 저장소를 만들고 연결합니다</p>
+              </div>
+              <ChevronRight size={18} className="text-muted" />
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Connect mode: repo list
+    if (mode === 'connect' && step === 1) {
+      return (
+        <div className="ws-modal-content">
+          <div className="ws-modal-header">
+            <button className="ws-back-btn" onClick={handleBack}>← 뒤로</button>
+            <h2>레포 선택</h2>
+            <p className="text-muted">연결할 GitHub 저장소를 선택하세요.</p>
+          </div>
+          <div className="ws-repo-search">
+            <Search size={14} />
+            <input
+              type="text"
+              placeholder="저장소 검색..."
+              value={repoSearch}
+              onChange={(e) => setRepoSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="ws-repo-list">
+            {loadingRepos ? (
+              <div className="ws-repo-loading">
+                <Loader2 size={20} className="spin" />
+                <span>저장소 불러오는 중...</span>
+              </div>
+            ) : filteredRepos.length === 0 ? (
+              <div className="ws-repo-empty">
+                <p>{repoSearch ? '검색 결과 없음' : '저장소가 없습니다'}</p>
+              </div>
+            ) : (
+              filteredRepos.map((repo) => (
+                <button
+                  key={repo.full_name}
+                  className="ws-repo-item"
+                  onClick={() => handleSelectRepo(repo)}
+                >
+                  <GitBranch size={14} />
+                  <div className="ws-repo-item-info">
+                    <span className="ws-repo-name">{repo.full_name}</span>
+                    {repo.description && (
+                      <span className="ws-repo-desc">{repo.description}</span>
+                    )}
+                  </div>
+                  {repo.private && <span className="ws-repo-badge">Private</span>}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Create mode or Connect step 3: form steps
+    return (
+      <div className="ws-modal-content">
+        <div className="ws-modal-header">
+          <button className="ws-back-btn" onClick={handleBack}>← 뒤로</button>
+          <h2>{mode === 'create' ? '새 레포 생성' : '워크스페이스 설정'}</h2>
+          <div className="ws-steps">
+            {(mode === 'create' ? [1, 2, 3] : [3]).map((s) => (
+              <div key={s} className={`ws-step-dot ${step === s ? 'active' : step > s ? 'done' : ''}`} />
+            ))}
+          </div>
+        </div>
+
+        <AnimatePresence mode="wait">
+          {step === 1 && mode === 'create' && (
+            <motion.div
+              key="step1"
+              className="ws-step-content"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="form-group">
+                <label>Repository 이름</label>
+                <input
+                  type="text"
+                  value={repoName}
+                  onChange={(e) => setRepoName(e.target.value)}
+                  placeholder="예: my-context-repo"
+                  className="input"
+                  autoFocus
+                />
+                <span className="form-hint">GitHub에 생성될 저장소 이름입니다</span>
+              </div>
+            </motion.div>
+          )}
+
+          {step === 2 && mode === 'create' && (
+            <motion.div
+              key="step2"
+              className="ws-step-content"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="form-group">
+                <label>Owner (소유자)</label>
+                <input
+                  type="text"
+                  value={ownerName}
+                  onChange={(e) => setOwnerName(e.target.value)}
+                  placeholder={defaultOwner || 'username'}
+                  className="input"
+                  autoFocus
+                />
+                <span className="form-hint">비워두면 '{defaultOwner}' 으로 설정됩니다</span>
+              </div>
+            </motion.div>
+          )}
+
+          {step === 3 && (
+            <motion.div
+              key="step3"
+              className="ws-step-content"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ duration: 0.2 }}
+            >
+              {mode === 'connect' && (
+                <div className="ws-selected-repo">
+                  <GitBranch size={14} />
+                  <span>{ownerName}/{repoName}</span>
+                </div>
+              )}
+              <div className="form-group">
+                <label>워크스페이스 이름</label>
+                <input
+                  type="text"
+                  value={workspaceName}
+                  onChange={(e) => setWorkspaceName(e.target.value)}
+                  placeholder="예: master-context"
+                  className="input"
+                  autoFocus
+                />
+                <span className="form-hint">Cotext에서 표시될 이름입니다</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="ws-modal-footer">
+          {step < 3 && mode === 'create' ? (
+            <button className="btn btn-primary" onClick={handleNext} disabled={!canNext()}>
+              다음
+            </button>
+          ) : (
+            <button
+              className="btn btn-primary"
+              onClick={handleCreate}
+              disabled={creating || !workspaceName.trim()}
+            >
+              {creating ? (
+                <><Loader2 size={14} className="spin" /> 생성 중...</>
+              ) : (
+                mode === 'connect' ? '연결하기' : '생성하기'
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="workspaces-page">
@@ -48,65 +338,39 @@ export default function WorkspacesPage() {
           <h1>Workspaces</h1>
           <p className="text-muted">Connect GitHub repositories as workspaces</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+        <button className="btn btn-primary" onClick={openModal}>
           <Plus size={18} />
           <span>New Workspace</span>
         </button>
       </div>
 
-      {showCreate && (
-        <div className="modal-overlay" onClick={() => setShowCreate(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Create Workspace</h2>
-            <p className="text-muted mb-4">Connect a GitHub repository to start capturing context.</p>
-
-            <div className="form-group">
-              <label>Workspace Name</label>
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g., master-context"
-                className="input"
-                autoFocus
-              />
-            </div>
-
-            <div className="form-group">
-              <label>GitHub Owner</label>
-              <input
-                type="text"
-                value={newOwner}
-                onChange={(e) => setNewOwner(e.target.value)}
-                placeholder={user?.user_metadata?.user_name || 'username'}
-                className="input"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Repository Name</label>
-              <input
-                type="text"
-                value={newRepo}
-                onChange={(e) => setNewRepo(e.target.value)}
-                placeholder="e.g., my-context-repo"
-                className="input"
-              />
-            </div>
-
-            <div className="modal-actions">
-              <button className="btn btn-ghost" onClick={() => setShowCreate(false)}>Cancel</button>
-              <button
-                className="btn btn-primary"
-                onClick={handleCreate}
-                disabled={creating || !newName.trim() || !newRepo.trim()}
-              >
-                {creating ? 'Creating...' : 'Create Workspace'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal */}
+      <AnimatePresence>
+        {showModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              className="ws-modal-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeModal}
+            />
+            {/* Modal — desktop: center, mobile: bottom sheet */}
+            <motion.div
+              className="ws-modal"
+              initial={{ opacity: 0, y: 60, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 60, scale: 0.97 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="ws-modal-handle" />
+              {renderModalContent()}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <div className="workspaces-grid">
         {loading ? (
@@ -119,7 +383,7 @@ export default function WorkspacesPage() {
             <FolderGit2 size={48} strokeWidth={1} />
             <h3>No workspaces yet</h3>
             <p>Create your first workspace to connect a GitHub repository.</p>
-            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+            <button className="btn btn-primary" onClick={openModal}>
               <Plus size={18} />
               <span>Create Workspace</span>
             </button>

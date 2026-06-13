@@ -2603,6 +2603,111 @@ button:focus-visible {
   line-height: 1.5;
 }
 
+/* ── Connect to AI Modal ─────────────────────────────────── */
+.connect-modal {
+  max-width: 560px;
+}
+
+.connect-desc {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0 0 12px;
+}
+
+.connect-platforms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.connect-platform-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.connect-platform-btn:hover {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.connect-platform-btn.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.connect-platform-icon {
+  font-size: 1.4rem;
+}
+
+.connect-platform-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.connect-platform-desc {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+}
+
+.connect-preview {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.connect-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.connect-preview-code {
+  padding: 12px;
+  margin: 0;
+  font-size: 0.72rem;
+  font-family: var(--font-mono, monospace);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 250px;
+  overflow-y: auto;
+  line-height: 1.5;
+  background: var(--surface);
+}
+
+.connect-hint {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+}
+
+.connect-hint code {
+  font-size: 0.75rem;
+  background: var(--surface-2);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
 /* ── View Mode Tabs ──────────────────────────────────────── */
 .view-mode-tabs {
   display: flex;

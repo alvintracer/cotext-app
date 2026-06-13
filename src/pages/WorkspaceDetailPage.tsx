@@ -366,7 +366,7 @@ export default function WorkspaceDetailPage() {
 
         {/* API Keys section */}
         <div className="sidebar-team">
-          <ApiKeyManager workspaceId={workspace.id} />
+          <ApiKeyManager workspaceId={workspace.id} repoOwner={workspace.github_owner} repoName={workspace.github_repo} />
         </div>
       </aside>
 

@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, Camera, Plus, X } from 'lucide-react';
+import { Send, Paperclip, Camera, Plus, X, Type } from 'lucide-react';
 import { getPlatformServices } from '../lib/platform/index';
 import { isImageFile, compressImage, formatFileSize } from '../lib/image/compress';
+import { recognizeText } from '../lib/ocr';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface MorphingComposerProps {
@@ -11,9 +12,12 @@ interface MorphingComposerProps {
 export default function MorphingComposer({ onSend }: MorphingComposerProps) {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
-  const [filePreview, setFilePreview] = useState<Array<{ name: string; size: string; preview?: string }>>([]);
+  const [filePreview, setFilePreview] = useState<Array<{ name: string; size: string; preview?: string; isImage?: boolean }>>([]);
   const [compressing, setCompressing] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [ocrState, setOcrState] = useState<{ running: boolean; index: number; progress: number }>({
+    running: false, index: -1, progress: 0,
+  });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const platform = getPlatformServices();
@@ -43,7 +47,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
   const handleFileSelect = useCallback(async (selectedFiles: File[]) => {
     setCompressing(true);
     const processed: File[] = [];
-    const previews: Array<{ name: string; size: string; preview?: string }> = [];
+    const previews: Array<{ name: string; size: string; preview?: string; isImage?: boolean }> = [];
 
     for (const file of selectedFiles) {
       if (isImageFile(file)) {
@@ -57,6 +61,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
               ? `${formatFileSize(result.originalSize)} → ${formatFileSize(result.compressedSize)}`
               : formatFileSize(result.compressedSize),
             preview: previewUrl,
+            isImage: true,
           });
         } catch (err) {
           console.error('Compression failed:', err);
@@ -122,6 +127,31 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
     });
   }, []);
 
+  // OCR: extract text from image
+  const handleOcr = useCallback(async (index: number) => {
+    const file = files[index];
+    if (!file || ocrState.running) return;
+
+    setOcrState({ running: true, index, progress: 0 });
+
+    try {
+      const extractedText = await recognizeText(file, (progress) => {
+        setOcrState((prev) => ({ ...prev, progress }));
+      });
+
+      if (extractedText.trim()) {
+        setText((prev) => {
+          const separator = prev.trim() ? '\n\n' : '';
+          return prev + separator + extractedText;
+        });
+      }
+    } catch (err) {
+      console.error('OCR failed:', err);
+    } finally {
+      setOcrState({ running: false, index: -1, progress: 0 });
+    }
+  }, [files, ocrState.running]);
+
   return (
     <motion.div
       className="morphing-composer"
@@ -146,7 +176,38 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
                   <span className="file-preview-name">{fp.name}</span>
                   <span className="file-preview-size">{fp.size}</span>
                 </div>
-                <button className="file-preview-remove" onClick={() => removeFile(i)}>×</button>
+                <div className="file-preview-actions">
+                  {/* OCR button — only for images */}
+                  {fp.isImage && (
+                    <button
+                      className={`ocr-button ${ocrState.running && ocrState.index === i ? 'ocr-running' : ''}`}
+                      onClick={() => handleOcr(i)}
+                      disabled={ocrState.running}
+                      title="텍스트 추출 (OCR)"
+                    >
+                      {ocrState.running && ocrState.index === i ? (
+                        <>
+                          <div className="ocr-progress-ring">
+                            <svg viewBox="0 0 24 24">
+                              <circle cx="12" cy="12" r="10" />
+                              <circle
+                                cx="12" cy="12" r="10"
+                                strokeDasharray={`${ocrState.progress * 0.628} 62.8`}
+                              />
+                            </svg>
+                          </div>
+                          <span>{ocrState.progress}%</span>
+                        </>
+                      ) : (
+                        <>
+                          <Type size={12} />
+                          <span>텍스트 추출</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                  <button className="file-preview-remove" onClick={() => removeFile(i)}>×</button>
+                </div>
               </div>
             ))}
           </motion.div>

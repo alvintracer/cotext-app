@@ -26,15 +26,15 @@ export const githubApi = {
     return invokeFunction<{ content: string; sha: string }>('room-content', { owner, repo, branch, path });
   },
 
-  async pullRoom(roomId: string) {
-    return invokeFunction('room-pull', { roomId });
+  async pullRoom(owner: string, repo: string, branch: string, path: string) {
+    return invokeFunction<{ content: string; sha: string }>('room-content', { owner, repo, branch, path });
   },
 
-  async pushRoom(roomId: string, content: string, baseSha: string | null, message: string, assets?: any[]) {
-    return invokeFunction('room-push', { roomId, content, baseSha, message, assets });
+  async pushRoom(owner: string, repo: string, branch: string, path: string, content: string, sha: string | null, message: string) {
+    return invokeFunction<{ sha: string; commit: string; message: string }>('room-push', { owner, repo, branch, path, content, message, sha });
   },
 
-  async uploadAsset(roomId: string, fileName: string, base64Content: string, mimeType: string) {
-    return invokeFunction('room-asset-upload', { roomId, fileName, base64Content, mimeType });
+  async uploadAsset(owner: string, repo: string, branch: string, path: string, base64Content: string, message: string) {
+    return invokeFunction('room-push', { owner, repo, branch, path, content: base64Content, message });
   },
 };

@@ -154,11 +154,14 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
           // Convert to base64 for upload
           const base64 = await fileToBase64(uploadFile);
 
+          const assetPath = `${room.cotext_file_path.replace(/[^/]+$/, '')}assets/${assetName}`;
           await githubApi.uploadAsset(
-            room.id,
-            assetName,
+            workspace.github_owner,
+            workspace.github_repo,
+            workspace.default_branch,
+            assetPath,
             base64,
-            uploadFile.type
+            `cotext: upload ${assetName}`
           );
 
           if (isImageFile(uploadFile)) {
@@ -235,7 +238,10 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
       const message = commitMessage.trim() || `cotext: update ${room.path}`;
 
       const result = await githubApi.pushRoom(
-        room.id,
+        workspace.github_owner,
+        workspace.github_repo,
+        workspace.default_branch,
+        room.cotext_file_path,
         content,
         remoteSha,
         message

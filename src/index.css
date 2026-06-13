@@ -3042,6 +3042,55 @@ button:focus-visible {
   transform: scale(0.95);
 }
 
+/* ── Sync Overlay Toast ─────────────────────────────────── */
+.sync-overlay-toast {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 20px;
+  margin: 0 auto;
+  width: fit-content;
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  box-shadow: 0 4px 16px rgba(59, 158, 255, 0.3);
+  animation: syncToastIn 0.3s ease-out;
+  position: relative;
+  z-index: 10;
+  margin-bottom: 8px;
+}
+
+.sync-toast-success {
+  background: var(--success);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+  animation: syncToastIn 0.3s ease-out, syncToastOut 0.4s ease-in 1.5s forwards;
+}
+
+@keyframes syncToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes syncToastOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.95);
+  }
+}
+
 /* ── Commit Bar ──────────────────────────────────────────── */
 .commit-bar {
   display: flex;

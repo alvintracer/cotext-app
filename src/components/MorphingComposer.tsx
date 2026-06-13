@@ -114,6 +114,8 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
   }, [text, files, onSend, filePreview]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // Guard against CJK IME composition (fixes duplicate last char on Mac)
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();

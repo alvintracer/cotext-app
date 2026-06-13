@@ -395,6 +395,19 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
         <MorphingComposer onSend={handleSendMessage} />
       )}
 
+      {/* Syncing overlay toast */}
+      {syncing && (
+        <div className="sync-overlay-toast">
+          <Loader2 size={16} className="spin" />
+          <span>{syncStatus === 'syncing' ? 'Pushing to GitHub...' : 'Syncing...'}</span>
+        </div>
+      )}
+
+      {/* Synced success toast */}
+      {syncStatus === 'synced' && !syncing && dirty === false && (
+        <SyncedToast />
+      )}
+
       {/* Commit bar */}
       <CommitBar
         commitMessage={commitMessage}
@@ -612,3 +625,18 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+// Synced success toast – auto-hides after 2s
+function SyncedToast() {
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setVisible(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+  if (!visible) return null;
+  return (
+    <div className="sync-overlay-toast sync-toast-success">
+      <Check size={16} />
+      <span>Synced</span>
+    </div>
+  );
+}

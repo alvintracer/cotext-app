@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
 
     const { token } = await getGitHubToken(authHeader)
     const body = await req.json().catch(() => ({}))
-    const { owner, repo, branch = 'main', path, content, message, sha } = body
+    const { owner, repo, branch = 'main', path, content, message, sha, isBase64 = false } = body
 
     if (!owner || !repo || !path || content === undefined) {
       return new Response(JSON.stringify({ error: 'owner, repo, path, and content are required' }), {
@@ -27,8 +27,9 @@ Deno.serve(async (req) => {
     // Ensure repo exists (auto-create if not)
     await ensureRepoExists(token, owner, repo)
 
-    // Base64 encode the content
-    const encoded = btoa(unescape(encodeURIComponent(content)))
+    // If isBase64 is true, content is already base64 (e.g. binary files like images)
+    // Otherwise, base64 encode the text content
+    const encoded = isBase64 ? content : btoa(unescape(encodeURIComponent(content)))
 
     const payload: any = {
       message: message || `Update ${path}`,
@@ -56,23 +57,12 @@ Deno.serve(async (req) => {
       const errBody = await res.text()
       console.error(`[room-push] GitHub PUT failed: ${res.status}`, errBody)
 
-      // 409 = SHA conflict (file was modified by someone else)
-      if (res.status === 409) {
+      if (res.status === 409 || res.status === 422) {
         return new Response(JSON.stringify({
-          error: 'Conflict: file was modified on GitHub. Pull first to get the latest version.',
+          error: 'SHA conflict. The file was modified on GitHub. Pull first.',
           code: 'CONFLICT',
         }), {
-          status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
-      }
-
-      // 422 = SHA mismatch (stale sha)
-      if (res.status === 422) {
-        return new Response(JSON.stringify({
-          error: 'SHA mismatch. The file has changed on GitHub. Pull the latest version first.',
-          code: 'SHA_MISMATCH',
-        }), {
-          status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          status: res.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
       }
 

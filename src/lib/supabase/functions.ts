@@ -35,6 +35,6 @@ export const githubApi = {
   },
 
   async uploadAsset(owner: string, repo: string, branch: string, path: string, base64Content: string, message: string) {
-    return invokeFunction('room-push', { owner, repo, branch, path, content: base64Content, message });
+    return invokeFunction('room-push', { owner, repo, branch, path, content: base64Content, message, isBase64: true });
   },
 };

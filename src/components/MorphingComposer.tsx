@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, Maximize2, Minimize2, Camera } from 'lucide-react';
+import { Send, Paperclip, Camera } from 'lucide-react';
 import { getPlatformServices } from '../lib/platform/index';
 import { isImageFile, compressImage, formatFileSize } from '../lib/image/compress';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,11 +8,8 @@ interface MorphingComposerProps {
   onSend: (message: string, files?: File[]) => void;
 }
 
-type ComposerState = 'collapsed' | 'expanded' | 'composer';
-
 export default function MorphingComposer({ onSend }: MorphingComposerProps) {
   const [text, setText] = useState('');
-  const [state, setState] = useState<ComposerState>('collapsed');
   const [files, setFiles] = useState<File[]>([]);
   const [filePreview, setFilePreview] = useState<Array<{ name: string; size: string; preview?: string }>>([]);
   const [compressing, setCompressing] = useState(false);
@@ -24,17 +21,9 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
     const ta = textareaRef.current;
     if (!ta) return;
     ta.style.height = 'auto';
-    const scrollHeight = ta.scrollHeight;
-    
-    if (scrollHeight > 120 && state === 'collapsed') {
-      setState('expanded');
-    }
-    if (scrollHeight > 200 && state !== 'composer') {
-      setState('composer');
-    }
-    
-    ta.style.height = Math.min(scrollHeight, state === 'composer' ? 400 : state === 'expanded' ? 200 : 80) + 'px';
-  }, [text, state]);
+    const maxHeight = 200;
+    ta.style.height = Math.min(ta.scrollHeight, maxHeight) + 'px';
+  }, [text]);
 
   // Handle file selection
   const handleFileSelect = useCallback(async (selectedFiles: File[]) => {
@@ -75,8 +64,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
     setFiles((prev) => [...prev, ...processed]);
     setFilePreview((prev) => [...prev, ...previews]);
     setCompressing(false);
-    if (state === 'collapsed') setState('expanded');
-  }, [state]);
+  }, []);
 
   // Handle paste events for images
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
@@ -111,7 +99,6 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
     setText('');
     setFiles([]);
     setFilePreview([]);
-    setState('collapsed');
     
     // Clean up previews
     filePreview.forEach((fp) => {
@@ -124,12 +111,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
       e.preventDefault();
       handleSend();
     }
-    if (e.key === 'Escape') {
-      if (state !== 'collapsed') {
-        setState('collapsed');
-      }
-    }
-  }, [handleSend, state]);
+  }, [handleSend]);
 
   const removeFile = useCallback((index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
@@ -142,7 +124,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
 
   return (
     <motion.div
-      className={`morphing-composer state-${state}`}
+      className="morphing-composer"
       layout
       transition={{ type: 'spring', stiffness: 400, damping: 30, duration: 0.25 }}
       onDragOver={(e) => e.preventDefault()}
@@ -212,13 +194,6 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
         />
 
         <div className="composer-actions">
-          <button
-            className="icon-button"
-            onClick={() => setState(state === 'composer' ? 'collapsed' : 'composer')}
-            title={state === 'composer' ? 'Collapse' : 'Expand to editor'}
-          >
-            {state === 'composer' ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-          </button>
           <button
             className="send-button"
             onClick={handleSend}

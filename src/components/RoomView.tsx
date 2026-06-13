@@ -365,7 +365,8 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
             <TimelineView
               content={content}
               remoteContent={remoteContent}
-              dirty={dirty}
+              workspace={workspace}
+              room={room}
             />
           </div>
         )}
@@ -383,7 +384,7 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
         {viewMode === 'preview' && (
           <div className="room-preview">
             <div className="markdown-preview" dangerouslySetInnerHTML={{
-              __html: simpleMarkdownToHtml(content)
+              __html: simpleMarkdownToHtml(content, workspace, room)
             }} />
           </div>
         )}
@@ -410,10 +411,11 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
 }
 
 // Simple timeline renderer
-function TimelineView({ content, remoteContent }: {
+function TimelineView({ content, remoteContent, workspace, room }: {
   content: string;
   remoteContent: string;
-  dirty?: boolean;
+  workspace: Workspace;
+  room: Room;
 }) {
   const lines = content.split('\n');
   const remoteLines = new Set(remoteContent.split('\n'));
@@ -463,7 +465,7 @@ function TimelineView({ content, remoteContent }: {
           )}
           <div className="timeline-content">
             <div dangerouslySetInnerHTML={{
-              __html: simpleMarkdownToHtml(block.lines.join('\n'))
+              __html: simpleMarkdownToHtml(block.lines.join('\n'), workspace, room)
             }} />
           </div>
         </div>
@@ -472,8 +474,12 @@ function TimelineView({ content, remoteContent }: {
   );
 }
 
-// Helper: simple markdown to HTML (for preview - not a full parser)
-function simpleMarkdownToHtml(md: string): string {
+// Helper: simple markdown to HTML with GitHub image URL resolution
+function simpleMarkdownToHtml(md: string, workspace: Workspace, room: Room): string {
+  // Build base URL for resolving relative image paths
+  const basePath = room.cotext_file_path.replace(/[^/]+$/, '');
+  const rawBase = `https://raw.githubusercontent.com/${workspace.github_owner}/${workspace.github_repo}/${workspace.default_branch}/${basePath}`;
+
   let html = md
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -484,10 +490,16 @@ function simpleMarkdownToHtml(md: string): string {
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img alt="$1" src="$2" />')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+    // Images: resolve relative ./assets/ paths to GitHub raw URLs
+    .replace(/!\[([^\]]*)\]\(\.\/(assets\/[^)]+)\)/g, (_match, alt, assetPath) => {
+      const fullUrl = `${rawBase}${assetPath}`;
+      return `<div class="timeline-image"><img alt="${alt}" src="${fullUrl}" loading="lazy" /><span class="image-caption">${alt || assetPath.split('/').pop()}</span></div>`;
+    })
+    // Images: absolute URLs
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<div class="timeline-image"><img alt="$1" src="$2" loading="lazy" /></div>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
     .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+    .replace(/((<li>.*<\/li>))/gs, '<ul>$1</ul>')
     .replace(/\n\n/g, '</p><p>')
     .replace(/\n/g, '<br/>');
 

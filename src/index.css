@@ -2528,14 +2528,132 @@ button:focus-visible {
 }
 
 /* ── CodeMirror Editor ───────────────────────────────────── */
-.cotext-editor {
+.cotext-editor-wrapper {
+  display: flex;
+  flex-direction: column;
   height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.cotext-editor {
+  flex: 1;
   overflow: hidden;
 }
 
 .cotext-editor .cm-editor {
   height: 100%;
   background: var(--bg);
+}
+
+/* ── Markdown Toolbar (Desktop) ──────────────────────────── */
+.md-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.md-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.md-toolbar-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.md-toolbar-btn:active {
+  background: var(--accent-muted);
+  color: var(--accent);
+  transform: scale(0.92);
+}
+
+/* ── Mobile Trigger Button ───────────────────────────────── */
+.md-mobile-trigger {
+  display: none;
+}
+
+/* ── Bottom Sheet ────────────────────────────────────────── */
+.md-sheet-backdrop {
+  display: none;
+}
+
+.md-bottom-sheet {
+  display: none;
+}
+
+.md-sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--text-dim);
+  margin: 8px auto;
+}
+
+.md-sheet-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 16px 24px;
+}
+
+.md-sheet-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.md-sheet-group-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.md-sheet-group-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.md-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.md-sheet-item:hover {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.md-sheet-item:active {
+  transform: scale(0.95);
 }
 
 /* ── Commit Bar ──────────────────────────────────────────── */
@@ -2776,6 +2894,60 @@ button:focus-visible {
 
   .app-logo-text {
     font-size: var(--text-sm);
+  }
+
+  /* Markdown toolbar: hide desktop, show mobile */
+  .md-toolbar-desktop {
+    display: none;
+  }
+
+  .md-mobile-trigger {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    position: absolute;
+    bottom: 8px;
+    right: 10px;
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    cursor: pointer;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    transition: all 0.15s;
+  }
+
+  .md-mobile-trigger:active {
+    transform: scale(0.95);
+  }
+
+  .md-sheet-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: var(--z-modal);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+
+  .md-bottom-sheet {
+    display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: calc(var(--z-modal) + 1);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    max-height: 60vh;
+    overflow-y: auto;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
   }
 }
 

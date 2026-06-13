@@ -2346,6 +2346,28 @@ button:focus-visible {
 }
 
 /* ── Share Modal ─────────────────────────────────────────── */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.modal-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .share-modal {
   max-width: 480px;
 }

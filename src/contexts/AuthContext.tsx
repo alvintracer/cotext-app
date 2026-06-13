@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import type { User, Session } from '@supabase/supabase-js';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase/client';
 
 interface AuthContextValue {
@@ -12,6 +12,35 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+/**
+ * Store GitHub provider token in github_connections table.
+ * Called once after OAuth sign-in when provider_token is available.
+ */
+async function storeGitHubToken(userId: string, providerToken: string) {
+  try {
+    // Get GitHub username from the token
+    const res = await fetch('https://api.github.com/user', {
+      headers: { Authorization: `Bearer ${providerToken}`, 'User-Agent': 'Cotext' },
+    });
+    const ghUser = res.ok ? await res.json() : null;
+
+    await supabase
+      .from('github_connections')
+      .upsert({
+        user_id: userId,
+        github_username: ghUser?.login || null,
+        access_token_encrypted: providerToken,
+        token_scope: 'repo,user:email',
+        connected_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+
+    console.log('[Auth] GitHub token stored for user', userId);
+  } catch (err) {
+    console.error('[Auth] Failed to store GitHub token:', err);
+  }
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -27,6 +56,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (sessionError) throw sessionError;
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
+
+        // If provider_token is available (right after OAuth redirect), store it
+        if (currentSession?.provider_token && currentSession?.user?.id) {
+          storeGitHubToken(currentSession.user.id, currentSession.provider_token);
+        }
       } catch (err) {
         setError(err instanceof Error ? err : new Error('Failed to get session'));
       } finally {
@@ -38,11 +72,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      (event: AuthChangeEvent, newSession) => {
         setSession(newSession);
         setUser(newSession?.user ?? null);
         setLoading(false);
         setError(null);
+
+        // Store provider_token on SIGNED_IN event (OAuth callback)
+        if (event === 'SIGNED_IN' && newSession?.provider_token && newSession?.user?.id) {
+          storeGitHubToken(newSession.user.id, newSession.provider_token);
+        }
       }
     );
 
@@ -59,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         provider: 'github',
         options: {
           scopes: 'repo,user:email',
+          redirectTo: window.location.origin + '/auth/callback',
         },
       });
       if (signInError) throw signInError;

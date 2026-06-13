@@ -46,7 +46,7 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
           .select('*')
           .eq('room_id', room.id)
           .eq('user_id', user!.id)
-          .single();
+          .maybeSingle();
 
         if (draft) {
           setLocalDraft(draft);

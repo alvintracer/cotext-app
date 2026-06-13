@@ -21,14 +21,19 @@
   - **붙여넣기 충실도**: Turndown HTML→마크다운 변환 fallback (ChatGPT/Gemini 아티팩트 대비)
   - **자동 가이드 생성**: Push 시 `.cotext/COTEXT_GUIDE.md` + `.cotext/INDEX.md` 자동 생성·갱신
   - **AGENTS.md 포인터**: `<!-- cotext:start -->` 마커로 비파괴 갱신
+- (2026-06-14) **§28.8 2차 로컬 MCP 서버 완료**:
+  - `packages/cotext-mcp/` 독립 패키지. `npx cotext-mcp`로 실행
+  - 5개 도구: `list_rooms`, `get_room`, `search_context`, `get_pack`, `append_note`
+  - 1개 리소스: `cotext://guide` (COTEXT_GUIDE.md 제공)
+  - me-only 필터 기본 적용, provenance 추적, stdio 전송
 
 ## 다음 단계
 MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context Pack 뷰어, 태그 및 구조화 기능 강화, 그리고 LLM 통합을 준비하는 과정이 포함될 수 있습니다.
 
 동기화(Sync) 로드맵 (계획서 §28, 결정 D-004~007):
 1. ~~Context Pack 복사 + 붙여넣기 마크다운 충실도 + provenance(source 태그) + AGENTS.md/INDEX 자동 유지~~ ✅ 완료
-2. **Cotext 로컬 MCP** (clone된 repo 대상, 우선) ← 다음
-3. 토큰게이트 공유 URL 엔드포인트 (private repo 지원)
+2. ~~**Cotext 로컬 MCP** (clone된 repo 대상)~~ ✅ 완료 (`packages/cotext-mcp`)
+3. 토큰게이트 공유 URL 엔드포인트 (private repo 지원) ← 다음
 4. 원격 MCP(호스티드) → Claude.ai 커넥터 / ChatGPT Actions, 멀티 LLM 팬아웃
 
 ## 관련 문서

@@ -20,3 +20,4 @@ YYYY-MM-DD HH:mm | command | summary | linked files
 2026-06-14 04:55 | save | "Sync with Agents" 핸드셰이크 + 자동 .cotext/COTEXT_GUIDE.md 가이드(§28.9~28.12), me-only 루프위생. 결정 D-007 승격 | [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]]
 2026-06-14 05:15 | save | 팀 협업 기능 구현: 초대 링크 + 팀원 리스트 + InvitePage + workspace_invites SQL | [[AI-Sessions/wiki/projects/cotext_mvp]]
 2026-06-14 06:00 | save | §28.8 1차 동기화 인프라 구현 완료: Context Pack 복사, provenance(source:me), Turndown 붙여넣기 충실도, COTEXT_GUIDE/INDEX 자동 생성, AGENTS.md 얇은 포인터. turndown 패키지 추가 | [[AI-Sessions/wiki/projects/cotext_mvp]]
+2026-06-14 06:15 | save | §28.8 2차 Cotext 로컬 MCP 서버 구현 완료: packages/cotext-mcp 독립 패키지, 5개 도구 + 1개 리소스, stdio 전송, me-only 필터 | [[AI-Sessions/wiki/projects/cotext_mvp]]

@@ -9,7 +9,7 @@ import type { Workspace } from '../types/workspace';
 import MorphingComposer from './MorphingComposer';
 import CommitBar from './CommitBar';
 import CotextEditor from './CotextEditor';
-import { AlertTriangle, Check, Loader2, Eye, Split, MessageSquare, Code, Clock } from 'lucide-react';
+import { AlertTriangle, Check, Loader2, Eye, Split, MessageSquare, Code, Clock, MoreVertical, Trash2 } from 'lucide-react';
 
 interface RoomViewProps {
   room: Room;
@@ -516,7 +516,7 @@ function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock }
                     }}
                     aria-label="More options"
                   >
-                    ···
+                    <MoreVertical size={14} />
                   </button>
                   {openMenu === i && (
                     <div className="draft-menu-popup" onClick={(e) => e.stopPropagation()}>
@@ -527,7 +527,8 @@ function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock }
                           onDeleteBlock?.(block.timestamp!);
                         }}
                       >
-                        Delete
+                        <Trash2 size={13} />
+                        <span>Delete</span>
                       </button>
                     </div>
                   )}

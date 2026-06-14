@@ -55,6 +55,7 @@ export default function WorkspaceDetailPage() {
   const [subTrees, setSubTrees] = useState<Record<string, TreeItem[]>>({});
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderParent, setNewFolderParent] = useState<string | null>(null);
+  const [chatName, setChatName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
@@ -188,11 +189,13 @@ export default function WorkspaceDetailPage() {
 
   const handleAddRoom = useCallback(async () => {
     if (!workspace || !user || !selectedPath) return;
+    const name = chatName.trim() || 'cotext';
+    const safeName = name.replace(/[^a-zA-Z0-9가-힣_\-\s]/g, '').replace(/\s+/g, '-').toLowerCase() || 'cotext';
 
     const cotextFolder = workspace.cotext_folder_name || '.cotext';
     const cotextFilePath = selectedPath
-      ? `${selectedPath}/${cotextFolder}/cotext.md`
-      : `${cotextFolder}/cotext.md`;
+      ? `${selectedPath}/${cotextFolder}/${safeName}.md`
+      : `${cotextFolder}/${safeName}.md`;
 
     try {
       const { data, error } = await supabase
@@ -201,6 +204,7 @@ export default function WorkspaceDetailPage() {
           workspace_id: workspace.id,
           user_id: user.id,
           path: selectedPath || 'root',
+          name: name,
           cotext_folder: cotextFolder,
           cotext_file_path: cotextFilePath,
         })
@@ -211,11 +215,12 @@ export default function WorkspaceDetailPage() {
       setRooms((prev) => [data, ...prev]);
       setShowAddRoom(false);
       setSelectedPath('');
+      setChatName('');
       setSelectedRoom(data);
     } catch (err) {
       console.error('Failed to create room:', err);
     }
-  }, [workspace, user, selectedPath]);
+  }, [workspace, user, selectedPath, chatName]);
 
   // Generate invite link
   const handleGenerateInvite = useCallback(async () => {
@@ -263,9 +268,10 @@ export default function WorkspaceDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   }, [inviteLink]);
 
-  const filteredRooms = rooms.filter((r) =>
-    r.path.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredRooms = rooms.filter((r) => {
+    const q = searchQuery.toLowerCase();
+    return r.path.toLowerCase().includes(q) || (r.name && r.name.toLowerCase().includes(q));
+  });
 
   if (!workspace) {
     return (
@@ -368,10 +374,8 @@ export default function WorkspaceDetailPage() {
               >
                 <MessageSquare size={14} />
                 <div className="room-item-info">
-                  {room.path.includes('/') && (
-                    <span className="room-item-dir">{room.path.substring(0, room.path.lastIndexOf('/'))}</span>
-                  )}
-                  <span className="room-item-path">{room.path.split('/').pop() || room.path}</span>
+                  <span className="room-item-dir">{room.path === 'root' ? '/' : room.path}</span>
+                  <span className="room-item-path">{room.name || room.path.split('/').pop() || room.path}</span>
                 </div>
                 {room.last_known_sha && (
                   <span className="room-synced-dot" title="Synced" />
@@ -574,6 +578,21 @@ export default function WorkspaceDetailPage() {
                 })()}
               </div>
             ) : null}
+            {selectedPath && (
+              <div className="form-group" style={{ marginTop: '12px' }}>
+                <label>{language === 'ko' ? '챗 이름' : 'Chat Name'}</label>
+                <input
+                  type="text"
+                  value={chatName}
+                  onChange={(e) => setChatName(e.target.value)}
+                  placeholder={language === 'ko' ? '예: meeting-notes, decisions…' : 'e.g., meeting-notes, decisions…'}
+                  className="input"
+                />
+                <p className="text-muted text-xs" style={{ marginTop: '4px' }}>
+                  → {selectedPath}/.cotext/{(chatName.trim() || 'cotext').replace(/[^a-zA-Z0-9\uac00-\ud7a3_\-\s]/g, '').replace(/\s+/g, '-').toLowerCase() || 'cotext'}.md
+                </p>
+              </div>
+            )}
 
             <div className="modal-actions">
               <button className="btn btn-ghost" onClick={() => setShowAddRoom(false)}>Cancel</button>

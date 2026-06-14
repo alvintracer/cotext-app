@@ -3,6 +3,7 @@ export interface Room {
   workspace_id: string;
   user_id: string;
   path: string;
+  name: string;
   cotext_folder: string;
   cotext_file_path: string;
   last_known_sha: string | null;

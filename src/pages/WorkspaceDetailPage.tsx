@@ -51,6 +51,8 @@ export default function WorkspaceDetailPage() {
   const [tree, setTree] = useState<TreeItem[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
   const [selectedPath, setSelectedPath] = useState('');
+  const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
+  const [subTrees, setSubTrees] = useState<Record<string, TreeItem[]>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
@@ -158,6 +160,29 @@ export default function WorkspaceDetailPage() {
       setLoadingTree(false);
     }
   }, [workspace]);
+
+  const toggleDir = useCallback(async (dirPath: string) => {
+    if (expandedDirs.has(dirPath)) {
+      // Collapse
+      setExpandedDirs((prev) => { const next = new Set(prev); next.delete(dirPath); return next; });
+    } else {
+      // Expand: load children if not cached
+      setExpandedDirs((prev) => new Set(prev).add(dirPath));
+      if (!subTrees[dirPath] && workspace) {
+        try {
+          const result = await githubApi.getTree(
+            workspace.github_owner,
+            workspace.github_repo,
+            workspace.default_branch,
+            dirPath,
+          );
+          setSubTrees((prev) => ({ ...prev, [dirPath]: (result.tree || []).filter((i: TreeItem) => i.type === 'dir') }));
+        } catch {
+          setSubTrees((prev) => ({ ...prev, [dirPath]: [] }));
+        }
+      }
+    }
+  }, [workspace, expandedDirs, subTrees]);
 
   const handleAddRoom = useCallback(async () => {
     if (!workspace || !user || !selectedPath) return;
@@ -270,9 +295,8 @@ export default function WorkspaceDetailPage() {
 
       {/* Agent panel toggle */}
       {!agentOpen && (
-        <button className="agent-toggle" onClick={() => setAgentOpen(true)}>
-          <CodepenLogo size={16} weight="duotone" />
-          <span>{language === 'ko' ? '에이전트' : 'Agents'}</span>
+        <button className="agent-toggle" onClick={() => setAgentOpen(true)} title={language === 'ko' ? '에이전트' : 'Agents'}>
+          <CodepenLogo size={18} weight="duotone" />
         </button>
       )}
 
@@ -341,7 +365,12 @@ export default function WorkspaceDetailPage() {
                 }}
               >
                 <MessageSquare size={14} />
-                <span className="room-item-path">{room.path}</span>
+                <div className="room-item-info">
+                  {room.path.includes('/') && (
+                    <span className="room-item-dir">{room.path.substring(0, room.path.lastIndexOf('/'))}</span>
+                  )}
+                  <span className="room-item-path">{room.path.split('/').pop() || room.path}</span>
+                </div>
                 {room.last_known_sha && (
                   <span className="room-synced-dot" title="Synced" />
                 )}
@@ -458,20 +487,51 @@ export default function WorkspaceDetailPage() {
               </div>
             ) : tree.length > 0 ? (
               <div className="tree-list">
-                <p className="text-muted text-xs mb-2">Or select from repository:</p>
-                {tree
-                  .filter((item) => item.type === 'dir')
-                  .map((item) => (
-                    <button
-                      key={item.path}
-                      className={`tree-item ${selectedPath === item.path ? 'active' : ''}`}
-                      onClick={() => setSelectedPath(item.path)}
-                    >
-                      <FolderTree size={14} />
-                      <span>{item.path}</span>
-                      <ChevronRight size={12} />
-                    </button>
-                  ))}
+                <p className="text-muted text-xs mb-2">{language === 'ko' ? '레포에서 선택:' : 'Select from repository:'}</p>
+                {(() => {
+                  const renderItems = (items: TreeItem[], depth: number = 0) =>
+                    items
+                      .filter((item) => item.type === 'dir')
+                      .map((item) => {
+                        const isExpanded = expandedDirs.has(item.path);
+                        const children = subTrees[item.path];
+                        const baseName = item.path.split('/').pop() || item.path;
+                        return (
+                          <div key={item.path}>
+                            <div
+                              className={`tree-item ${selectedPath === item.path ? 'active' : ''}`}
+                              style={{ paddingLeft: `${10 + depth * 16}px` }}
+                            >
+                              <button
+                                className="tree-expand-btn"
+                                onClick={(e) => { e.stopPropagation(); toggleDir(item.path); }}
+                              >
+                                <ChevronRight size={12} className={`tree-chevron ${isExpanded ? 'expanded' : ''}`} />
+                              </button>
+                              <button
+                                className="tree-select-btn"
+                                onClick={() => setSelectedPath(item.path)}
+                              >
+                                <FolderTree size={14} />
+                                <span>{baseName}</span>
+                              </button>
+                            </div>
+                            {isExpanded && children && children.length > 0 && renderItems(children, depth + 1)}
+                            {isExpanded && children && children.length === 0 && (
+                              <div className="tree-empty" style={{ paddingLeft: `${26 + depth * 16}px` }}>
+                                <span className="text-muted text-xs">{language === 'ko' ? '하위 폴더 없음' : 'No subfolders'}</span>
+                              </div>
+                            )}
+                            {isExpanded && !children && (
+                              <div className="tree-empty" style={{ paddingLeft: `${26 + depth * 16}px` }}>
+                                <div className="spinner-sm" />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                  return renderItems(tree);
+                })()}
               </div>
             ) : null}
 

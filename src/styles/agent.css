@@ -14,10 +14,8 @@
   z-index: var(--z-sticky);
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 11px 16px;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
+  justify-content: center;
+  padding: 10px 12px;
   color: var(--accent-fg);
   background: var(--accent);
   border: none;
@@ -26,11 +24,23 @@
   cursor: pointer;
   transition: all var(--duration-normal) var(--ease-default);
 }
-.agent-toggle:hover { background: var(--accent-hover); padding-right: 20px; }
+.agent-toggle:hover { background: var(--accent-hover); padding-left: 14px; }
 
 @media (max-width: 768px) {
-  /* On mobile sit just above the composer, still clearly visible */
-  .agent-toggle { top: auto; bottom: 84px; }
+  /* Mobile: small FAB in bottom-right, out of the way */
+  .agent-toggle {
+    position: fixed;
+    top: auto;
+    right: 12px;
+    bottom: 14px;
+    transform: none;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: var(--radius-full);
+    opacity: 0.85;
+  }
+  .agent-toggle:hover { padding-left: 0; opacity: 1; }
 }
 
 /* Panel */

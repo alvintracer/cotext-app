@@ -2241,8 +2241,24 @@ button:focus-visible {
   color: var(--accent);
 }
 
-.room-item-path {
+.room-item-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.room-item-dir {
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.room-item-path {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2295,17 +2311,15 @@ button:focus-visible {
 .tree-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   width: 100%;
-  padding: 6px 10px;
+  padding: 4px 10px;
   background: none;
   border: none;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   font-size: var(--text-sm);
-  cursor: pointer;
   transition: all 0.15s;
-  text-align: left;
 }
 
 .tree-item:hover {
@@ -2318,8 +2332,51 @@ button:focus-visible {
   color: var(--accent);
 }
 
-.tree-item span {
+.tree-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.tree-expand-btn:hover { background: var(--surface); }
+
+.tree-chevron {
+  transition: transform 0.15s;
+}
+.tree-chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.tree-select-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex: 1;
+  padding: 2px 4px;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+.tree-select-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-empty {
+  padding: 4px 10px;
 }
 
 /* ── Room View ───────────────────────────────────────────── */

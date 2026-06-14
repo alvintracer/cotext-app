@@ -3640,31 +3640,33 @@ button:focus-visible {
   color: var(--text-dim);
 }
 
-.commit-selector {
+.commit-input-row {
+  display: flex;
+  gap: 0;
+}
+
+.commit-input-row .commit-input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+}
+
+.commit-dropdown-toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
-  width: 100%;
+  justify-content: center;
+  width: 28px;
+  flex-shrink: 0;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 6px 12px;
+  border-left: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   color: var(--text-dim);
-  font-size: var(--text-xs);
-  font-family: 'JetBrains Mono', monospace;
   cursor: pointer;
-  text-align: left;
-  transition: border-color 0.15s;
+  transition: background 0.1s, color 0.1s;
 }
-.commit-selector:hover { border-color: var(--accent); }
-.commit-selector:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.commit-selector-text {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.commit-dropdown-toggle:hover { background: var(--surface); color: var(--text); }
+.commit-dropdown-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .commit-caret {
   flex-shrink: 0;

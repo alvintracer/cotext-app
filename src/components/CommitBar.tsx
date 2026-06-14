@@ -15,28 +15,25 @@ interface CommitBarProps {
 }
 
 interface Preset {
-  icon: string;
   label: string;
   desc: string;
   msg: (p: string) => string;
 }
 
 const PRESETS_EN: Preset[] = [
-  { icon: '📝', label: 'Update notes', desc: 'Save your edits to GitHub', msg: (p) => `cotext: update ${p}` },
-  { icon: '✅', label: 'Review & approve', desc: 'Mark AI content as reviewed', msg: (p) => `cotext: reviewed ${p}` },
-  { icon: '🔀', label: 'Merge AI suggestions', desc: 'Accept and push AI-generated notes', msg: (p) => `cotext: merge AI notes in ${p}` },
-  { icon: '🧹', label: 'Clean up', desc: 'Reorganize or trim content', msg: (p) => `cotext: cleanup ${p}` },
-  { icon: '📌', label: 'Add decision', desc: 'Record a key decision or reference', msg: (p) => `cotext: add decision to ${p}` },
-  { icon: '✏️', label: 'Custom message…', desc: 'Write your own commit message', msg: () => '' },
+  { label: 'Update notes', desc: 'Save your edits to GitHub', msg: (p) => `cotext: update ${p}` },
+  { label: 'Review & approve', desc: 'Mark AI content as reviewed', msg: (p) => `cotext: reviewed ${p}` },
+  { label: 'Merge AI suggestions', desc: 'Accept and push AI-generated notes', msg: (p) => `cotext: merge AI notes in ${p}` },
+  { label: 'Clean up', desc: 'Reorganize or trim content', msg: (p) => `cotext: cleanup ${p}` },
+  { label: 'Add decision', desc: 'Record a key decision or reference', msg: (p) => `cotext: add decision to ${p}` },
 ];
 
 const PRESETS_KO: Preset[] = [
-  { icon: '📝', label: '노트 업데이트', desc: '편집 내용을 GitHub에 저장', msg: (p) => `cotext: update ${p}` },
-  { icon: '✅', label: '검토 및 승인', desc: 'AI 콘텐츠를 검토 완료로 표시', msg: (p) => `cotext: reviewed ${p}` },
-  { icon: '🔀', label: 'AI 제안 병합', desc: 'AI가 생성한 노트를 수용하고 push', msg: (p) => `cotext: merge AI notes in ${p}` },
-  { icon: '🧹', label: '정리 / 재구성', desc: '콘텐츠 정리 또는 불필요한 내용 제거', msg: (p) => `cotext: cleanup ${p}` },
-  { icon: '📌', label: '결정 사항 추가', desc: '핵심 결정이나 참고 자료를 기록', msg: (p) => `cotext: add decision to ${p}` },
-  { icon: '✏️', label: '직접 입력…', desc: '커밋 메시지를 직접 작성', msg: () => '' },
+  { label: '노트 업데이트', desc: '편집 내용을 GitHub에 저장', msg: (p) => `cotext: update ${p}` },
+  { label: '검토 및 승인', desc: 'AI 콘텐츠를 검토 완료로 표시', msg: (p) => `cotext: reviewed ${p}` },
+  { label: 'AI 제안 병합', desc: 'AI가 생성한 노트를 수용하고 push', msg: (p) => `cotext: merge AI notes in ${p}` },
+  { label: '정리 / 재구성', desc: '콘텐츠 정리 또는 불필요한 내용 제거', msg: (p) => `cotext: cleanup ${p}` },
+  { label: '결정 사항 추가', desc: '핵심 결정이나 참고 자료를 기록', msg: (p) => `cotext: add decision to ${p}` },
 ];
 
 export default function CommitBar({
@@ -51,8 +48,8 @@ export default function CommitBar({
 }: CommitBarProps) {
   const { language } = useLanguage();
   const presets = language === 'ko' ? PRESETS_KO : PRESETS_EN;
+  const placeholder = language === 'ko' ? '커밋 이름을 입력하세요..' : 'Enter a commit message..';
   const [open, setOpen] = useState(false);
-  const [customMode, setCustomMode] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -66,55 +63,43 @@ export default function CommitBar({
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  // Focus input when custom mode is activated
-  useEffect(() => {
-    if (customMode && inputRef.current) inputRef.current.focus();
-  }, [customMode]);
-
   const selectPreset = (preset: Preset) => {
-    if (preset.msg(roomPath) === '') {
-      setCustomMode(true);
-      onCommitMessageChange('');
-      setOpen(false);
-    } else {
-      onCommitMessageChange(preset.msg(roomPath));
-      setCustomMode(false);
-      setOpen(false);
-    }
+    const base = preset.msg(roomPath);
+    onCommitMessageChange(base + ' ');
+    setOpen(false);
+    // Focus input and place cursor at end so user can append
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
-
-  const displayText = commitMessage || `cotext: update ${roomPath}`;
 
   return (
     <div className="commit-bar" ref={wrapperRef}>
       <div className="commit-input-wrapper">
-        {customMode ? (
+        <div className="commit-input-row">
           <input
             ref={inputRef}
             type="text"
             className="commit-input"
             value={commitMessage}
             onChange={(e) => onCommitMessageChange(e.target.value)}
-            onBlur={() => { if (!commitMessage) setCustomMode(false); }}
-            placeholder={language === 'ko' ? '커밋 메시지를 입력하세요…' : 'Type your commit message…'}
+            onFocus={() => { if (!commitMessage) setOpen(true); }}
+            placeholder={placeholder}
             disabled={syncing}
           />
-        ) : (
           <button
-            className="commit-selector"
+            className="commit-dropdown-toggle"
             onClick={() => setOpen((v) => !v)}
             disabled={syncing}
+            title={language === 'ko' ? '프리셋 선택' : 'Pick a preset'}
           >
-            <span className="commit-selector-text">{displayText}</span>
             <CaretDown size={12} weight="bold" className={`commit-caret ${open ? 'open' : ''}`} />
           </button>
-        )}
+        </div>
 
         {open && (
           <div className="commit-presets">
             {presets.map((p, i) => (
               <button key={i} className="commit-preset-item" onClick={() => selectPreset(p)}>
-                <span className="commit-preset-label">{p.icon} {p.label}</span>
+                <span className="commit-preset-label">{p.label}</span>
                 <span className="commit-preset-desc">{p.desc}</span>
               </button>
             ))}

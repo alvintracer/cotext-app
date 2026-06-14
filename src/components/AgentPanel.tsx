@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   CodepenLogo, X, GearSix, PaperPlaneRight, Copy, Check, ArrowClockwise,
-  Warning, ArrowSquareOut, FloppyDisk, Wrench,
+  Warning, ArrowSquareOut, PlusCircle, Wrench, SpinnerGap,
 } from '@phosphor-icons/react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { githubApi } from '../lib/supabase/functions';
@@ -268,11 +268,12 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
   };
 
   // Write an AI reply back into the room's cotext.md, tagged with source:<provider>
+  // Retries once on 409 conflict (SHA mismatch from concurrent edits).
   const saveToChat = async (idx: number, content: string) => {
     if (!room || savingIdx !== null) return;
     setSavingIdx(idx);
     setError('');
-    try {
+    const attempt = async () => {
       const cur = await githubApi.getRoomContent(
         workspace.github_owner, workspace.github_repo, workspace.default_branch, room.cotext_file_path,
       );
@@ -281,6 +282,19 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
         workspace.github_owner, workspace.github_repo, workspace.default_branch,
         room.cotext_file_path, updated, cur.sha, `cotext: agent (${providerId}) note`,
       );
+    };
+    try {
+      try {
+        await attempt();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        // Retry once on conflict (409 / SHA mismatch)
+        if (msg.includes('409') || msg.toLowerCase().includes('conflict') || msg.toLowerCase().includes('sha')) {
+          await attempt();
+        } else {
+          throw e;
+        }
+      }
       setSavedIdx(idx);
       setTimeout(() => setSavedIdx(null), 2000);
       onSaved?.();
@@ -450,9 +464,9 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
               <div className="agent-msg-meta">
                 <span className="agent-source">source: {m.model}</span>
                 {room && (
-                  <button className="icon-button agent-copy" onClick={() => saveToChat(i, m.content)}
+                  <button className="agent-add-btn" onClick={() => saveToChat(i, m.content)}
                     disabled={savingIdx !== null} title={t.saveToChat}>
-                    {savedIdx === i ? <Check size={13} /> : <FloppyDisk size={13} className={savingIdx === i ? 'spin' : ''} />}
+                    {savedIdx === i ? <Check size={14} weight="bold" /> : savingIdx === i ? <SpinnerGap size={14} className="spin" /> : <PlusCircle size={16} weight="fill" />}
                   </button>
                 )}
                 <button className="icon-button agent-copy" onClick={() => copyMsg(i, m.content)} title={t.copy}>

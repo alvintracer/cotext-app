@@ -183,6 +183,29 @@
 }
 .agent-copy { width: 22px; height: 22px; }
 
+.agent-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent, #3b82f6);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+.agent-add-btn:hover:not(:disabled) {
+  background: var(--accent-hover, #2563eb);
+  transform: scale(1.1);
+}
+.agent-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .agent-usage {
   font-family: var(--font-mono);
   font-size: 10px;

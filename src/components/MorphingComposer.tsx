@@ -54,6 +54,18 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
     const previews: Array<{ name: string; size: string; preview?: string; isImage?: boolean; extractable?: boolean }> = [];
 
     for (const file of selectedFiles) {
+      // Text/markdown files → read content and insert directly into input
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      if (['md', 'txt', 'markdown'].includes(ext)) {
+        try {
+          const content = await file.text();
+          setText((prev) => prev ? `${prev}\n\n${content}` : content);
+        } catch (err) {
+          console.error('Failed to read text file:', err);
+        }
+        continue;
+      }
+
       if (isImageFile(file)) {
         try {
           const result = await compressImage(file);
@@ -80,8 +92,8 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
       }
     }
 
-    setFiles((prev) => [...prev, ...processed]);
-    setFilePreview((prev) => [...prev, ...previews]);
+    if (processed.length > 0) setFiles((prev) => [...prev, ...processed]);
+    if (previews.length > 0) setFilePreview((prev) => [...prev, ...previews]);
     setCompressing(false);
   }, []);
 

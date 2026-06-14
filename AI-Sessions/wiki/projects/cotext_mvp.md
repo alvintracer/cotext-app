@@ -58,14 +58,17 @@ MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context
   - **스트리밍**: 직접 provider는 SSE 스트리밍, GitHub Models는 프록시라 non-stream
   - **GitHub Models**: OAuth 로그인 토큰은 models 권한 없음 → fine-grained PAT(models:read) BYOK + Edge Function `github-models` 프록시(§29.7)
   - 아이콘 codepen-logo
-  - 후속: GitHub Models 스트리밍, 멀티모델 팬아웃, 무키 체험(하이브리드)
+  - 후속: 멀티모델 팬아웃, 무키 체험(하이브리드)
 - (2026-06-14) **§29.8 도구콜 자동편집(Agent Mode) 완료**:
-  - `tools.ts`: 3개 도구 정의 — `list_rooms`(읽기), `get_room`(읽기), `append_note`(쓰기/승인필요)
-  - `providers.ts`의 `runToolLoop`: OpenAI-compatible function calling 루프 (최대 4회 반복)
+  - `tools.ts`: 3개 도구(3형식: OpenAI/Gemini/Anthropic) — `list_rooms`(읽기), `get_room`(읽기), `append_note`(쓰기/승인필요)
+  - `providers.ts`의 `runToolLoop`: 3종 shape별 tool loop (`toolLoopOpenAI`, `toolLoopAnthropic`, `toolLoopGemini`)
+  - **모든 provider에서 Agent Mode 사용 가능** (Gemini, Claude, OpenAI, Groq, xAI, OpenRouter, Custom)
+  - 모델 fallback: 지정 모델이 404/not found 시 `fallbackModel`로 자동 재시도
   - 읽기 도구는 자동 실행, `append_note`는 미리보기→승인/거절 카드 UI
-  - `AgentPanel.tsx`: Agent Mode 토글(OpenAI 호환 모델에서만 표시), Proposal 승인 카드
-  - `WorkspaceDetailPage.tsx`: `rooms` prop 전달로 에이전트가 다른 룸도 읽기 가능
-  - CSS: `.agent-mode-bar`, `.agent-proposal` 카드 스타일
+- (2026-06-14) **§29.9 GitHub Models 제거 & 모델 목록 정비**:
+  - GitHub Models provider 삭제 (전부 BYOK로 통일)
+  - 각 provider별 실제 호출 가능한 모델 목록 확충 (OpenAI: gpt-4.1 시리즈, Gemini: 2.0/2.5, Groq: gemma2/mixtral 등)
+  - `proxy` 속성 제거, `chatGithubModels` 함수 사용처 정리
 
 ## 관련 문서
 - [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]] — 스택·토큰·이미지 압축 등 핵심 결정

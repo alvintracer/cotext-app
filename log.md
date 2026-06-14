@@ -26,3 +26,4 @@ YYYY-MM-DD HH:mm | command | summary | linked files
 2026-06-14 08:55 | save | §29 write-back 추가(답변→챗에 source 태그로 저장, RoomView 자동 새로고침) + 토글 가시성 수정(우측 가장자리 핸들). 계획서 §29.5 갱신 | [[cotext-development-plan]]
 2026-06-14 09:10 | save | 에이전트 아이콘 codepen-logo로 교체. GitHub Models 검증: OAuth 로그인 토큰은 models 권한 없음 → fine-grained PAT(models:read) BYOK + Edge Function 프록시(github-models)로 연결. 계획서 §29.7 | [[cotext-development-plan]]
 2026-06-14 09:25 | save | §29 스트리밍 구현: 직접 provider(Gemini/OpenAI/Anthropic/Groq/xAI/OpenRouter) SSE 스트리밍(providers.ts readSSE+onToken), GitHub Models는 프록시라 non-stream 유지. 계획서 §29.5 갱신 | [[cotext-development-plan]], [[AI-Sessions/wiki/projects/cotext_mvp]]
+2026-06-14 10:25 | save | §29.8 도구콜 자동편집(Agent Mode) 구현 완료: tools.ts 도구 3종, runToolLoop 에이전트 루프, append_note 미리보기/승인 카드, rooms prop 전달. GitHub Push Protection 시크릿 제거 후 main 푸시 | [[AI-Sessions/wiki/projects/cotext_mvp]]

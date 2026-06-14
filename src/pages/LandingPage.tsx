@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight, Sun, Moon, Monitor, PaperPlaneRight as Send,
   Image as ImageIcon, DeviceMobile as Smartphone, Robot as Bot, Check, Stack as Layers,
-  ChatText as MessageSquare, GitBranch, GithubLogo, Package, ShareNetwork,
+  ChatText as MessageSquare, GitBranch, GithubLogo, Package, ShareNetwork, AndroidLogo
 } from '@phosphor-icons/react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -18,6 +18,7 @@ const CONTENT = {
     heroSub:
       '채팅하듯 언제든 메모하세요. 언제 어디서든 당신의 메모가 당신의 팀과 AI 에이전트가 가장 이해하기 쉬운 언어로 동기화됩니다.',
     githubStart: 'GitHub로 시작',
+    downloadApp: '안드로이드 앱 다운로드',
     heroNote: '무료로 시작 · 당신의 repo가 정본 · 토큰은 서버에만',
     trustLabel: '함께 쓰는 도구',
     f1Title: '채팅하듯 캡처, 에디터처럼 확장',
@@ -77,6 +78,7 @@ const CONTENT = {
     heroSub:
       'Capture notes anytime, like chatting. Anywhere, anytime, your notes sync into the language your team and AI agents understand best.',
     githubStart: 'Start with GitHub',
+    downloadApp: 'Download Android App',
     heroNote: 'Free to start · Your repo is the source of truth · Tokens stay on the server',
     trustLabel: 'Works with',
     f1Title: 'Capture like chat, expand like an editor',
@@ -136,6 +138,23 @@ export default function LandingPage() {
   const c = CONTENT[language === 'ko' ? 'ko' : 'en'];
 
   const launch = () => navigate('/login');
+  
+  const downloadAndroidApp = async () => {
+    try {
+      const res = await fetch('https://api.github.com/repos/alvintracer/cotext-app/releases/latest');
+      if (!res.ok) throw new Error('No release found');
+      const data = await res.json();
+      const apkAsset = data.assets.find((a: any) => a.name.endsWith('.apk'));
+      if (apkAsset) {
+        window.open(apkAsset.browser_download_url, '_blank');
+      } else {
+        alert(language === 'ko' ? '아직 배포된 APK 파일이 없습니다.' : 'APK release not found yet.');
+      }
+    } catch (e) {
+      alert(language === 'ko' ? '최신 릴리즈 정보를 가져오지 못했습니다.' : 'Failed to fetch release info.');
+    }
+  };
+
   const cycleTheme = () =>
     setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark');
 
@@ -184,6 +203,9 @@ export default function LandingPage() {
         <div className="lp-hero-cta">
           <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={launch}>
             {c.launch} <ArrowRight size={18} />
+          </button>
+          <button className="lp-btn lp-btn-ghost" onClick={downloadAndroidApp}>
+            <AndroidLogo size={18} /> {c.downloadApp}
           </button>
           <button className="lp-btn lp-btn-ghost" onClick={launch}>
             <GithubLogo size={18} /> {c.githubStart}
@@ -349,9 +371,14 @@ export default function LandingPage() {
         <div className="lp-cta">
           <h2>{c.ctaTitle}</h2>
           <p>{c.ctaDesc}</p>
-          <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={launch}>
-            {c.ctaBtn} <ArrowRight size={18} />
-          </button>
+          <div className="lp-hero-cta" style={{ justifyContent: 'center', marginTop: '2rem' }}>
+            <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={launch}>
+              {c.ctaBtn} <ArrowRight size={18} />
+            </button>
+            <button className="lp-btn lp-btn-ghost" onClick={downloadAndroidApp}>
+              <AndroidLogo size={18} /> {c.downloadApp}
+            </button>
+          </div>
         </div>
       </section>
 

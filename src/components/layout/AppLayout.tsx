@@ -46,7 +46,6 @@ export default function AppLayout() {
           provider: 'github',
           options: {
             scopes: 'repo,user:email',
-            redirectTo: window.location.origin + '/auth/callback',
           },
         });
       }

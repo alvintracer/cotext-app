@@ -98,7 +98,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         provider: 'github',
         options: {
           scopes: 'repo,user:email',
-          redirectTo: window.location.origin + '/auth/callback',
         },
       });
       if (signInError) throw signInError;

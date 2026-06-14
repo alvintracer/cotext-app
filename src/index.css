@@ -1507,12 +1507,22 @@ button:focus-visible {
   padding-left: 8px;
   border-left: 1px solid var(--border);
   margin-left: 4px;
+  position: relative;
 }
 
-.user-info {
+.user-info-btn {
   display: flex;
   align-items: center;
   gap: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  transition: background 0.1s;
+}
+.user-info-btn:hover {
+  background: var(--surface-2);
 }
 
 .user-avatar {
@@ -1536,6 +1546,78 @@ button:focus-visible {
 .user-name {
   font-size: var(--text-sm);
   color: var(--text-muted);
+}
+
+/* Profile dropdown */
+.profile-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.2));
+  z-index: var(--z-dropdown, 100);
+  padding: 4px;
+  animation: profileFadeIn 0.12s ease-out;
+}
+
+@keyframes profileFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.profile-dropdown-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+}
+
+.profile-dropdown-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.profile-dropdown-email {
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-dropdown-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.profile-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background 0.1s;
+}
+.profile-dropdown-item:hover {
+  background: var(--surface-2);
+}
+
+.profile-dropdown-danger {
+  color: var(--error, #ef4444);
+}
+.profile-dropdown-danger:hover {
+  background: color-mix(in srgb, var(--error, #ef4444) 10%, transparent);
 }
 
 .app-content {

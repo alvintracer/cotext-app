@@ -685,14 +685,17 @@
 
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 860px) {
+  .lp-inner { padding-inline: 20px; }
   .lp-nav-links { display: none; }
   .lp-feature { grid-template-columns: 1fr; gap: 32px; margin-bottom: 64px; }
   .lp-feature.reverse .lp-feature-visual { order: 0; }
   .lp-steps { grid-template-columns: 1fr; }
+  .lp-grid { grid-template-columns: 1fr; }
   .lp-app { grid-template-columns: 1fr; }
   .lp-app-side { display: none; }
   .lp-hero { padding-top: 56px; }
   .lp-section { padding-block: 56px; }
+  .lp-cta { padding: 48px 20px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

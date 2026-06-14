@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { ArrowDown, ArrowUp, Spinner as Loader2, CaretDown } from '@phosphor-icons/react';
+import { useLanguage } from '../contexts/LanguageContext';
 import type { SyncStatus } from '../types/room';
 
 interface CommitBarProps {
@@ -13,13 +14,29 @@ interface CommitBarProps {
   roomPath: string;
 }
 
-const PRESETS = [
-  { label: '📝 Update notes', msg: (p: string) => `cotext: update ${p}` },
-  { label: '✅ Review & approve', msg: (p: string) => `cotext: reviewed ${p}` },
-  { label: '🔀 Merge AI suggestions', msg: (p: string) => `cotext: merge AI notes in ${p}` },
-  { label: '🧹 Clean up / reorganize', msg: (p: string) => `cotext: cleanup ${p}` },
-  { label: '📌 Add decision / reference', msg: (p: string) => `cotext: add decision to ${p}` },
-  { label: '✏️ Custom message…', msg: () => '' },
+interface Preset {
+  icon: string;
+  label: string;
+  desc: string;
+  msg: (p: string) => string;
+}
+
+const PRESETS_EN: Preset[] = [
+  { icon: '📝', label: 'Update notes', desc: 'Save your edits to GitHub', msg: (p) => `cotext: update ${p}` },
+  { icon: '✅', label: 'Review & approve', desc: 'Mark AI content as reviewed', msg: (p) => `cotext: reviewed ${p}` },
+  { icon: '🔀', label: 'Merge AI suggestions', desc: 'Accept and push AI-generated notes', msg: (p) => `cotext: merge AI notes in ${p}` },
+  { icon: '🧹', label: 'Clean up', desc: 'Reorganize or trim content', msg: (p) => `cotext: cleanup ${p}` },
+  { icon: '📌', label: 'Add decision', desc: 'Record a key decision or reference', msg: (p) => `cotext: add decision to ${p}` },
+  { icon: '✏️', label: 'Custom message…', desc: 'Write your own commit message', msg: () => '' },
+];
+
+const PRESETS_KO: Preset[] = [
+  { icon: '📝', label: '노트 업데이트', desc: '편집 내용을 GitHub에 저장', msg: (p) => `cotext: update ${p}` },
+  { icon: '✅', label: '검토 및 승인', desc: 'AI 콘텐츠를 검토 완료로 표시', msg: (p) => `cotext: reviewed ${p}` },
+  { icon: '🔀', label: 'AI 제안 병합', desc: 'AI가 생성한 노트를 수용하고 push', msg: (p) => `cotext: merge AI notes in ${p}` },
+  { icon: '🧹', label: '정리 / 재구성', desc: '콘텐츠 정리 또는 불필요한 내용 제거', msg: (p) => `cotext: cleanup ${p}` },
+  { icon: '📌', label: '결정 사항 추가', desc: '핵심 결정이나 참고 자료를 기록', msg: (p) => `cotext: add decision to ${p}` },
+  { icon: '✏️', label: '직접 입력…', desc: '커밋 메시지를 직접 작성', msg: () => '' },
 ];
 
 export default function CommitBar({
@@ -32,6 +49,8 @@ export default function CommitBar({
   dirty,
   roomPath,
 }: CommitBarProps) {
+  const { language } = useLanguage();
+  const presets = language === 'ko' ? PRESETS_KO : PRESETS_EN;
   const [open, setOpen] = useState(false);
   const [customMode, setCustomMode] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -52,9 +71,8 @@ export default function CommitBar({
     if (customMode && inputRef.current) inputRef.current.focus();
   }, [customMode]);
 
-  const selectPreset = (preset: typeof PRESETS[number]) => {
+  const selectPreset = (preset: Preset) => {
     if (preset.msg(roomPath) === '') {
-      // Custom mode
       setCustomMode(true);
       onCommitMessageChange('');
       setOpen(false);
@@ -78,7 +96,7 @@ export default function CommitBar({
             value={commitMessage}
             onChange={(e) => onCommitMessageChange(e.target.value)}
             onBlur={() => { if (!commitMessage) setCustomMode(false); }}
-            placeholder="Type your commit message…"
+            placeholder={language === 'ko' ? '커밋 메시지를 입력하세요…' : 'Type your commit message…'}
             disabled={syncing}
           />
         ) : (
@@ -94,9 +112,10 @@ export default function CommitBar({
 
         {open && (
           <div className="commit-presets">
-            {PRESETS.map((p, i) => (
+            {presets.map((p, i) => (
               <button key={i} className="commit-preset-item" onClick={() => selectPreset(p)}>
-                {p.label}
+                <span className="commit-preset-label">{p.icon} {p.label}</span>
+                <span className="commit-preset-desc">{p.desc}</span>
               </button>
             ))}
           </div>

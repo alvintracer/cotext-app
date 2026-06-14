@@ -2379,6 +2379,65 @@ button:focus-visible {
   padding: 4px 10px;
 }
 
+.tree-new-folder-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 10px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.1s;
+}
+.tree-new-folder-btn:hover {
+  color: var(--accent);
+  background: var(--surface-2);
+}
+
+.tree-new-folder {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+}
+
+.tree-new-folder-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 8px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  outline: none;
+}
+.tree-new-folder-input:focus {
+  border-color: var(--accent);
+}
+
+.tree-new-folder-ok {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.tree-new-folder-ok:hover {
+  background: var(--accent-hover);
+}
+
 /* ── Room View ───────────────────────────────────────────── */
 .room-view {
   display: flex;

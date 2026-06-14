@@ -12,7 +12,7 @@ import AgentPanel from '../components/AgentPanel';
 import {
   FolderOpen, Plus, CaretLeft as ChevronLeft, MagnifyingGlass as Search, ChatText as MessageSquare,
   TreeStructure as FolderTree, CaretRight as ChevronRight, List as Menu, X,
-  Link as LinkIcon, Copy, Check, Users, UserPlus, Robot, CodepenLogo
+  Link as LinkIcon, Copy, Check, Users, UserPlus, Robot, CodepenLogo, FolderPlus
 } from '@phosphor-icons/react';
 
 interface TreeItem {
@@ -53,6 +53,8 @@ export default function WorkspaceDetailPage() {
   const [selectedPath, setSelectedPath] = useState('');
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
   const [subTrees, setSubTrees] = useState<Record<string, TreeItem[]>>({});
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderParent, setNewFolderParent] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
@@ -489,7 +491,44 @@ export default function WorkspaceDetailPage() {
               <div className="tree-list">
                 <p className="text-muted text-xs mb-2">{language === 'ko' ? '레포에서 선택:' : 'Select from repository:'}</p>
                 {(() => {
-                  const renderItems = (items: TreeItem[], depth: number = 0) =>
+                  const confirmNewFolder = (parent: string) => {
+                    const name = newFolderName.trim();
+                    if (!name) return;
+                    const fullPath = parent ? `${parent}/${name}` : name;
+                    setSelectedPath(fullPath);
+                    setNewFolderParent(null);
+                    setNewFolderName('');
+                  };
+
+                  const renderNewFolderInput = (parent: string, depth: number) => (
+                    newFolderParent === parent ? (
+                      <div className="tree-new-folder" style={{ paddingLeft: `${26 + depth * 16}px` }}>
+                        <input
+                          type="text"
+                          className="tree-new-folder-input"
+                          value={newFolderName}
+                          onChange={(e) => setNewFolderName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') confirmNewFolder(parent); if (e.key === 'Escape') { setNewFolderParent(null); setNewFolderName(''); } }}
+                          placeholder={language === 'ko' ? '폴더 이름…' : 'Folder name…'}
+                          autoFocus
+                        />
+                        <button className="tree-new-folder-ok" onClick={() => confirmNewFolder(parent)}>
+                          <Check size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="tree-new-folder-btn"
+                        style={{ paddingLeft: `${26 + depth * 16}px` }}
+                        onClick={() => { setNewFolderParent(parent); setNewFolderName(''); }}
+                      >
+                        <FolderPlus size={12} />
+                        <span>{language === 'ko' ? '새 폴더' : 'New folder'}</span>
+                      </button>
+                    )
+                  );
+
+                  const renderItems = (items: TreeItem[], depth: number = 0, _parentPath: string = '') =>
                     items
                       .filter((item) => item.type === 'dir')
                       .map((item) => {
@@ -516,12 +555,8 @@ export default function WorkspaceDetailPage() {
                                 <span>{baseName}</span>
                               </button>
                             </div>
-                            {isExpanded && children && children.length > 0 && renderItems(children, depth + 1)}
-                            {isExpanded && children && children.length === 0 && (
-                              <div className="tree-empty" style={{ paddingLeft: `${26 + depth * 16}px` }}>
-                                <span className="text-muted text-xs">{language === 'ko' ? '하위 폴더 없음' : 'No subfolders'}</span>
-                              </div>
-                            )}
+                            {isExpanded && children && children.length > 0 && renderItems(children, depth + 1, item.path)}
+                            {isExpanded && children && renderNewFolderInput(item.path, depth + 1)}
                             {isExpanded && !children && (
                               <div className="tree-empty" style={{ paddingLeft: `${26 + depth * 16}px` }}>
                                 <div className="spinner-sm" />
@@ -530,7 +565,12 @@ export default function WorkspaceDetailPage() {
                           </div>
                         );
                       });
-                  return renderItems(tree);
+                  return (
+                    <>
+                      {renderItems(tree, 0, '')}
+                      {renderNewFolderInput('', 0)}
+                    </>
+                  );
                 })()}
               </div>
             ) : null}

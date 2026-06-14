@@ -10,18 +10,22 @@ import type { Workspace } from '../types/workspace';
 import MorphingComposer from './MorphingComposer';
 import CommitBar from './CommitBar';
 import CotextEditor from './CotextEditor';
-import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X, PencilSimple } from '@phosphor-icons/react';
+import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X, PencilSimple, CodepenLogo, ArrowDown } from '@phosphor-icons/react';
 import { generateCotextGuide, generateCotextIndex, generateAgentsPointerBlock, upsertPointerBlock } from '../lib/contextGuide';
 
 interface RoomViewProps {
   room: Room;
   workspace: Workspace;
   onRoomUpdate: (room: Room) => void;
+  /** Send a draft block's text to the agent panel for restructuring/cleanup. */
+  onFixWithAgent?: (text: string, timestamp: string) => void;
+  /** Apply an agent result to LOCAL content: append a block (and optionally replace the origin). */
+  apply?: { text: string; source: string; replaceTimestamp?: string; nonce: number } | null;
 }
 
 type ViewMode = 'chat' | 'editor' | 'split' | 'preview';
 
-export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProps) {
+export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent, apply }: RoomViewProps) {
   const { user } = useAuth();
   const { t } = useLanguage();
   const [content, setContent] = useState('');
@@ -45,6 +49,7 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
   const [editingName, setEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState(room.name || 'cotext');
   const timelineRef = useRef<HTMLDivElement>(null);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
 
   // Load initial content
   useEffect(() => {
@@ -139,6 +144,29 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
       }
     }, 1000);
   }, [remoteContent, remoteSha, room.id, user]);
+
+  // Apply an agent result to local content (from "Fix with Agent"): add a block,
+  // optionally removing the original block being replaced. All local (draft) — no push.
+  const applyNonce = apply?.nonce;
+  useEffect(() => {
+    if (!apply) return;
+    let base = content;
+    if (apply.replaceTimestamp) {
+      const lines = base.split('\n');
+      const kept: string[] = [];
+      let skipping = false;
+      for (const line of lines) {
+        const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+        if (tsMatch && tsMatch[1] === apply.replaceTimestamp) { skipping = true; continue; }
+        if (skipping && (line.match(/^## \d{4}/) || line.match(/^# /))) skipping = false;
+        if (!skipping) kept.push(line);
+      }
+      base = kept.join('\n').replace(/\n{3,}/g, '\n\n');
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- apply agent result to local draft on nonce change
+    handleContentChange(appendMessage(base, apply.text, undefined, apply.source));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applyNonce]);
 
   // Append chat message
   const handleSendMessage = useCallback(async (message: string, files?: File[]) => {
@@ -680,12 +708,16 @@ ${filteredContent}
       {/* Main content area */}
       <div className={`room-content room-content-${viewMode}`}>
         {(viewMode === 'chat' || viewMode === 'split') && (
-          <div className="room-timeline" ref={timelineRef}>
+          <div className="room-timeline" ref={timelineRef} onScroll={() => {
+            const el = timelineRef.current;
+            if (el) setShowScrollBtn(el.scrollHeight - el.scrollTop - el.clientHeight > 200);
+          }}>
             <TimelineView
               content={content}
               remoteContent={remoteContent}
               workspace={workspace}
               room={room}
+              onFixWithAgent={onFixWithAgent}
               onDeleteBlock={(blockTimestamp) => {
                 // Delete the block by removing its timestamp header and all lines until the next ## header
                 const lines = content.split('\n');
@@ -724,6 +756,14 @@ ${filteredContent}
                 handleContentChange(result.join('\n'));
               }}
             />
+            {showScrollBtn && (
+              <button
+                className="scroll-bottom-btn"
+                onClick={() => timelineRef.current?.scrollTo({ top: timelineRef.current.scrollHeight, behavior: 'smooth' })}
+              >
+                <ArrowDown size={16} weight="bold" />
+              </button>
+            )}
           </div>
         )}
 
@@ -780,13 +820,14 @@ ${filteredContent}
 }
 
 // Simple timeline renderer
-function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock, onChangeSource }: {
+function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock, onChangeSource, onFixWithAgent }: {
   content: string;
   remoteContent: string;
   workspace: Workspace;
   room: Room;
   onDeleteBlock?: (timestamp: string) => void;
   onChangeSource?: (timestamp: string, newSource: string) => void;
+  onFixWithAgent?: (text: string, timestamp: string) => void;
 }) {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const lines = content.split('\n');
@@ -870,6 +911,18 @@ function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock, 
                   </button>
                   {openMenu === i && (
                     <div className="draft-menu-popup" onClick={(e) => e.stopPropagation()}>
+                      {onFixWithAgent && (
+                        <button
+                          className="draft-menu-item"
+                          onClick={() => {
+                            setOpenMenu(null);
+                            onFixWithAgent(block.lines.join('\n').trim(), block.timestamp!);
+                          }}
+                        >
+                          <CodepenLogo size={13} />
+                          <span>Fix with Agent</span>
+                        </button>
+                      )}
                       <button
                         className="draft-menu-item draft-menu-delete"
                         onClick={() => {

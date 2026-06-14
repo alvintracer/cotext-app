@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { PaperPlaneRight as Send, Paperclip, Camera, Plus, X, TextT as Type } from '@phosphor-icons/react';
+import { PaperPlaneRight as Send, Paperclip, Camera, Plus, X, TextT as Type, FileText } from '@phosphor-icons/react';
 import { getPlatformServices } from '../lib/platform/index';
 import { isImageFile, compressImage, formatFileSize } from '../lib/image/compress';
 import { recognizeText } from '../lib/ocr';
+import { extractText, isExtractable } from '../lib/extract';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../contexts/LanguageContext';
 import TurndownService from 'turndown';
@@ -12,10 +13,10 @@ interface MorphingComposerProps {
 }
 
 export default function MorphingComposer({ onSend }: MorphingComposerProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
-  const [filePreview, setFilePreview] = useState<Array<{ name: string; size: string; preview?: string; isImage?: boolean }>>([]);
+  const [filePreview, setFilePreview] = useState<Array<{ name: string; size: string; preview?: string; isImage?: boolean; extractable?: boolean }>>([]);
   const [compressing, setCompressing] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [ocrState, setOcrState] = useState<{ running: boolean; index: number; progress: number }>({
@@ -50,7 +51,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
   const handleFileSelect = useCallback(async (selectedFiles: File[]) => {
     setCompressing(true);
     const processed: File[] = [];
-    const previews: Array<{ name: string; size: string; preview?: string; isImage?: boolean }> = [];
+    const previews: Array<{ name: string; size: string; preview?: string; isImage?: boolean; extractable?: boolean }> = [];
 
     for (const file of selectedFiles) {
       if (isImageFile(file)) {
@@ -75,7 +76,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
         }
       } else {
         processed.push(file);
-        previews.push({ name: file.name, size: formatFileSize(file.size) });
+        previews.push({ name: file.name, size: formatFileSize(file.size), extractable: isExtractable(file) });
       }
     }
 
@@ -174,6 +175,36 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
     }
   }, [files, ocrState.running]);
 
+  // Extract text from a document file (PDF / DOCX / hwpx / txt / md) into the composer
+  const handleExtract = useCallback(async (index: number) => {
+    const file = files[index];
+    if (!file || ocrState.running) return;
+
+    setOcrState({ running: true, index, progress: 0 });
+    try {
+      const extracted = await extractText(file, (progress) => {
+        setOcrState((prev) => ({ ...prev, progress }));
+      });
+      if (extracted.trim()) {
+        setText((prev) => {
+          const separator = prev.trim() ? '\n\n' : '';
+          return `${prev}${separator}## ${file.name}\n\n${extracted}`;
+        });
+        // Text-only intent: drop the binary from the upload list, keep the extracted text
+        removeFile(index);
+      } else {
+        setFilePreview((prev) => prev.map((fp, i) =>
+          i === index ? { ...fp, size: language === 'ko' ? '추출된 텍스트 없음' : 'No text found' } : fp));
+      }
+    } catch (err) {
+      console.error('Extract failed:', err);
+      setFilePreview((prev) => prev.map((fp, i) =>
+        i === index ? { ...fp, size: `Error: ${err instanceof Error ? err.message : 'failed'}` } : fp));
+    } finally {
+      setOcrState({ running: false, index: -1, progress: 0 });
+    }
+  }, [files, ocrState.running, language, removeFile]);
+
   return (
     <motion.div
       className="morphing-composer"
@@ -228,6 +259,35 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
                       )}
                     </button>
                   )}
+                  {/* Extract text button — for document files (PDF/DOCX/hwpx/txt/md) */}
+                  {!fp.isImage && fp.extractable && (
+                    <button
+                      className={`ocr-button ${ocrState.running && ocrState.index === i ? 'ocr-running' : ''}`}
+                      onClick={() => handleExtract(i)}
+                      disabled={ocrState.running}
+                      title={language === 'ko' ? '텍스트 추출' : 'Extract text'}
+                    >
+                      {ocrState.running && ocrState.index === i ? (
+                        <>
+                          <div className="ocr-progress-ring">
+                            <svg viewBox="0 0 24 24">
+                              <circle cx="12" cy="12" r="10" />
+                              <circle
+                                cx="12" cy="12" r="10"
+                                strokeDasharray={`${ocrState.progress * 0.628} 62.8`}
+                              />
+                            </svg>
+                          </div>
+                          <span>{ocrState.progress}%</span>
+                        </>
+                      ) : (
+                        <>
+                          <FileText size={12} />
+                          <span>{language === 'ko' ? '텍스트 추출' : 'Extract'}</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                   <button className="file-preview-remove" onClick={() => removeFile(i)}>×</button>
                 </div>
               </div>
@@ -253,7 +313,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
           <button
             className="icon-button"
             onClick={async () => {
-              try { const photo = await platform.takePhoto(); handleFileSelect([photo]); } catch {}
+              try { const photo = await platform.takePhoto(); handleFileSelect([photo]); } catch { /* cancelled */ }
             }}
             title={t('composer.photo')}
           >
@@ -296,7 +356,7 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
                     className="attach-popup-item"
                     onClick={async () => {
                       setShowAttachMenu(false);
-                      try { const photo = await platform.takePhoto(); handleFileSelect([photo]); } catch {}
+                      try { const photo = await platform.takePhoto(); handleFileSelect([photo]); } catch { /* cancelled */ }
                     }}
                   >
                     <Camera size={14} />

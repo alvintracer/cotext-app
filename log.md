@@ -28,3 +28,4 @@ YYYY-MM-DD HH:mm | command | summary | linked files
 2026-06-14 09:25 | save | §29 스트리밍 구현: 직접 provider(Gemini/OpenAI/Anthropic/Groq/xAI/OpenRouter) SSE 스트리밍(providers.ts readSSE+onToken), GitHub Models는 프록시라 non-stream 유지. 계획서 §29.5 갱신 | [[cotext-development-plan]], [[AI-Sessions/wiki/projects/cotext_mvp]]
 2026-06-14 10:25 | save | §29.8 도구콜 자동편집(Agent Mode) 구현 완료: tools.ts 도구 3종, runToolLoop 에이전트 루프, append_note 미리보기/승인 카드, rooms prop 전달. GitHub Push Protection 시크릿 제거 후 main 푸시 | [[AI-Sessions/wiki/projects/cotext_mvp]]
 2026-06-14 10:50 | save | §29.9 GitHub Models 제거, 전 provider Agent Mode 확장(Gemini/Anthropic tool loop 추가), 모델 fallback, 모델 목록 확충. 전부 BYOK 통일 | [[AI-Sessions/wiki/projects/cotext_mvp]]
+2026-06-14 11:10 | save | §30 멀티파일 텍스트추출(DOCX/PDF/hwpx/txt, MorphingComposer) + §31 Draft→Fix with Agent(로컬 콘텐츠 적용, 추가/원본 대체, source→me) 구현. 계획서 §30·§31 추가 | [[cotext-development-plan]], [[AI-Sessions/wiki/projects/cotext_mvp]]

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   CodepenLogo, X, GearSix, PaperPlaneRight, Copy, Check, ArrowClockwise,
-  Warning, ArrowSquareOut, Plus, Wrench, SpinnerGap,
+  Warning, ArrowSquareOut, Plus, Wrench, SpinnerGap, MagicWand, Trash,
 } from '@phosphor-icons/react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { githubApi } from '../lib/supabase/functions';
@@ -31,6 +31,12 @@ interface AgentPanelProps {
   rooms?: PanelRoom[];
   /** Called after an AI reply is appended to the room (so the chat view can refresh). */
   onSaved?: () => void;
+  /** "Fix with Agent": when nonce changes, auto-fill a restructure prompt with this text and send. */
+  seed?: { text: string; nonce: number } | null;
+  /** Apply an AI reply to the room's LOCAL content (draft) — add, or replace the fixed origin block. */
+  onApply?: (p: { text: string; source: string; replace: boolean }) => void;
+  /** Whether a fix-origin block exists to replace (enables the "Replace original" button). */
+  canReplace?: boolean;
 }
 
 interface Msg {
@@ -47,6 +53,7 @@ const STR = {
     grounded: 'Grounded on', noRoom: 'No chat selected — answering without repo context',
     thinking: 'Thinking…', copy: 'Copy', copied: 'Copied',
     saveToChat: 'Save to chat', saved: 'Saved', saving: 'Saving…',
+    applyAdd: 'Add to chat', applyReplace: 'Replace original',
     agentMode: 'Agent mode (tools)', agentModeOff: 'Agent mode: off',
     proposalTitle: 'Agent wants to save to', approve: 'Approve & save', reject: 'Reject', working: 'Working…',
     provider: 'Provider', model: 'Model', apiKey: 'API key', baseURL: 'Base URL',
@@ -61,6 +68,7 @@ const STR = {
     grounded: '컨텍스트', noRoom: '선택된 챗 없음 — 레포 컨텍스트 없이 답변',
     thinking: '생각 중…', copy: '복사', copied: '복사됨',
     saveToChat: '챗에 저장', saved: '저장됨', saving: '저장 중…',
+    applyAdd: '챗에 추가', applyReplace: '원본 대체',
     agentMode: '에이전트 모드 (도구)', agentModeOff: '에이전트 모드: 꺼짐',
     proposalTitle: '에이전트가 저장하려는 곳', approve: '승인 후 저장', reject: '거절', working: '처리 중…',
     provider: '제공자', model: '모델', apiKey: 'API 키', baseURL: 'Base URL',
@@ -73,7 +81,7 @@ const STR = {
 
 const MAX_CONTEXT_CHARS = 60000;
 
-export default function AgentPanel({ open, onClose, workspace, room, rooms = [], onSaved }: AgentPanelProps) {
+export default function AgentPanel({ open, onClose, workspace, room, rooms = [], onSaved, seed, onApply, canReplace }: AgentPanelProps) {
   const { language } = useLanguage();
   const t = STR[language === 'ko' ? 'ko' : 'en'];
 
@@ -260,6 +268,29 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [input, loading, messages, provider, effectiveBase, providerId, model, context, room, workspace, agentMode]);
+
+  // "Fix with Agent": auto-fill a restructure prompt with the seeded text and send it.
+  const autoSend = useRef(false);
+  const seedNonce = seed?.nonce;
+  useEffect(() => {
+    if (!seed) return;
+    const refinePrompt = language === 'ko'
+      ? `다음 메모를 이 레포의 맥락과 기존 지식에 근거해 정리·재구조화해줘. 의미는 보존하고, 제목/리스트 등 마크다운 구조를 복원·정리하고, 오탈자와 어색한 표현을 다듬어줘. 레포에 없는 사실은 지어내지 마. 결과는 깔끔한 마크다운으로만 출력해.\n\n---\n${seed.text}`
+      : `Restructure and clean up the note below, grounded in this repo's context and knowledge. Preserve meaning, restore/organize Markdown structure (headings/lists), fix typos and awkward phrasing. Don't invent facts not in the repo. Output clean Markdown only.\n\n---\n${seed.text}`;
+    /* eslint-disable react-hooks/set-state-in-effect -- prefill composer when a fix seed arrives */
+    setShowSettings(false);
+    setInput(refinePrompt);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    autoSend.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedNonce]);
+
+  useEffect(() => {
+    if (autoSend.current && input.trim() && !loading) {
+      autoSend.current = false;
+      send();
+    }
+  }, [input, loading, send]);
 
   const copyMsg = (idx: number, content: string) => {
     navigator.clipboard.writeText(content);
@@ -464,7 +495,20 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
             {m.role === 'assistant' && (
               <div className="agent-msg-meta">
                 <span className="agent-source">source: {m.model}</span>
-                {room && (
+                {room && onApply ? (
+                  <>
+                    <button className="agent-add-btn" title={t.applyAdd}
+                      onClick={() => { onApply({ text: m.content, source: providerId, replace: false }); setSavedIdx(i); setTimeout(() => setSavedIdx(null), 1500); }}>
+                      {savedIdx === i ? <Check size={12} weight="bold" /> : <Plus size={12} weight="bold" />}
+                    </button>
+                    {canReplace && (
+                      <button className="agent-add-btn agent-replace-btn" title={t.applyReplace}
+                        onClick={() => { onApply({ text: m.content, source: providerId, replace: true }); setSavedIdx(i); setTimeout(() => setSavedIdx(null), 1500); }}>
+                        <MagicWand size={12} weight="bold" />
+                      </button>
+                    )}
+                  </>
+                ) : room && (
                   <button className="agent-add-btn" onClick={() => saveToChat(i, m.content)}
                     disabled={savingIdx !== null} title={t.saveToChat}>
                     {savedIdx === i ? <Check size={12} weight="bold" /> : savingIdx === i ? <SpinnerGap size={12} className="spin" /> : <Plus size={12} weight="bold" />}
@@ -476,6 +520,36 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
               </div>
             )}
             <div className="agent-msg-body">{m.content || '…'}</div>
+            {m.role === 'assistant' && (
+              <div className="agent-msg-bottom-actions">
+                <button className="agent-bottom-btn" onClick={() => copyMsg(i, m.content)} title={t.copy}>
+                  {copiedIdx === i ? <Check size={12} /> : <Copy size={12} />}
+                </button>
+                {room && onApply ? (
+                  <>
+                    <button className="agent-bottom-btn" title={t.applyAdd}
+                      onClick={() => { onApply({ text: m.content, source: providerId, replace: false }); setSavedIdx(i); setTimeout(() => setSavedIdx(null), 1500); }}>
+                      {savedIdx === i ? <Check size={12} /> : <Plus size={12} />}
+                    </button>
+                    {canReplace && (
+                      <button className="agent-bottom-btn agent-replace-btn" title={t.applyReplace}
+                        onClick={() => { onApply({ text: m.content, source: providerId, replace: true }); setSavedIdx(i); setTimeout(() => setSavedIdx(null), 1500); }}>
+                        <MagicWand size={12} />
+                      </button>
+                    )}
+                  </>
+                ) : room && (
+                  <button className="agent-bottom-btn" onClick={() => saveToChat(i, m.content)}
+                    disabled={savingIdx !== null} title={t.saveToChat}>
+                    {savedIdx === i ? <Check size={12} /> : savingIdx === i ? <SpinnerGap size={12} className="spin" /> : <Plus size={12} />}
+                  </button>
+                )}
+                <button className="agent-bottom-btn agent-delete-btn"
+                  onClick={() => setMessages(prev => prev.filter((_, idx) => idx !== i))} title="Delete">
+                  <Trash size={12} />
+                </button>
+              </div>
+            )}
             {m.role === 'assistant' && m.usage && (m.usage.inputTokens > 0 || m.usage.outputTokens > 0) && (
               <div className="agent-usage">
                 ⚡ {m.usage.inputTokens.toLocaleString()} in · {m.usage.outputTokens.toLocaleString()} out

@@ -60,6 +60,9 @@ export default function WorkspaceDetailPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
   const [agentSaveKey, setAgentSaveKey] = useState(0);
+  const [agentSeed, setAgentSeed] = useState<{ text: string; nonce: number } | null>(null);
+  const [fixOriginTs, setFixOriginTs] = useState<string | null>(null);
+  const [agentApply, setAgentApply] = useState<{ text: string; source: string; replaceTimestamp?: string; nonce: number } | null>(null);
 
   // Team & Invite state
   const [teammates, setTeammates] = useState<Teammate[]>([]);
@@ -446,6 +449,12 @@ export default function WorkspaceDetailPage() {
                 prev.map((r) => (r.id === updated.id ? updated : r))
               );
             }}
+            onFixWithAgent={(text, ts) => {
+              setAgentOpen(true);
+              setAgentSeed({ text, nonce: Date.now() });
+              setFixOriginTs(ts);
+            }}
+            apply={agentApply}
           />
         ) : (
           <div className="empty-room-state">
@@ -463,6 +472,12 @@ export default function WorkspaceDetailPage() {
         workspace={workspace}
         room={selectedRoom}
         rooms={rooms}
+        seed={agentSeed}
+        canReplace={!!fixOriginTs}
+        onApply={({ text, source, replace }) => {
+          setAgentApply({ text, source, replaceTimestamp: replace ? (fixOriginTs ?? undefined) : undefined, nonce: Date.now() });
+          if (replace) setFixOriginTs(null);
+        }}
         onSaved={() => setAgentSaveKey((k) => k + 1)}
       />
 

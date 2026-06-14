@@ -216,6 +216,52 @@
   cursor: not-allowed;
 }
 
+/* Replace-original button — distinct (amber) so it's not confused with plain add */
+.agent-replace-btn {
+  background: var(--draft, #f59e0b);
+}
+.agent-replace-btn:hover:not(:disabled) {
+  background: var(--draft, #d97706);
+}
+
+/* Bottom action bar — appears on message hover */
+.agent-msg-bottom-actions {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0 2px;
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+}
+.agent-msg.assistant:hover .agent-msg-bottom-actions {
+  display: flex;
+}
+
+.agent-bottom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.agent-bottom-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+.agent-delete-btn:hover {
+  color: var(--danger, #ef4444);
+  border-color: var(--danger, #ef4444);
+}
+
 .agent-usage {
   font-family: var(--font-mono);
   font-size: 10px;

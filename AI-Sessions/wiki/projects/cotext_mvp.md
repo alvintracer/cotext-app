@@ -69,6 +69,15 @@ MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context
   - GitHub Models provider 삭제 (전부 BYOK로 통일)
   - 각 provider별 실제 호출 가능한 모델 목록 확충 (OpenAI: gpt-4.1 시리즈, Gemini: 2.0/2.5, Groq: gemma2/mixtral 등)
   - `proxy` 속성 제거, `chatGithubModels` 함수 사용처 정리
+- (2026-06-14) **§30 멀티 파일 텍스트 추출 완료**:
+  - `src/lib/extract/index.ts`: DOCX(mammoth→Turndown, 구조 보존), PDF(pdf.js), hwpx(JSZip), txt/md/csv/json — heavy lib 동적 import
+  - MorphingComposer: 문서 프리뷰에 "텍스트 추출" 버튼 → `## 파일명` 헤더로 본문 삽입, 추출 성공 시 파일 자동 제거(텍스트만)
+  - 라이브러리 추가: pdfjs-dist, mammoth, jszip + `vite-env.d.ts`. (이미지 OCR은 기존 tesseract)
+- (2026-06-14) **§31 Draft → Fix with Agent 완료**:
+  - draft 3-dot → "Fix with Agent" → 우측 패널 자동 재구조화(레포 grounding, source 태그)
+  - 결과를 **GitHub push가 아니라 RoomView 로컬 콘텐츠에 적용**(draft 충돌 회피): "추가" / "원본 대체(원본 블록 삭제+새 블록)"
+  - 배선: RoomView `onFixWithAgent`/`apply` ↔ WorkspaceDetailPage(seed·fixOriginTs·agentApply) ↔ AgentPanel(seed 자동전송·onApply·canReplace)
+  - source→me 전환, +추가는 기존 기능 재사용
 
 ## 관련 문서
 - [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]] — 스택·토큰·이미지 압축 등 핵심 결정

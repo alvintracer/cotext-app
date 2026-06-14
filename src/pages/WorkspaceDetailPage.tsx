@@ -510,10 +510,34 @@ export default function WorkspaceDetailPage() {
               <div className="tree-list">
                 <p className="text-muted text-xs mb-2">{language === 'ko' ? '레포에서 선택:' : 'Select from repository:'}</p>
                 {(() => {
-                  const confirmNewFolder = (parent: string) => {
+                  const confirmNewFolder = async (parent: string) => {
                     const name = newFolderName.trim();
-                    if (!name) return;
+                    if (!name || !workspace) return;
                     const fullPath = parent ? `${parent}/${name}` : name;
+                    // Push a .gitkeep to create the directory on GitHub
+                    try {
+                      await githubApi.pushRoom(
+                        workspace.github_owner,
+                        workspace.github_repo,
+                        workspace.default_branch,
+                        `${fullPath}/.gitkeep`,
+                        '',
+                        null,
+                        `chore: create directory ${fullPath}`
+                      );
+                    } catch (err) {
+                      console.error('Failed to create directory on GitHub:', err);
+                    }
+                    // Add to local tree so it appears immediately
+                    const newItem: TreeItem = { name, path: fullPath, type: 'dir' };
+                    if (parent) {
+                      setSubTrees(prev => ({
+                        ...prev,
+                        [parent]: [...(prev[parent] || []), newItem],
+                      }));
+                    } else {
+                      setTree(prev => [...prev, newItem]);
+                    }
                     setSelectedPath(fullPath);
                     setNewFolderParent(null);
                     setNewFolderName('');

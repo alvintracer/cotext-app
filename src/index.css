@@ -1398,21 +1398,23 @@ button:focus-visible {
   transform: none;
 }
 
-.login-features {
-  display: flex;
-  gap: 24px;
-}
-
-.login-feature {
-  display: flex;
+.login-switch-account {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
 }
-
-.login-feature-icon {
-  font-size: 16px;
+.login-switch-account:hover {
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 /* ── App Layout ──────────────────────────────────────────── */
@@ -3973,11 +3975,6 @@ button:focus-visible {
   .room-editor-pane {
     border-left: none;
     border-top: 1px solid var(--border);
-  }
-
-  .login-features {
-    flex-direction: column;
-    gap: 12px;
   }
 
   .login-card {

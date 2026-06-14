@@ -1,10 +1,20 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Sun, Moon, Monitor, GithubLogo } from '@phosphor-icons/react';
+import { useLanguage } from '../contexts/LanguageContext';
+import { Sun, Moon, Monitor, GithubLogo, ArrowsClockwise } from '@phosphor-icons/react';
 
 export default function LoginPage() {
   const { signInWithGitHub, loading } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { language } = useLanguage();
+
+  const handleSwitchAccount = () => {
+    // Open GitHub logout in a popup, then start OAuth after a short delay
+    const ghLogout = window.open('https://github.com/logout', '_blank', 'width=500,height=600');
+    // After user logs out of GitHub, they close the popup and click sign-in again
+    // We just focus the popup — user will log out there, close it, then click sign in
+    if (ghLogout) ghLogout.focus();
+  };
 
   return (
     <div className="login-page">
@@ -30,8 +40,12 @@ export default function LoginPage() {
         </div>
 
         <div className="login-description">
-          <p>채팅하듯 메모하고, GitHub에 Markdown으로 저장하세요.</p>
-          <p className="login-description-sub">어디서든 접속 · 버전관리 · AI-ready context pool</p>
+          <p>{language === 'ko'
+            ? '채팅하듯 메모하고, GitHub에 Markdown으로 저장하세요.'
+            : 'Capture notes like chat, stored as Markdown on GitHub.'}</p>
+          <p className="login-description-sub">{language === 'ko'
+            ? '어디서든 접속 · 버전관리 · AI-ready context pool'
+            : 'Access anywhere · Version control · AI-ready context pool'}</p>
         </div>
 
         <button
@@ -43,20 +57,13 @@ export default function LoginPage() {
           <span>{loading ? 'Connecting...' : 'Sign in with GitHub'}</span>
         </button>
 
-        <div className="login-features">
-          <div className="login-feature">
-            <span className="login-feature-icon">📝</span>
-            <span>Chat-style capture</span>
-          </div>
-          <div className="login-feature">
-            <span className="login-feature-icon">🔄</span>
-            <span>GitHub sync</span>
-          </div>
-          <div className="login-feature">
-            <span className="login-feature-icon">🤖</span>
-            <span>Agent-ready</span>
-          </div>
-        </div>
+        <button
+          className="login-switch-account"
+          onClick={handleSwitchAccount}
+        >
+          <ArrowsClockwise size={14} />
+          <span>{language === 'ko' ? '다른 GitHub 계정으로 로그인' : 'Sign in with a different GitHub account'}</span>
+        </button>
       </div>
     </div>
   );

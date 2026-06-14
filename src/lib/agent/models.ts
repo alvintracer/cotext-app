@@ -1,32 +1,27 @@
 // Cotext — Embedded multi-model agent: provider & model registry
 // BYOK (bring your own key). Keys stay in this browser (localStorage), never sent to Cotext servers.
+// Only Gemini offers free API keys (Google AI Studio, no credit card required).
 
 export type ApiShape = 'openai' | 'anthropic' | 'gemini';
-export type ProviderId =
-  | 'gemini' | 'openai' | 'anthropic' | 'xai' | 'groq' | 'openrouter' | 'custom';
+export type ProviderId = 'gemini' | 'openai' | 'anthropic' | 'xai';
 
 export interface ProviderDef {
   id: ProviderId;
   label: string;
   shape: ApiShape;
-  /** For openai-shape providers. Anthropic/Gemini use fixed endpoints. Empty = user supplies (custom). */
   baseURL: string;
-  /** Genuinely free API tier (no card) — for UI badge. */
   free: boolean;
   defaultModel: string;
-  /** Fallback model if the chosen model is unavailable (404/not found). */
   fallbackModel?: string;
-  /** Suggested model ids (editable in UI — ids change over time). */
   models: string[];
   keyLabel: string;
   keyUrl?: string;
-  /** Whether the baseURL is user-editable (custom / self-hosted). */
   editableBaseURL?: boolean;
 }
 
 export const PROVIDERS: ProviderDef[] = [
   {
-    id: 'gemini', label: 'Gemini', shape: 'gemini', baseURL: '', free: true,
+    id: 'gemini', label: 'Google (Gemini)', shape: 'gemini', baseURL: '', free: true,
     defaultModel: 'gemini-2.5-flash',
     fallbackModel: 'gemini-2.5-flash-lite',
     models: [
@@ -36,36 +31,13 @@ export const PROVIDERS: ProviderDef[] = [
       'gemini-2.0-flash',
       'gemini-2.0-flash-lite',
     ],
-    keyLabel: 'Google AI Studio API key', keyUrl: 'https://aistudio.google.com/apikey',
-  },
-  {
-    id: 'groq', label: 'Groq', shape: 'openai',
-    baseURL: 'https://api.groq.com/openai/v1', free: true,
-    defaultModel: 'llama-3.3-70b-versatile',
-    fallbackModel: 'llama-3.1-8b-instant',
-    models: [
-      'llama-3.3-70b-versatile',
-      'llama-3.1-8b-instant',
-      'gemma2-9b-it',
-      'mixtral-8x7b-32768',
-    ],
-    keyLabel: 'Groq API key', keyUrl: 'https://console.groq.com/keys',
-  },
-  {
-    id: 'anthropic', label: 'Claude (Anthropic)', shape: 'anthropic', baseURL: '', free: false,
-    defaultModel: 'claude-sonnet-4-6',
-    fallbackModel: 'claude-haiku-4-5-20251001',
-    models: [
-      'claude-haiku-4-5-20251001',
-      'claude-sonnet-4-6',
-      'claude-opus-4-8',
-    ],
-    keyLabel: 'Anthropic API key', keyUrl: 'https://console.anthropic.com/settings/keys',
+    keyLabel: 'Google AI Studio API key',
+    keyUrl: 'https://aistudio.google.com/apikey',
   },
   {
     id: 'openai', label: 'OpenAI (GPT)', shape: 'openai',
     baseURL: 'https://api.openai.com/v1', free: false,
-    defaultModel: 'gpt-4o',
+    defaultModel: 'gpt-4o-mini',
     fallbackModel: 'gpt-4o-mini',
     models: [
       'gpt-4o-mini',
@@ -76,10 +48,23 @@ export const PROVIDERS: ProviderDef[] = [
       'o4-mini',
       'o3',
     ],
-    keyLabel: 'OpenAI API key', keyUrl: 'https://platform.openai.com/api-keys',
+    keyLabel: 'OpenAI API key',
+    keyUrl: 'https://platform.openai.com/api-keys',
   },
   {
-    id: 'xai', label: 'Grok (xAI)', shape: 'openai',
+    id: 'anthropic', label: 'Anthropic (Claude)', shape: 'anthropic', baseURL: '', free: false,
+    defaultModel: 'claude-sonnet-4-6',
+    fallbackModel: 'claude-haiku-4-5-20251001',
+    models: [
+      'claude-haiku-4-5-20251001',
+      'claude-sonnet-4-6',
+      'claude-opus-4-8',
+    ],
+    keyLabel: 'Anthropic API key',
+    keyUrl: 'https://console.anthropic.com/settings/keys',
+  },
+  {
+    id: 'xai', label: 'xAI (Grok)', shape: 'openai',
     baseURL: 'https://api.x.ai/v1', free: false,
     defaultModel: 'grok-3-mini',
     fallbackModel: 'grok-2',
@@ -88,31 +73,62 @@ export const PROVIDERS: ProviderDef[] = [
       'grok-3-mini',
       'grok-3',
     ],
-    keyLabel: 'xAI API key', keyUrl: 'https://console.x.ai',
-  },
-  {
-    id: 'openrouter', label: 'OpenRouter', shape: 'openai',
-    baseURL: 'https://openrouter.ai/api/v1', free: true,
-    defaultModel: 'meta-llama/llama-3.3-70b-instruct:free',
-    fallbackModel: 'google/gemini-2.0-flash-exp:free',
-    models: [
-      'meta-llama/llama-3.3-70b-instruct:free',
-      'google/gemini-2.0-flash-exp:free',
-      'mistralai/mistral-7b-instruct:free',
-      'anthropic/claude-sonnet-4-6',
-      'openai/gpt-4o',
-    ],
-    keyLabel: 'OpenRouter API key', keyUrl: 'https://openrouter.ai/keys',
-  },
-  {
-    id: 'custom', label: 'Custom (OpenAI-compatible)', shape: 'openai',
-    baseURL: '', free: false, editableBaseURL: true,
-    defaultModel: '',
-    models: [],
-    keyLabel: 'API key (or any value for local servers like Ollama)',
+    keyLabel: 'xAI API key',
+    keyUrl: 'https://console.x.ai',
   },
 ];
 
 export function getProvider(id: ProviderId): ProviderDef {
   return PROVIDERS.find((p) => p.id === id) || PROVIDERS[0];
+}
+
+// ── Token usage & cost estimation ──
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/** Pricing per 1M tokens: [input $/1M, output $/1M]. 0 = free tier. */
+const PRICING: Record<string, [number, number]> = {
+  // Gemini — free tier (Google AI Studio)
+  'gemini-2.5-flash-lite': [0, 0],
+  'gemini-2.5-flash': [0, 0],
+  'gemini-2.5-pro': [0, 0],
+  'gemini-2.0-flash': [0, 0],
+  'gemini-2.0-flash-lite': [0, 0],
+  // OpenAI
+  'gpt-4o-mini': [0.15, 0.60],
+  'gpt-4o': [2.50, 10],
+  'gpt-4.1-nano': [0.10, 0.40],
+  'gpt-4.1-mini': [0.40, 1.60],
+  'gpt-4.1': [2, 8],
+  'o4-mini': [1.10, 4.40],
+  'o3': [10, 40],
+  // Anthropic
+  'claude-haiku-4-5-20251001': [0.80, 4],
+  'claude-sonnet-4-6': [3, 15],
+  'claude-opus-4-8': [15, 75],
+  // xAI
+  'grok-2': [2, 10],
+  'grok-3-mini': [0.30, 0.50],
+  'grok-3': [3, 15],
+};
+
+/** Calculate estimated cost in USD from token usage. Returns null if no pricing info. */
+export function estimateCost(modelId: string, usage: TokenUsage): number | null {
+  const price = PRICING[modelId];
+  if (!price) return null;
+  const [inPer1M, outPer1M] = price;
+  if (inPer1M === 0 && outPer1M === 0) return 0; // free
+  return (usage.inputTokens * inPer1M + usage.outputTokens * outPer1M) / 1_000_000;
+}
+
+/** Format cost for display. */
+export function formatCost(modelId: string, usage: TokenUsage): string {
+  const cost = estimateCost(modelId, usage);
+  if (cost === null) return '';
+  if (cost === 0) return 'free';
+  if (cost < 0.001) return '<$0.001';
+  if (cost < 0.01) return `~$${cost.toFixed(4)}`;
+  return `~$${cost.toFixed(3)}`;
 }

@@ -6,8 +6,8 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 import { githubApi } from '../lib/supabase/functions';
 import { appendMessage } from '../lib/markdown/index';
-import { PROVIDERS, getProvider } from '../lib/agent/models';
-import type { ProviderId } from '../lib/agent/models';
+import { PROVIDERS, getProvider, formatCost } from '../lib/agent/models';
+import type { ProviderId, TokenUsage } from '../lib/agent/models';
 import { getKey, setKey, getPref, setPref } from '../lib/agent/keys';
 import { runChat, runToolLoop } from '../lib/agent/providers';
 import '../styles/agent.css';
@@ -37,6 +37,7 @@ interface Msg {
   role: 'user' | 'assistant';
   content: string;
   model?: string;
+  usage?: TokenUsage;
 }
 
 const STR = {
@@ -179,6 +180,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
       // ── Agent mode (tool loop) — all providers ──
       if (agentMode && agentCapable) {
         setMessages((prev) => [...prev, { role: 'assistant', content: '', model }]);
+        let capturedUsage: TokenUsage | undefined;
         const turn = await runToolLoop({
           shape: provider.shape,
           baseURL: effectiveBase,
@@ -189,13 +191,14 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
           messages: convo,
           executeRead,
           signal: undefined,
+          onUsage: (u) => { capturedUsage = u; },
         });
         if (turn.kind === 'proposal') {
           setMessages((prev) => {
             const copy = [...prev];
             const last = copy[copy.length - 1];
             if (last && last.role === 'assistant') {
-              copy[copy.length - 1] = { ...last, content: `📝 ${turn.roomPath}\n\n${turn.content}` };
+              copy[copy.length - 1] = { ...last, content: `📝 ${turn.roomPath}\n\n${turn.content}`, usage: capturedUsage };
             }
             return copy;
           });
@@ -205,7 +208,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
             const copy = [...prev];
             const last = copy[copy.length - 1];
             if (last && last.role === 'assistant') {
-              copy[copy.length - 1] = { ...last, content: turn.text || '(empty response)' };
+              copy[copy.length - 1] = { ...last, content: turn.text || '(empty response)', usage: capturedUsage };
             }
             return copy;
           });
@@ -214,6 +217,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
         // Direct providers: stream tokens into a placeholder assistant message
         setStreaming(true);
         setMessages((prev) => [...prev, { role: 'assistant', content: '', model }]);
+        let capturedUsage: TokenUsage | undefined;
         const full = await runChat({
           shape: provider.shape,
           baseURL: effectiveBase,
@@ -229,13 +233,16 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
               return copy;
             });
           },
+          onUsage: (u) => { capturedUsage = u; },
         });
         setStreaming(false);
         setMessages((prev) => {
           const copy = [...prev];
           const last = copy[copy.length - 1];
           if (last && last.role === 'assistant' && !last.content) {
-            copy[copy.length - 1] = { ...last, content: full || '(empty response)' };
+            copy[copy.length - 1] = { ...last, content: full || '(empty response)', usage: capturedUsage };
+          } else if (last && last.role === 'assistant') {
+            copy[copy.length - 1] = { ...last, usage: capturedUsage };
           }
           return copy;
         });
@@ -454,6 +461,12 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
               </div>
             )}
             <div className="agent-msg-body">{m.content || '…'}</div>
+            {m.role === 'assistant' && m.usage && (m.usage.inputTokens > 0 || m.usage.outputTokens > 0) && (
+              <div className="agent-usage">
+                ⚡ {m.usage.inputTokens.toLocaleString()} in · {m.usage.outputTokens.toLocaleString()} out
+                {m.model && (() => { const c = formatCost(m.model!, m.usage!); return c ? ` · ${c}` : ''; })()}
+              </div>
+            )}
           </div>
         ))}
         {loading && !streaming && <div className="agent-msg assistant"><div className="agent-msg-body text-dim">{t.thinking}</div></div>}

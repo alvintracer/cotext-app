@@ -3,7 +3,7 @@
 // Supports streaming via SSE when `onToken` is provided.
 // Agent tool loop supports ALL shapes (openai, anthropic, gemini).
 
-import type { ApiShape } from './models';
+import type { ApiShape, TokenUsage } from './models';
 import { TOOL_DEFS, TOOL_DEFS_GEMINI, TOOL_DEFS_ANTHROPIC } from './tools';
 
 export interface ChatMsg {
@@ -21,6 +21,8 @@ export interface ChatParams {
   signal?: AbortSignal;
   /** If provided, stream tokens incrementally. Full text is still returned. */
   onToken?: (delta: string) => void;
+  /** Called with token usage after the response completes. */
+  onUsage?: (u: TokenUsage) => void;
 }
 
 const MAX_TOKENS = 4096;
@@ -86,6 +88,8 @@ export interface ToolLoopParams {
   executeRead: (name: string, args: Record<string, unknown>) => Promise<string>;
   maxIter?: number;
   signal?: AbortSignal;
+  /** Called with accumulated token usage after the loop completes. */
+  onUsage?: (u: TokenUsage) => void;
 }
 
 /** Dispatch to the correct tool loop based on API shape. */
@@ -133,6 +137,7 @@ async function toolLoopOpenAI(p: ToolLoopParams): Promise<AgentTurn> {
   if (!base) throw new Error('Base URL is required for this provider.');
   const msgs: OAMessage[] = [{ role: 'system', content: p.system }, ...p.messages];
   const maxIter = p.maxIter ?? 4;
+  const acc: TokenUsage = { inputTokens: 0, outputTokens: 0 };
 
   for (let i = 0; i < maxIter; i++) {
     const res = await fetch(`${base}/chat/completions`, {
@@ -143,6 +148,8 @@ async function toolLoopOpenAI(p: ToolLoopParams): Promise<AgentTurn> {
     });
     if (!res.ok) throw new Error(await readError(res));
     const data = await res.json();
+    acc.inputTokens += data?.usage?.prompt_tokens ?? 0;
+    acc.outputTokens += data?.usage?.completion_tokens ?? 0;
     const m: OAMessage | undefined = data?.choices?.[0]?.message;
     const calls = m?.tool_calls;
 
@@ -152,14 +159,16 @@ async function toolLoopOpenAI(p: ToolLoopParams): Promise<AgentTurn> {
         let args: Record<string, unknown> = {};
         try { args = JSON.parse(tc.function.arguments || '{}'); } catch { /* ignore */ }
         const prop = extractProposal(tc.function.name, args);
-        if (prop) return prop;
+        if (prop) { p.onUsage?.(acc); return prop; }
         const result = await p.executeRead(tc.function.name, args);
         msgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
       }
       continue;
     }
+    p.onUsage?.(acc);
     return { kind: 'text', text: m?.content ?? '' };
   }
+  p.onUsage?.(acc);
   return { kind: 'text', text: '(stopped: too many tool steps)' };
 }
 
@@ -179,6 +188,7 @@ interface AnthropicMsg {
 async function toolLoopAnthropic(p: ToolLoopParams): Promise<AgentTurn> {
   const msgs: AnthropicMsg[] = [...p.messages.map((m) => ({ role: m.role, content: m.content }))];
   const maxIter = p.maxIter ?? 4;
+  const acc: TokenUsage = { inputTokens: 0, outputTokens: 0 };
 
   for (let i = 0; i < maxIter; i++) {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -200,6 +210,8 @@ async function toolLoopAnthropic(p: ToolLoopParams): Promise<AgentTurn> {
     });
     if (!res.ok) throw new Error(await readError(res));
     const data = await res.json();
+    acc.inputTokens += data?.usage?.input_tokens ?? 0;
+    acc.outputTokens += data?.usage?.output_tokens ?? 0;
     const blocks: AnthropicBlock[] = data?.content ?? [];
     const stopReason: string = data?.stop_reason ?? '';
 
@@ -215,7 +227,7 @@ async function toolLoopAnthropic(p: ToolLoopParams): Promise<AgentTurn> {
       for (const tu of toolUses) {
         const args = tu.input ?? {};
         const prop = extractProposal(tu.name!, args);
-        if (prop) return prop;
+        if (prop) { p.onUsage?.(acc); return prop; }
         const result = await p.executeRead(tu.name!, args);
         toolResults.push({ type: 'tool_result', id: tu.id!, text: result } as unknown as AnthropicBlock);
       }
@@ -231,8 +243,10 @@ async function toolLoopAnthropic(p: ToolLoopParams): Promise<AgentTurn> {
       continue;
     }
 
+    p.onUsage?.(acc);
     return { kind: 'text', text: textParts.join('') };
   }
+  p.onUsage?.(acc);
   return { kind: 'text', text: '(stopped: too many tool steps)' };
 }
 
@@ -253,6 +267,7 @@ async function toolLoopGemini(p: ToolLoopParams): Promise<AgentTurn> {
     parts: [{ text: m.content }],
   }));
   const maxIter = p.maxIter ?? 4;
+  const acc: TokenUsage = { inputTokens: 0, outputTokens: 0 };
 
   for (let i = 0; i < maxIter; i++) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
@@ -271,6 +286,8 @@ async function toolLoopGemini(p: ToolLoopParams): Promise<AgentTurn> {
     });
     if (!res.ok) throw new Error(await readError(res));
     const data = await res.json();
+    acc.inputTokens += data?.usageMetadata?.promptTokenCount ?? 0;
+    acc.outputTokens += data?.usageMetadata?.candidatesTokenCount ?? 0;
     const parts: GeminiPart[] = data?.candidates?.[0]?.content?.parts ?? [];
 
     const funcCalls = parts.filter((pt) => pt.functionCall);
@@ -284,7 +301,7 @@ async function toolLoopGemini(p: ToolLoopParams): Promise<AgentTurn> {
         const name = fc.functionCall!.name;
         const args = fc.functionCall!.args ?? {};
         const prop = extractProposal(name, args);
-        if (prop) return prop;
+        if (prop) { p.onUsage?.(acc); return prop; }
         const result = await p.executeRead(name, args);
         responseParts.push({ functionResponse: { name, response: { content: result } } });
       }
@@ -294,8 +311,10 @@ async function toolLoopGemini(p: ToolLoopParams): Promise<AgentTurn> {
 
     // No function calls — extract text
     const text = parts.map((pt) => pt.text || '').join('');
+    p.onUsage?.(acc);
     return { kind: 'text', text };
   }
+  p.onUsage?.(acc);
   return { kind: 'text', text: '(stopped: too many tool steps)' };
 }
 
@@ -319,13 +338,20 @@ async function runOpenAICompatible(p: ChatParams): Promise<string> {
 
   if (!p.onToken) {
     const data = await res.json();
+    if (p.onUsage && data?.usage) {
+      p.onUsage({ inputTokens: data.usage.prompt_tokens ?? 0, outputTokens: data.usage.completion_tokens ?? 0 });
+    }
     return data?.choices?.[0]?.message?.content ?? '';
   }
   let full = '';
+  let lastUsage: TokenUsage | null = null;
   await readSSE(res, (json) => {
-    const delta = (json as { choices?: Array<{ delta?: { content?: string } }> })?.choices?.[0]?.delta?.content;
+    const chunk = json as { choices?: Array<{ delta?: { content?: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number } };
+    const delta = chunk?.choices?.[0]?.delta?.content;
     if (delta) { full += delta; p.onToken!(delta); }
+    if (chunk?.usage) lastUsage = { inputTokens: chunk.usage.prompt_tokens ?? 0, outputTokens: chunk.usage.completion_tokens ?? 0 };
   });
+  if (p.onUsage && lastUsage) p.onUsage(lastUsage);
   return full;
 }
 
@@ -352,16 +378,27 @@ async function runAnthropic(p: ChatParams): Promise<string> {
 
   if (!p.onToken) {
     const data = await res.json();
+    if (p.onUsage && data?.usage) {
+      p.onUsage({ inputTokens: data.usage.input_tokens ?? 0, outputTokens: data.usage.output_tokens ?? 0 });
+    }
     const blocks: Array<{ type: string; text?: string }> = data?.content ?? [];
     return blocks.filter((b) => b.type === 'text').map((b) => b.text || '').join('');
   }
   let full = '';
+  let lastUsage: TokenUsage | null = null;
   await readSSE(res, (json) => {
-    const ev = json as { type?: string; delta?: { text?: string } };
+    const ev = json as { type?: string; delta?: { text?: string }; usage?: { input_tokens?: number; output_tokens?: number }; message?: { usage?: { input_tokens?: number; output_tokens?: number } } };
     if (ev.type === 'content_block_delta' && ev.delta?.text) {
       full += ev.delta.text; p.onToken!(ev.delta.text);
     }
+    if (ev.type === 'message_delta' && ev.usage) {
+      lastUsage = { inputTokens: ev.usage.input_tokens ?? 0, outputTokens: ev.usage.output_tokens ?? 0 };
+    }
+    if (ev.type === 'message_start' && ev.message?.usage) {
+      lastUsage = { inputTokens: ev.message.usage.input_tokens ?? 0, outputTokens: 0 };
+    }
   });
+  if (p.onUsage && lastUsage) p.onUsage(lastUsage);
   return full;
 }
 
@@ -391,14 +428,25 @@ async function runGemini(p: ChatParams): Promise<string> {
     (json as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
       ?.candidates?.[0]?.content?.parts?.map((x) => x.text || '').join('') || '';
 
+  const pickUsage = (json: unknown): TokenUsage | null => {
+    const u = (json as { usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number } })?.usageMetadata;
+    return u ? { inputTokens: u.promptTokenCount ?? 0, outputTokens: u.candidatesTokenCount ?? 0 } : null;
+  };
+
   if (!p.onToken) {
     const data = await res.json();
+    const usage = pickUsage(data);
+    if (p.onUsage && usage) p.onUsage(usage);
     return pickText(data);
   }
   let full = '';
+  let lastUsage: TokenUsage | null = null;
   await readSSE(res, (json) => {
     const delta = pickText(json);
     if (delta) { full += delta; p.onToken!(delta); }
+    const u = pickUsage(json);
+    if (u) lastUsage = u;
   });
+  if (p.onUsage && lastUsage) p.onUsage(lastUsage);
   return full;
 }

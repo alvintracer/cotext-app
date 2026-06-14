@@ -183,6 +183,14 @@
 }
 .agent-copy { width: 22px; height: 22px; }
 
+.agent-usage {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  padding: 2px 0;
+  opacity: 0.7;
+}
+
 .agent-error {
   display: flex;
   align-items: flex-start;

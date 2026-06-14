@@ -4,7 +4,7 @@ import {
   Warning, ArrowSquareOut, FloppyDisk, Wrench,
 } from '@phosphor-icons/react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { githubApi, chatGithubModels } from '../lib/supabase/functions';
+import { githubApi } from '../lib/supabase/functions';
 import { appendMessage } from '../lib/markdown/index';
 import { PROVIDERS, getProvider } from '../lib/agent/models';
 import type { ProviderId } from '../lib/agent/models';
@@ -47,7 +47,6 @@ const STR = {
     thinking: 'Thinking…', copy: 'Copy', copied: 'Copied',
     saveToChat: 'Save to chat', saved: 'Saved', saving: 'Saving…',
     agentMode: 'Agent mode (tools)', agentModeOff: 'Agent mode: off',
-    agentOnlyOpenAI: 'Agent mode works with OpenAI-compatible models (OpenAI/Groq/xAI/OpenRouter) for now.',
     proposalTitle: 'Agent wants to save to', approve: 'Approve & save', reject: 'Reject', working: 'Working…',
     provider: 'Provider', model: 'Model', apiKey: 'API key', baseURL: 'Base URL',
     save: 'Save', getKey: 'Get key', free: 'FREE', byok: 'BYOK — keys stay in this browser only',
@@ -62,7 +61,6 @@ const STR = {
     thinking: '생각 중…', copy: '복사', copied: '복사됨',
     saveToChat: '챗에 저장', saved: '저장됨', saving: '저장 중…',
     agentMode: '에이전트 모드 (도구)', agentModeOff: '에이전트 모드: 꺼짐',
-    agentOnlyOpenAI: '에이전트 모드는 현재 OpenAI 호환 모델(OpenAI/Groq/xAI/OpenRouter)에서 동작합니다.',
     proposalTitle: '에이전트가 저장하려는 곳', approve: '승인 후 저장', reject: '거절', working: '처리 중…',
     provider: '제공자', model: '모델', apiKey: 'API 키', baseURL: 'Base URL',
     save: '저장', getKey: '키 발급', free: '무료', byok: 'BYOK — 키는 이 브라우저에만 저장',
@@ -105,7 +103,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
   const provider = getProvider(providerId);
   const hasKey = !!getKey(providerId);
   const effectiveBase = provider.editableBaseURL ? baseURL : provider.baseURL;
-  const agentCapable = provider.shape === 'openai' && !provider.proxy;
+  const agentCapable = true; // all providers support tool calling
 
   // Load repo context for the current room
   const loadContext = useCallback(async () => {
@@ -178,13 +176,15 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
       const sys = buildSystem();
       const convo = next.map((m) => ({ role: m.role, content: m.content }));
 
-      // ── Agent mode (tool loop) — OpenAI-compatible only ──
+      // ── Agent mode (tool loop) — all providers ──
       if (agentMode && agentCapable) {
         setMessages((prev) => [...prev, { role: 'assistant', content: '', model }]);
         const turn = await runToolLoop({
+          shape: provider.shape,
           baseURL: effectiveBase,
           apiKey: getKey(providerId),
           model,
+          fallbackModel: provider.fallbackModel,
           system: sys,
           messages: convo,
           executeRead,
@@ -210,10 +210,6 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
             return copy;
           });
         }
-      } else if (provider.proxy) {
-        // GitHub Models (proxied via Edge Function): non-streaming
-        const reply = await chatGithubModels(model, [{ role: 'system', content: sys }, ...convo], getKey(providerId));
-        setMessages((prev) => [...prev, { role: 'assistant', content: reply || '(empty response)', model }]);
       } else {
         // Direct providers: stream tokens into a placeholder assistant message
         setStreaming(true);
@@ -256,7 +252,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input, loading, messages, provider, effectiveBase, providerId, model, context, room, workspace, agentMode, agentCapable]);
+  }, [input, loading, messages, provider, effectiveBase, providerId, model, context, room, workspace, agentMode]);
 
   const copyMsg = (idx: number, content: string) => {
     navigator.clipboard.writeText(content);

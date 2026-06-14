@@ -147,7 +147,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
     setApiKeyInput('');
     setKeySaved(true);
     setError('');
-    setTimeout(() => setKeySaved(false), 1500);
+    setTimeout(() => { setKeySaved(false); setShowSettings(false); }, 800);
   };
 
   const buildSystem = (): string => {
@@ -360,7 +360,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
       </div>
 
       {/* Model bar */}
-      <div className="agent-modelbar" onClick={() => setShowSettings(true)}>
+      <div className="agent-modelbar" onClick={() => setShowSettings((v) => !v)}>
         <span className="agent-model-name">{provider.label} · {model || '—'}</span>
 
         {!hasKey && <span className="agent-nokey"><Warning size={12} /> key</span>}

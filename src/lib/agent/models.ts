@@ -10,7 +10,6 @@ export interface ProviderDef {
   label: string;
   shape: ApiShape;
   baseURL: string;
-  free: boolean;
   defaultModel: string;
   fallbackModel?: string;
   models: string[];
@@ -21,7 +20,7 @@ export interface ProviderDef {
 
 export const PROVIDERS: ProviderDef[] = [
   {
-    id: 'gemini', label: 'Google (Gemini)', shape: 'gemini', baseURL: '', free: true,
+    id: 'gemini', label: 'Google (Gemini)', shape: 'gemini', baseURL: '', 
     defaultModel: 'gemini-2.5-flash',
     fallbackModel: 'gemini-2.5-flash-lite',
     models: [
@@ -36,7 +35,7 @@ export const PROVIDERS: ProviderDef[] = [
   },
   {
     id: 'openai', label: 'OpenAI (GPT)', shape: 'openai',
-    baseURL: 'https://api.openai.com/v1', free: false,
+    baseURL: 'https://api.openai.com/v1',
     defaultModel: 'gpt-4o-mini',
     fallbackModel: 'gpt-4o-mini',
     models: [
@@ -52,7 +51,7 @@ export const PROVIDERS: ProviderDef[] = [
     keyUrl: 'https://platform.openai.com/api-keys',
   },
   {
-    id: 'anthropic', label: 'Anthropic (Claude)', shape: 'anthropic', baseURL: '', free: false,
+    id: 'anthropic', label: 'Anthropic (Claude)', shape: 'anthropic', baseURL: '', 
     defaultModel: 'claude-sonnet-4-6',
     fallbackModel: 'claude-haiku-4-5-20251001',
     models: [
@@ -65,7 +64,7 @@ export const PROVIDERS: ProviderDef[] = [
   },
   {
     id: 'xai', label: 'xAI (Grok)', shape: 'openai',
-    baseURL: 'https://api.x.ai/v1', free: false,
+    baseURL: 'https://api.x.ai/v1',
     defaultModel: 'grok-3-mini',
     fallbackModel: 'grok-2',
     models: [
@@ -90,12 +89,12 @@ export interface TokenUsage {
 
 /** Pricing per 1M tokens: [input $/1M, output $/1M]. 0 = free tier. */
 const PRICING: Record<string, [number, number]> = {
-  // Gemini — free tier (Google AI Studio)
-  'gemini-2.5-flash-lite': [0, 0],
-  'gemini-2.5-flash': [0, 0],
-  'gemini-2.5-pro': [0, 0],
-  'gemini-2.0-flash': [0, 0],
-  'gemini-2.0-flash-lite': [0, 0],
+  // Gemini (Google AI paid tier pricing per 1M tokens)
+  'gemini-2.5-flash-lite': [0.04, 0.15],
+  'gemini-2.5-flash': [0.15, 0.60],
+  'gemini-2.5-pro': [1.25, 10],
+  'gemini-2.0-flash': [0.10, 0.40],
+  'gemini-2.0-flash-lite': [0.04, 0.15],
   // OpenAI
   'gpt-4o-mini': [0.15, 0.60],
   'gpt-4o': [2.50, 10],

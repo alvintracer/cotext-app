@@ -50,7 +50,7 @@ const STR = {
     agentMode: 'Agent mode (tools)', agentModeOff: 'Agent mode: off',
     proposalTitle: 'Agent wants to save to', approve: 'Approve & save', reject: 'Reject', working: 'Working…',
     provider: 'Provider', model: 'Model', apiKey: 'API key', baseURL: 'Base URL',
-    save: 'Save', getKey: 'Get key', free: 'FREE', byok: 'BYOK — keys stay in this browser only',
+    save: 'Save', getKey: 'Get key', byok: 'BYOK — keys stay in this browser only',
     needKey: 'Add an API key for this provider to start.', refresh: 'Reload context',
     empty: 'Every model here answers grounded on your repo. Pick a model, add your key, and ask.',
     sourceNote: 'AI replies are tagged with the model (source). Copy to paste back into a chat.',
@@ -64,7 +64,7 @@ const STR = {
     agentMode: '에이전트 모드 (도구)', agentModeOff: '에이전트 모드: 꺼짐',
     proposalTitle: '에이전트가 저장하려는 곳', approve: '승인 후 저장', reject: '거절', working: '처리 중…',
     provider: '제공자', model: '모델', apiKey: 'API 키', baseURL: 'Base URL',
-    save: '저장', getKey: '키 발급', free: '무료', byok: 'BYOK — 키는 이 브라우저에만 저장',
+    save: '저장', getKey: '키 발급', byok: 'BYOK — 키는 이 브라우저에만 저장',
     needKey: '시작하려면 이 제공자의 API 키를 입력하세요.', refresh: '컨텍스트 새로고침',
     empty: '여기 모든 모델은 당신의 레포를 컨텍스트로 깔고 답합니다. 모델을 고르고 키를 넣고 물어보세요.',
     sourceNote: 'AI 답변은 모델(source)로 태그됩니다. 복사해서 채팅에 다시 붙여넣으세요.',
@@ -362,7 +362,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
       {/* Model bar */}
       <div className="agent-modelbar" onClick={() => setShowSettings(true)}>
         <span className="agent-model-name">{provider.label} · {model || '—'}</span>
-        {provider.free && <span className="agent-free">{t.free}</span>}
+
         {!hasKey && <span className="agent-nokey"><Warning size={12} /> key</span>}
       </div>
 
@@ -397,7 +397,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
           <label className="agent-field-label">{t.provider}</label>
           <select value={providerId} onChange={(e) => selectProvider(e.target.value as ProviderId)} className="input">
             {PROVIDERS.map((p) => (
-              <option key={p.id} value={p.id}>{p.label}{p.free ? ' (free)' : ''}</option>
+              <option key={p.id} value={p.id}>{p.label}</option>
             ))}
           </select>
 

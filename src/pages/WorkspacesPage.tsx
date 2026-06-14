@@ -85,14 +85,14 @@ export default function WorkspacesPage() {
   }, []);
 
   const handleCreate = useCallback(async () => {
-    if (!workspaceName.trim() || !repoName.trim()) return;
+    if (!(workspaceName || '').trim() || !(repoName || '').trim()) return;
     setCreating(true);
     try {
-      const owner = ownerName.trim() || defaultOwner;
+      const owner = (ownerName || '').trim() || defaultOwner;
       await createWorkspace({
-        name: workspaceName.trim(),
+        name: (workspaceName || '').trim(),
         github_owner: owner,
-        github_repo: repoName.trim(),
+        github_repo: (repoName || '').trim(),
       });
       closeModal();
     } catch (err) {

@@ -30,12 +30,27 @@ export default function AppLayout() {
 
   const handleChangeAccount = async () => {
     setProfileOpen(false);
-    // Sign out first, then immediately redirect to GitHub OAuth
+    // Sign out of Supabase first
     await supabase.auth.signOut();
-    await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: { redirectTo: window.location.origin + '/workspaces' },
-    });
+    // Open GitHub logout in popup
+    const popup = window.open(
+      'https://github.com/logout',
+      'github_logout',
+      'width=500,height=600,left=200,top=100',
+    );
+    // Poll for popup close, then start OAuth
+    const timer = setInterval(() => {
+      if (!popup || popup.closed) {
+        clearInterval(timer);
+        supabase.auth.signInWithOAuth({
+          provider: 'github',
+          options: {
+            scopes: 'repo,user:email',
+            redirectTo: window.location.origin + '/auth/callback',
+          },
+        });
+      }
+    }, 500);
   };
 
   const handleSignOut = () => {

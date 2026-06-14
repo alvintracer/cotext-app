@@ -1931,3 +1931,88 @@ SYNC-005  "Sync with Agents" 부트스트랩 프롬프트는 짧게, 규칙은 r
 SYNC-006  가이드는 "git pull → 블록 형식 작성 → git push"를 의무 프로토콜로 명시.
           Context Pack은 source=me-only 필터로 AI 에코 재주입을 방지(루프 위생).
 ```
+
+---
+
+## 29. 임베드 멀티모델 에이전트 (우측 패널) — 구현됨
+
+> §28이 "외부 에이전트(로컬/웹)를 repo에 연결"하는 거라면, §29는 **Cotext 앱 안에서 직접** 여러 모델과 채팅하는 우측 패널이다. 외부로 나갈 필요 없이, 모든 모델이 기본적으로 이 repo를 컨텍스트로 깔고 답한다.
+
+### 29.1 핵심 설계
+
+```text
+- 우측 확장 패널(AgentPanel): 캡처 컴포저(=내 생각)와 분리 → provenance 깨끗
+- 도구 1벌 + 모델 교체: 모든 provider가 OpenAI 호환 function calling → 어댑터로 통일
+- BYOK: 사용자가 provider API 키 입력해 활성화. 키는 이 브라우저 localStorage에만
+  (Cotext의 공유 GitHub 토큰은 서버 전용 원칙 D-002 그대로 — 별개 저장소)
+- repo as default context: 패널 열면 현재 챗(.cotext/cotext.md)을 자동 로드해 system에 주입
+- provenance: AI 답변은 source:<model> 라벨, 복사해서 채팅/repo에 회수(§28.5)
+```
+
+### 29.2 지원 모델 (BYOK)
+
+```text
+무료 API 티어: Gemini(2.5 Flash/Flash-Lite/Pro), GitHub Models, Groq, OpenRouter
+BYOK 유료:     Claude(Anthropic), OpenAI(GPT), Grok(xAI)
+Custom:        OpenAI 호환 baseURL 직접 입력 (로컬 Ollama, 자체 게이트웨이 등)
+→ "무료 임베드"는 Gemini/GitHub Models/Groq로 가능. GPT/Claude/Grok은 BYOK(유료) 또는 외부 §28.
+```
+
+### 29.3 요청 형태 (3가지 어댑터)
+
+```text
+openai-compatible : POST {baseURL}/chat/completions  (OpenAI/xAI/Groq/OpenRouter/GitHub/Custom)
+anthropic         : POST api.anthropic.com/v1/messages
+                    (헤더 anthropic-dangerous-direct-browser-access:true 로 브라우저 직접 호출)
+gemini            : POST generativelanguage.../models/{model}:generateContent?key=
+모두 system 프롬프트에 repo 컨텍스트 주입. (MVP는 non-streaming, 스트리밍은 후속)
+```
+
+### 29.4 구현 파일
+
+```text
+src/lib/agent/models.ts     provider·모델 레지스트리(무료 배지, 편집 가능한 model id)
+src/lib/agent/keys.ts       BYOK 키·선호 모델 localStorage 저장 (cotext-llm-keys / -pref)
+src/lib/agent/providers.ts  runChat() — 3개 어댑터
+src/components/AgentPanel.tsx + src/styles/agent.css
+src/pages/WorkspaceDetailPage.tsx  우측 토글 버튼 + 패널 마운트(현재 워크스페이스·챗 전달)
+```
+
+### 29.5 Write-back · 스트리밍 (구현됨)
+
+```text
+- Write-back: AI 답변마다 "챗에 저장" 버튼 → 최신 content/sha를 pull한 뒤 appendMessage로
+  source:<provider> 태그 블록을 append, pushRoom으로 commit. 저장 후 RoomView 자동 리마운트(새로고침).
+- 토글 가시성 수정: .workspace-detail position:relative + 우측 가장자리 중앙 알약 핸들. 아이콘 codepen-logo.
+- 스트리밍: 직접 호출 provider(Gemini/OpenAI/Anthropic/Groq/xAI/OpenRouter)는 SSE 스트리밍
+  (providers.ts readSSE + onToken, shape별 delta 파싱). 토큰마다 placeholder 메시지를 채움.
+  GitHub Models는 Edge Function 프록시(invoke 버퍼링)라 non-streaming 유지.
+```
+
+### 29.6 후속 (Later)
+
+```text
+- GitHub Models(프록시) 스트리밍 — Edge Function 스트림을 client fetch로 직접 읽는 경로 필요
+- 도구콜 기반 자동 수정(append_note/push)로 완전한 "동시 편집" (지금은 읽기-그라운딩 + 답변별 저장/복사)
+- 저장 시 RoomView 로컬 draft와의 충돌은 기존 SHA 충돌 처리에 의존(개선 여지)
+- ApiKeyManager(§28.9, Cotext API 키)와 통합 UX, 멀티모델 팬아웃(§25.4)
+```
+
+### 29.7 GitHub Models 연결 (검증 결과)
+
+```text
+검증 결론:
+- GitHub Models 추론은 `models:read` 권한이 있는 fine-grained PAT(또는 GitHub App 토큰)이 필요.
+- 우리 로그인 토큰(Supabase GitHub OAuth App)은 models 권한이 없음
+  → "기존 GitHub 연결 재사용(무키)"은 현재 OAuth App 구조에선 불가.
+    (가능하게 하려면 Cotext를 GitHub App으로 전환해야 함 — §7.2 Beta 과제)
+- 엔드포인트 https://models.github.ai/inference/chat/completions 는 서버 지향(브라우저 CORS 불확실)
+  + X-GitHub-Api-Version 헤더 필요.
+
+채택한 방식:
+- BYOK: 사용자가 fine-grained PAT(models:read)를 패널에 입력.
+- Edge Function 프록시 `github-models`가 PAT를 받아 서버에서 GitHub Models 호출(헤더 처리, CORS 회피).
+- 구현: supabase/functions/github-models/index.ts, lib/supabase/functions.ts#chatGithubModels,
+  models.ts provider에 proxy:true. (배포: supabase functions deploy github-models — 실호출 검증은 배포 후 PAT로)
+```
+

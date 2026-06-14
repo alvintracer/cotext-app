@@ -8,10 +8,11 @@ import { githubApi } from '../lib/supabase/functions';
 import type { Room } from '../types/room';
 import RoomView from '../components/RoomView';
 import ApiKeyManager from '../components/ApiKeyManager';
+import AgentPanel from '../components/AgentPanel';
 import {
   FolderOpen, Plus, CaretLeft as ChevronLeft, MagnifyingGlass as Search, ChatText as MessageSquare,
   TreeStructure as FolderTree, CaretRight as ChevronRight, List as Menu, X,
-  Link as LinkIcon, Copy, Check, Users, UserPlus, Robot
+  Link as LinkIcon, Copy, Check, Users, UserPlus, Robot, CodepenLogo
 } from '@phosphor-icons/react';
 
 interface TreeItem {
@@ -41,7 +42,7 @@ export default function WorkspaceDetailPage() {
   const { workspaces, currentWorkspace, selectWorkspace } = useWorkspace();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [rooms, setRooms] = useState<Room[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
@@ -52,6 +53,8 @@ export default function WorkspaceDetailPage() {
   const [selectedPath, setSelectedPath] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentSaveKey, setAgentSaveKey] = useState(0);
 
   // Team & Invite state
   const [teammates, setTeammates] = useState<Teammate[]>([]);
@@ -265,6 +268,14 @@ export default function WorkspaceDetailPage() {
         />
       )}
 
+      {/* Agent panel toggle */}
+      {!agentOpen && (
+        <button className="agent-toggle" onClick={() => setAgentOpen(true)}>
+          <CodepenLogo size={16} weight="duotone" />
+          <span>{language === 'ko' ? '에이전트' : 'Agents'}</span>
+        </button>
+      )}
+
       {/* Sidebar */}
       <aside className={`workspace-sidebar ${sidebarOpen ? 'open' : 'collapsed'}`}>
         <div className="sidebar-header">
@@ -391,6 +402,7 @@ export default function WorkspaceDetailPage() {
       <main className="workspace-main">
         {selectedRoom ? (
           <RoomView
+            key={`${selectedRoom.id}-${agentSaveKey}`}
             room={selectedRoom}
             workspace={workspace}
             onRoomUpdate={(updated) => {
@@ -408,6 +420,16 @@ export default function WorkspaceDetailPage() {
           </div>
         )}
       </main>
+
+      {/* Embedded multi-model agent panel (right) */}
+      <AgentPanel
+        open={agentOpen}
+        onClose={() => setAgentOpen(false)}
+        workspace={workspace}
+        room={selectedRoom}
+        rooms={rooms}
+        onSaved={() => setAgentSaveKey((k) => k + 1)}
+      />
 
       {/* Add Room Modal */}
       {showAddRoom && (

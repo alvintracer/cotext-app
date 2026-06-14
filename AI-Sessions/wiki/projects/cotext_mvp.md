@@ -48,6 +48,18 @@ MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context
 
 **§28 Sync 로드맵 전체 완료! 🎉**
 
+- (2026-06-14) **§29 임베드 멀티모델 에이전트(우측 패널) 완료** (결정 D-008):
+  - `AgentPanel` 우측 확장 패널 — 앱 내에서 직접 멀티모델 채팅. 캡처 컴포저와 분리(provenance 청결)
+  - **repo as default context**: 현재 챗 `.cotext/cotext.md`를 자동 로드해 system 주입
+  - **BYOK** provider 키(localStorage `cotext-llm-keys`) — §28.9 `ApiKeyManager`(Cotext API 키, Supabase)와 별개
+  - 어댑터 3종(openai-compatible/anthropic/gemini). 무료: Gemini/GitHub Models/Groq, BYOK: GPT/Claude/Grok, Custom
+  - 파일: `src/lib/agent/{models,keys,providers}.ts`, `src/components/AgentPanel.tsx`, `src/styles/agent.css`
+  - write-back: 답변별 "챗에 저장"(source 태그 append+push, RoomView 자동 새로고침)
+  - **스트리밍**: 직접 provider는 SSE 스트리밍, GitHub Models는 프록시라 non-stream
+  - **GitHub Models**: OAuth 로그인 토큰은 models 권한 없음 → fine-grained PAT(models:read) BYOK + Edge Function `github-models` 프록시(§29.7)
+  - 아이콘 codepen-logo
+  - 후속: GitHub Models 스트리밍, 도구콜 자동 편집, 무키 체험(하이브리드)
+
 ## 관련 문서
 - [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]] — 스택·토큰·이미지 압축 등 핵심 결정
 - [[AI-Sessions/wiki/design/cotext-brand-and-landing]] — 브랜드·디자인 시스템·랜딩

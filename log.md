@@ -21,3 +21,8 @@ YYYY-MM-DD HH:mm | command | summary | linked files
 2026-06-14 05:15 | save | 팀 협업 기능 구현: 초대 링크 + 팀원 리스트 + InvitePage + workspace_invites SQL | [[AI-Sessions/wiki/projects/cotext_mvp]]
 2026-06-14 06:00 | save | §28.8 1차 동기화 인프라 구현 완료: Context Pack 복사, provenance(source:me), Turndown 붙여넣기 충실도, COTEXT_GUIDE/INDEX 자동 생성, AGENTS.md 얇은 포인터. turndown 패키지 추가 | [[AI-Sessions/wiki/projects/cotext_mvp]]
 2026-06-14 06:15 | save | §28.8 2차 Cotext 로컬 MCP 서버 구현 완료: packages/cotext-mcp 독립 패키지, 5개 도구 + 1개 리소스, stdio 전송, me-only 필터 | [[AI-Sessions/wiki/projects/cotext_mvp]]
+2026-06-14 08:10 | save | npm bin 트러블슈팅, 토큰 보안 이슈 및 MVP 인수인계 사항 저장 | [[AI-Sessions/wiki/errors/01_npm-bin-quirk-and-publish]], [[AI-Sessions/conversations/2026-06-14-mcp-api-publish-handoff]]
+2026-06-14 08:40 | save | §29 임베드 멀티모델 에이전트(우측 AgentPanel) 구현: BYOK provider 키, repo 자동 컨텍스트, 어댑터 3종(openai/anthropic/gemini), 무료=Gemini/GitHub Models/Groq. 결정 D-008 승격 | [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]], [[AI-Sessions/wiki/projects/cotext_mvp]]
+2026-06-14 08:55 | save | §29 write-back 추가(답변→챗에 source 태그로 저장, RoomView 자동 새로고침) + 토글 가시성 수정(우측 가장자리 핸들). 계획서 §29.5 갱신 | [[cotext-development-plan]]
+2026-06-14 09:10 | save | 에이전트 아이콘 codepen-logo로 교체. GitHub Models 검증: OAuth 로그인 토큰은 models 권한 없음 → fine-grained PAT(models:read) BYOK + Edge Function 프록시(github-models)로 연결. 계획서 §29.7 | [[cotext-development-plan]]
+2026-06-14 09:25 | save | §29 스트리밍 구현: 직접 provider(Gemini/OpenAI/Anthropic/Groq/xAI/OpenRouter) SSE 스트리밍(providers.ts readSSE+onToken), GitHub Models는 프록시라 non-stream 유지. 계획서 §29.5 갱신 | [[cotext-development-plan]], [[AI-Sessions/wiki/projects/cotext_mvp]]

@@ -44,6 +44,20 @@ export const githubApi = {
   },
 };
 
+// GitHub Models inference via Edge Function proxy (BYOK fine-grained PAT with models:read).
+// Proxied because the browser-direct endpoint has CORS/header constraints.
+export async function chatGithubModels(
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  token: string,
+): Promise<string> {
+  const data = await invokeFunction<{ choices?: Array<{ message?: { content?: string } }> }>(
+    'github-models',
+    { model, messages, token },
+  );
+  return data?.choices?.[0]?.message?.content ?? '';
+}
+
 // Cache for blob URLs to avoid re-fetching
 const blobUrlCache = new Map<string, string>();
 

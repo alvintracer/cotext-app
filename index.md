@@ -46,7 +46,11 @@
 
 ## Errors / Lessons
 
-아직 등록된 error 문서가 없습니다.
+- [[AI-Sessions/wiki/errors/01_npm-bin-quirk-and-publish]]
+
+## Conversations
+
+- [[AI-Sessions/conversations/2026-06-14-mcp-api-publish-handoff]]
 
 ## Prompt Library
 

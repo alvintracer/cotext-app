@@ -10,7 +10,7 @@ import type { Workspace } from '../types/workspace';
 import MorphingComposer from './MorphingComposer';
 import CommitBar from './CommitBar';
 import CotextEditor from './CotextEditor';
-import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X } from '@phosphor-icons/react';
+import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X, PencilSimple } from '@phosphor-icons/react';
 import { generateCotextGuide, generateCotextIndex, generateAgentsPointerBlock, upsertPointerBlock } from '../lib/contextGuide';
 
 interface RoomViewProps {
@@ -42,6 +42,8 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
   const [shareCreating, setShareCreating] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareScope, setShareScope] = useState<'room' | 'workspace'>('room');
+  const [editingName, setEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState(room.name || 'cotext');
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // Load initial content
@@ -310,6 +312,32 @@ export default function RoomView({ room, workspace, onRoomUpdate }: RoomViewProp
     }
   }, [workspace, room, handlePush]);
 
+  // Rename chat
+  const handleRename = useCallback(async () => {
+    const newName = editNameValue.trim();
+    if (!newName || newName === (room.name || 'cotext')) {
+      setEditingName(false);
+      return;
+    }
+    const safeName = newName.replace(/[^a-zA-Z0-9\uac00-\ud7a3_\-\s]/g, '').replace(/\s+/g, '-').toLowerCase() || 'cotext';
+    const cotextFolder = workspace.cotext_folder_name || '.cotext';
+    const newFilePath = room.path === 'root'
+      ? `${cotextFolder}/${safeName}.md`
+      : `${room.path}/${cotextFolder}/${safeName}.md`;
+
+    try {
+      const { error } = await supabase
+        .from('rooms')
+        .update({ name: newName, cotext_file_path: newFilePath })
+        .eq('id', room.id);
+      if (error) throw error;
+      onRoomUpdate({ ...room, name: newName, cotext_file_path: newFilePath });
+    } catch (err) {
+      console.error('Failed to rename room:', err);
+    }
+    setEditingName(false);
+  }, [room, editNameValue, workspace, onRoomUpdate]);
+
   // Copy Context Pack for LLM
   const handleCopyContextPack = useCallback(async () => {
     const now = new Date().toISOString().split('T')[0];
@@ -504,7 +532,32 @@ ${filteredContent}
       {/* Room header */}
       <div className="room-header">
         <div className="room-header-info">
-          <h2>{room.path}</h2>
+          {editingName ? (
+            <div className="room-name-edit">
+              <input
+                type="text"
+                className="room-name-input"
+                value={editNameValue}
+                onChange={(e) => setEditNameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleRename();
+                  } else if (e.key === 'Escape') {
+                    setEditingName(false);
+                    setEditNameValue(room.name || 'cotext');
+                  }
+                }}
+                onBlur={handleRename}
+                autoFocus
+              />
+            </div>
+          ) : (
+            <button className="room-name-display" onClick={() => { setEditNameValue(room.name || 'cotext'); setEditingName(true); }}>
+              <span className="room-name-path">{room.path === 'root' ? '/' : room.path} /</span>
+              <span className="room-name-label">{room.name || 'cotext'}</span>
+              <PencilSimple size={11} className="room-name-pencil" />
+            </button>
+          )}
           <span className={`sync-badge sync-badge-${syncStatus}`}>
             {syncStatus === 'synced' && <><Check size={12} /> Synced</>}
             {syncStatus === 'draft' && <><Code size={12} /> Draft</>}

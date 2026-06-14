@@ -2927,6 +2927,16 @@ button:focus-visible {
   color: #a855f7;
 }
 
+.source-clickable {
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+.source-clickable:hover {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  color: var(--accent);
+  transform: scale(1.05);
+}
+
 /* Draft menu (three-dot) */
 .draft-menu-wrapper {
   position: relative;

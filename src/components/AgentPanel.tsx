@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   CodepenLogo, X, GearSix, PaperPlaneRight, Copy, Check, ArrowClockwise,
-  Warning, ArrowSquareOut, PlusCircle, Wrench, SpinnerGap,
+  Warning, ArrowSquareOut, Plus, Wrench, SpinnerGap,
 } from '@phosphor-icons/react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { githubApi } from '../lib/supabase/functions';
@@ -297,7 +297,8 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
       }
       setSavedIdx(idx);
       setTimeout(() => setSavedIdx(null), 2000);
-      onSaved?.();
+      // Delay refresh so the UI doesn't flash/reset immediately
+      setTimeout(() => onSaved?.(), 1500);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -466,7 +467,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
                 {room && (
                   <button className="agent-add-btn" onClick={() => saveToChat(i, m.content)}
                     disabled={savingIdx !== null} title={t.saveToChat}>
-                    {savedIdx === i ? <Check size={14} weight="bold" /> : savingIdx === i ? <SpinnerGap size={14} className="spin" /> : <PlusCircle size={16} weight="fill" />}
+                    {savedIdx === i ? <Check size={12} weight="bold" /> : savingIdx === i ? <SpinnerGap size={12} className="spin" /> : <Plus size={12} weight="bold" />}
                   </button>
                 )}
                 <button className="icon-button agent-copy" onClick={() => copyMsg(i, m.content)} title={t.copy}>

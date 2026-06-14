@@ -654,6 +654,22 @@ ${filteredContent}
                 cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
                 handleContentChange(cleaned);
               }}
+              onChangeSource={(blockTimestamp, newSource) => {
+                // Replace <!-- source: X --> with <!-- source: newSource --> in the block matching this timestamp
+                const lines = content.split('\n');
+                let inBlock = false;
+                let changed = false;
+                const result = lines.map((line) => {
+                  const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+                  if (tsMatch) inBlock = tsMatch[1] === blockTimestamp;
+                  if (inBlock && !changed && line.match(/^<!-- source: \w+ -->/)) {
+                    changed = true;
+                    return `<!-- source: ${newSource} -->`;
+                  }
+                  return line;
+                });
+                handleContentChange(result.join('\n'));
+              }}
             />
           </div>
         )}
@@ -711,12 +727,13 @@ ${filteredContent}
 }
 
 // Simple timeline renderer
-function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock }: {
+function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock, onChangeSource }: {
   content: string;
   remoteContent: string;
   workspace: Workspace;
   room: Room;
   onDeleteBlock?: (timestamp: string) => void;
+  onChangeSource?: (timestamp: string, newSource: string) => void;
 }) {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const lines = content.split('\n');
@@ -776,7 +793,15 @@ function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock }
               <Clock size={12} />
               <span>{block.timestamp}</span>
               {!block.isPushed && <span className="draft-badge">Draft</span>}
-              {block.source && <span className={`source-badge source-${block.source}`}>{block.source}</span>}
+              {block.source && block.source !== 'me' && block.timestamp ? (
+                <span
+                  className={`source-badge source-${block.source} source-clickable`}
+                  title="Click to adopt as yours (source → me)"
+                  onClick={() => onChangeSource?.(block.timestamp!, 'me')}
+                >{block.source}</span>
+              ) : block.source ? (
+                <span className={`source-badge source-${block.source}`}>{block.source}</span>
+              ) : null}
               {/* Three-dot menu for draft blocks */}
               {!block.isPushed && block.timestamp && (
                 <div className="draft-menu-wrapper">

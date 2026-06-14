@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -22,6 +22,9 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+const isNative = Capacitor.isNativePlatform();
+const Router = isNative ? HashRouter : BrowserRouter;
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -54,7 +57,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={isNative ? (user && !loading ? <Navigate to="/workspaces" replace /> : <LoginPage />) : <LandingPage />} />
       <Route
         path="/login"
         element={user && !loading ? <Navigate to="/workspaces" replace /> : <LoginPage />}
@@ -84,11 +87,11 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <LanguageProvider>
-          <BrowserRouter>
+          <Router>
             <AuthProvider>
               <AppRoutes />
             </AuthProvider>
-          </BrowserRouter>
+          </Router>
         </LanguageProvider>
       </ThemeProvider>
     </QueryClientProvider>

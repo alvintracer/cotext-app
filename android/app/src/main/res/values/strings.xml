@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">cotext</string>
+    <string name="title_activity_main">cotext</string>
+    <string name="package_name">com.alvintracer.cotext</string>
+    <string name="custom_url_scheme">com.alvintracer.cotext</string>
+</resources>

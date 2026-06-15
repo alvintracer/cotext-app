@@ -17,6 +17,8 @@ interface CotextEditorProps {
   content: string;
   onChange: (content: string) => void;
   readOnly?: boolean;
+  /** Neural Link selection hook — fires when a text range is selected inside a dated block. */
+  onSelectionForNode?: (blockTs: string, label: string, anchor: { x: number; y: number } | null) => void;
 }
 
 interface ToolbarAction {
@@ -158,11 +160,13 @@ const toolbarActions: ToolbarAction[] = [
   },
 ];
 
-export default function CotextEditor({ content, onChange, readOnly = false }: CotextEditorProps) {
+export default function CotextEditor({ content, onChange, readOnly = false, onSelectionForNode }: CotextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const isUpdating = useRef(false);
   const [showMobileSheet, setShowMobileSheet] = useState(false);
+  const selectionCbRef = useRef(onSelectionForNode);
+  useEffect(() => { selectionCbRef.current = onSelectionForNode; }, [onSelectionForNode]);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -197,10 +201,10 @@ export default function CotextEditor({ content, onChange, readOnly = false }: Co
         borderLeftColor: 'var(--accent)',
       },
       '.cm-selectionBackground': {
-        backgroundColor: 'color-mix(in srgb, var(--accent) 20%, transparent) !important',
+        backgroundColor: 'color-mix(in srgb, var(--accent) 30%, transparent) !important',
       },
       '.cm-focused .cm-selectionBackground': {
-        backgroundColor: 'color-mix(in srgb, var(--accent) 25%, transparent) !important',
+        backgroundColor: 'color-mix(in srgb, var(--accent) 35%, transparent) !important',
       },
       '&.cm-focused': {
         outline: 'none',
@@ -210,6 +214,28 @@ export default function CotextEditor({ content, onChange, readOnly = false }: Co
     const updateListener = EditorView.updateListener.of((update: any) => {
       if (update.docChanged && !isUpdating.current) {
         onChange(update.state.doc.toString());
+      }
+      // Neural Link — emit selection (for "Make node" floating button)
+      if (update.selectionSet && selectionCbRef.current) {
+        const sel = update.state.selection.main;
+        if (sel.empty) {
+          selectionCbRef.current('', '', null);
+        } else {
+          const text = update.state.sliceDoc(sel.from, sel.to);
+          // Find enclosing `## YYYY-MM-DD HH:mm` block by scanning lines above sel.from
+          const doc = update.state.doc;
+          const startLine = doc.lineAt(sel.from).number;
+          let blockTs: string | null = null;
+          for (let i = startLine; i >= 1; i--) {
+            const m = doc.line(i).text.match(/^##\s+(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+            if (m) { blockTs = m[1]; break; }
+          }
+          if (blockTs) {
+            const coords = update.view.coordsAtPos(sel.to);
+            const anchor = coords ? { x: coords.right, y: coords.bottom } : null;
+            selectionCbRef.current(blockTs, text, anchor);
+          }
+        }
       }
     });
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase/client';
-import { githubApi, fetchAssetBlobUrl } from '../lib/supabase/functions';
+import { githubApi, fetchAssetBlobUrl, neuralApi, type NeuralClusterHit, type NeuralNodeHit } from '../lib/supabase/functions';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { appendMessage, createInitialContent, createImageLink, createFileLink, generateAssetFileName, parseBlocks } from '../lib/markdown/index';
@@ -10,8 +11,16 @@ import type { Workspace } from '../types/workspace';
 import MorphingComposer from './MorphingComposer';
 import CommitBar from './CommitBar';
 import CotextEditor from './CotextEditor';
-import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X, PencilSimple, CodepenLogo, ArrowDown } from '@phosphor-icons/react';
+import NeuralGraphView from './NeuralGraphView';
+import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X, PencilSimple, CodepenLogo, ArrowDown, Graph, Tag, Plus, MagnifyingGlass, LinkSimple, ArrowSquareOut } from '@phosphor-icons/react';
 import { generateCotextGuide, generateCotextIndex, generateAgentsPointerBlock, upsertPointerBlock } from '../lib/contextGuide';
+import {
+  nodifyBlock, removeNodeFromBlock, parseNodeComment, readInlineNodes, extractBlockText,
+  emptyGraph, parseGraph, serializeGraph, upsertCluster, linkEdge, unlinkEdge, syncNodesFromContent, neuralFilePath,
+  relatedNodes, clusterMembers,
+  type Cluster, type InlineNodeMeta, type NeuralGraph, type NeuralNode,
+} from '../lib/neural';
+import '../styles/neural.css';
 
 interface RoomViewProps {
   room: Room;
@@ -21,13 +30,20 @@ interface RoomViewProps {
   onFixWithAgent?: (text: string, timestamp: string) => void;
   /** Apply an agent result to LOCAL content: append a block (and optionally replace the origin). */
   apply?: { text: string; source: string; replaceTimestamp?: string; nonce: number } | null;
+  /** Navigate to another chat in the same repo (Neural Link cross-room jump). */
+  onNavigateRoom?: (roomPath: string, blockTs: string) => void;
+  /** After this room loads, scroll to this block (used by cross-room jump). */
+  focusBlockTs?: string | null;
+  /** All rooms in this workspace — used by the graph view to fetch cross-room block text. */
+  rooms?: Room[];
 }
 
 type ViewMode = 'chat' | 'editor' | 'split' | 'preview';
 
-export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent, apply }: RoomViewProps) {
+export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent, apply, onNavigateRoom, focusBlockTs, rooms }: RoomViewProps) {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const navigate = useNavigate();
   const [content, setContent] = useState('');
   const [remoteContent, setRemoteContent] = useState('');
   const [remoteSha, setRemoteSha] = useState<string | null>(room.last_known_sha);
@@ -50,6 +66,53 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
   const [editNameValue, setEditNameValue] = useState(room.name || 'cotext');
   const timelineRef = useRef<HTMLDivElement>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  // Neural Link (P1): repo-wide graph (.cotext/neural.json) + node editor target
+  const [graph, setGraph] = useState<NeuralGraph>(emptyGraph());
+  const [nodeEditor, setNodeEditor] = useState<{ ts: string; meta: InlineNodeMeta | null } | null>(null);
+  // Neural Link (P2): cluster members viewer
+  const [clusterView, setClusterView] = useState<string | null>(null);
+  // Neural Link (P2.5): node-to-node edge editor target (source node id + label)
+  const [linkEditor, setLinkEditor] = useState<{ id: string; label: string } | null>(null);
+  // Neural Link (P3): cross-repo search modal
+  const [searchOpen, setSearchOpen] = useState(false);
+  // Neural Link (P4): graph view
+  const [graphOpen, setGraphOpen] = useState(false);
+  // Async block text fetcher for the graph view's detail panel (current room = local content,
+  // other rooms in the same repo = fetch via GitHub). Cache to avoid repeat fetches.
+  const blockTextCacheRef = useRef(new Map<string, string>());
+  const getBlockText = useCallback(async (roomPath: string, blockTs: string): Promise<string | null> => {
+    if (roomPath === room.path) return extractBlockText(content, blockTs);
+    const cacheKey = `${roomPath}::${blockTs}`;
+    const cached = blockTextCacheRef.current.get(cacheKey);
+    if (cached !== undefined) return cached;
+    const target = rooms?.find((r) => r.path === roomPath);
+    if (!target) return null;
+    try {
+      const res = await githubApi.getRoomContent(
+        workspace.github_owner, workspace.github_repo, workspace.default_branch, target.cotext_file_path,
+      );
+      const text = extractBlockText(res.content, blockTs);
+      blockTextCacheRef.current.set(cacheKey, text);
+      return text;
+    } catch { return null; }
+  }, [content, room.path, rooms, workspace]);
+  // Neural Link (selection→node): floating "Make node" popup driven by text selection
+  const [selPopup, setSelPopup] = useState<{ x: number; y: number; blockTs: string; label: string } | null>(null);
+  const focusedRef = useRef<string | null>(null);
+  // Latest graph/content for ref-based persistence (edges persist without a content push)
+  const graphRef = useRef(graph);
+  const contentRef = useRef(content);
+  const neuralTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => { graphRef.current = graph; contentRef.current = content; }, [graph, content]);
+
+  // Scroll the timeline to a block by timestamp, with a brief highlight.
+  const jumpToBlock = useCallback((ts: string) => {
+    const el = timelineRef.current?.querySelector(`[data-block-ts="${ts}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('block-flash');
+    setTimeout(() => el.classList.remove('block-flash'), 1200);
+  }, []);
 
   // Load initial content
   useEffect(() => {
@@ -116,6 +179,79 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
     loadContent();
   }, [room.id]);
 
+  // Load Neural Link graph (.cotext/neural.json) — repo-wide, best-effort
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const path = neuralFilePath(workspace.cotext_folder_name || '.cotext');
+        const res = await githubApi.getRoomContent(
+          workspace.github_owner, workspace.github_repo, workspace.default_branch, path,
+        );
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- async load of neural graph
+        if (!cancelled) setGraph(parseGraph(res.content));
+      } catch { /* no neural.json yet — empty graph */ }
+    })();
+    return () => { cancelled = true; };
+  }, [workspace.id]);
+
+  // After content loads, scroll to a requested block (cross-room jump target).
+  useEffect(() => {
+    if (loading || !focusBlockTs) return;
+    if (focusedRef.current === focusBlockTs) return;
+    focusedRef.current = focusBlockTs;
+    const id = setTimeout(() => jumpToBlock(focusBlockTs), 200);
+    return () => clearTimeout(id);
+  }, [loading, focusBlockTs, jumpToBlock]);
+
+  // Browser-selection → "Make node" floating button (timeline + preview views).
+  // Editor view uses CotextEditor's onSelectionForNode callback instead.
+  // Also registers a CSS Custom Highlight so the dragged region stays visibly
+  // marked even after focus moves to the popup (native selection would clear).
+  useEffect(() => {
+    const HIGHLIGHTS = (CSS as unknown as { highlights?: Map<string, Highlight> }).highlights;
+
+    function setHighlight(range: Range | null) {
+      if (!HIGHLIGHTS || typeof Highlight === 'undefined') return;
+      HIGHLIGHTS.delete('neural-selection');
+      if (range) {
+        try { HIGHLIGHTS.set('neural-selection', new Highlight(range)); } catch { /* unsupported */ }
+      }
+    }
+
+    function onMouseUp(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      // Ignore clicks on the popup itself — its onMouseDown handles opening
+      if (target.closest('.selection-popup')) return;
+      const root = target.closest('.room-timeline, .room-preview') as HTMLElement | null;
+      if (!root) { setSelPopup(null); setHighlight(null); return; }
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) { setSelPopup(null); setHighlight(null); return; }
+      const text = sel.toString().trim();
+      if (!text) { setSelPopup(null); setHighlight(null); return; }
+      const node = sel.anchorNode;
+      const el = node?.nodeType === 1 ? (node as Element) : node?.parentElement ?? null;
+      const block = el?.closest('[data-block-ts]') as HTMLElement | null;
+      if (!block) { setSelPopup(null); setHighlight(null); return; }
+      const ts = block.dataset.blockTs;
+      if (!ts) { setSelPopup(null); setHighlight(null); return; }
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      setHighlight(range.cloneRange());
+      setSelPopup({ x: rect.right, y: rect.bottom + 4, blockTs: ts, label: text.slice(0, 80) });
+    }
+    document.addEventListener('mouseup', onMouseUp);
+    return () => { document.removeEventListener('mouseup', onMouseUp); setHighlight(null); };
+  }, []);
+
+  // Clear the CSS Custom Highlight when the popup is dismissed (any path).
+  useEffect(() => {
+    if (selPopup) return;
+    const H = (CSS as unknown as { highlights?: Map<string, Highlight> }).highlights;
+    H?.delete('neural-selection');
+  }, [selPopup]);
+
   // Save draft to Supabase (debounced)
   const saveDraftRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   
@@ -144,6 +280,87 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
       }
     }, 1000);
   }, [remoteContent, remoteSha, room.id, user]);
+
+  // Neural Link (P1) — single write path shared by UI (here) and later MCP tools.
+  // Nodify a block: write inline <!-- node: --> comment (cotext.md = source of truth),
+  // upsert any new clusters into the in-memory registry, reconcile the node index.
+  // Picks may carry an explicit `id` (from cross-repo index hits) so the slug is preserved.
+  const handleSaveNode = useCallback((ts: string, label: string, picks: Array<{ name: string; id?: string }>) => {
+    let g = graph;
+    const clusterIds: string[] = [];
+    for (const pick of picks) {
+      const existing = g.clusters.find(
+        (c) => (pick.id && c.id === pick.id) || c.name.toLowerCase() === pick.name.toLowerCase(),
+      );
+      if (existing) {
+        clusterIds.push(existing.id);
+      } else {
+        const r = upsertCluster(g, { name: pick.name, id: pick.id });
+        g = r.graph;
+        clusterIds.push(r.cluster.id);
+      }
+    }
+    const { content: newContent } = nodifyBlock(content, ts, { label, clusters: clusterIds });
+    g = syncNodesFromContent(g, room.path, newContent);
+    setGraph(g);
+    handleContentChange(newContent);
+    setNodeEditor(null);
+  }, [graph, content, room.path, handleContentChange]);
+
+  const handleRemoveNode = useCallback((ts: string) => {
+    const newContent = removeNodeFromBlock(content, ts);
+    setGraph(syncNodesFromContent(graph, room.path, newContent));
+    handleContentChange(newContent);
+  }, [graph, content, room.path, handleContentChange]);
+
+  // Persist neural.json to repo. Re-fetch + merge so other rooms' clusters/edges
+  // aren't clobbered, then reconcile this room's nodes from content. Reads latest
+  // graph/content from refs so it's safe to call from debounced timers.
+  const persistNeuralGraph = useCallback(async () => {
+    const g0 = graphRef.current;
+    const latestContent = contentRef.current;
+    try {
+      const path = neuralFilePath(workspace.cotext_folder_name || '.cotext');
+      let sha: string | null = null;
+      let base = g0;
+      try {
+        const ex = await githubApi.getRoomContent(
+          workspace.github_owner, workspace.github_repo, workspace.default_branch, path,
+        );
+        sha = ex.sha;
+        base = parseGraph(ex.content);
+        for (const c of g0.clusters) base = upsertCluster(base, c).graph;
+        for (const e of g0.edges) base = linkEdge(base, e.from, e.to, e.type);
+      } catch { /* file doesn't exist yet — use in-memory graph */ }
+      const merged = syncNodesFromContent(base, room.path, latestContent);
+      setGraph(merged);
+      await githubApi.pushRoom(
+        workspace.github_owner, workspace.github_repo, workspace.default_branch,
+        path, serializeGraph(merged), sha, 'cotext: sync neural graph',
+      );
+      // Mirror into the Supabase derived index (P3) — best-effort, enables cross-repo search
+      neuralApi.sync(workspace.id, merged).catch((e) => console.warn('Neural index sync failed:', e));
+    } catch (err) {
+      console.warn('Neural graph sync failed:', err);
+    }
+  }, [room.path, workspace]);
+
+  // Debounced persist for edge edits (which don't ride a content push).
+  const scheduleNeuralPersist = useCallback(() => {
+    if (neuralTimer.current) clearTimeout(neuralTimer.current);
+    neuralTimer.current = setTimeout(() => { persistNeuralGraph(); }, 1500);
+  }, [persistNeuralGraph]);
+
+  // Node-to-node edges (P2.5) — single write path: graph state + debounced persist.
+  const handleLinkEdge = useCallback((fromId: string, toId: string, type: string) => {
+    setGraph((g) => linkEdge(g, fromId, toId, type));
+    scheduleNeuralPersist();
+  }, [scheduleNeuralPersist]);
+
+  const handleUnlinkEdge = useCallback((fromId: string, toId: string) => {
+    setGraph((g) => unlinkEdge(g, fromId, toId));
+    scheduleNeuralPersist();
+  }, [scheduleNeuralPersist]);
 
   // Apply an agent result to local content (from "Fix with Agent"): add a block,
   // optionally removing the original block being replaced. All local (draft) — no push.
@@ -314,13 +531,16 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
 
       // Sync guide files (best-effort, non-blocking)
       syncGuideFiles().catch(err => console.error('Guide sync failed:', err));
+
+      // Persist Neural Link graph alongside the room (best-effort, non-blocking)
+      persistNeuralGraph().catch(err => console.error('Neural sync failed:', err));
     } catch (err: any) {
       setSyncStatus('error');
       setError(err.message || 'Failed to push to GitHub');
     } finally {
       setSyncing(false);
     }
-  }, [content, remoteSha, commitMessage, room, workspace, user]);
+  }, [content, remoteSha, commitMessage, room, workspace, user, persistNeuralGraph]);
 
   // Force push (overwrite remote)
   const handleForcePush = useCallback(async () => {
@@ -609,6 +829,20 @@ ${filteredContent}
           >
             <ShareNetwork size={14} /> {t('share.title')}
           </button>
+          <button
+            className="btn btn-ghost btn-sm context-pack-btn"
+            onClick={() => setSearchOpen(true)}
+            title={language === 'ko' ? '뉴럴 검색 (레포 전체)' : 'Neural search (across repos)'}
+          >
+            <Graph size={14} /> {language === 'ko' ? '뉴럴 검색' : 'Neural'}
+          </button>
+          <button
+            className="btn btn-ghost btn-sm context-pack-btn"
+            onClick={() => setGraphOpen(true)}
+            title={language === 'ko' ? '뉴럴 링크 그래프' : 'Neural Link graph'}
+          >
+            <Graph size={14} weight="duotone" /> {language === 'ko' ? '그래프' : 'Graph'}
+          </button>
           <div className="view-mode-tabs">
             {(['chat', 'editor', 'split', 'preview'] as ViewMode[]).map((mode) => (
               <button
@@ -684,6 +918,100 @@ ${filteredContent}
         </div>
       )}
 
+      {/* Floating "Make node" popup from text selection */}
+      {selPopup && !nodeEditor && (
+        <button
+          className="selection-popup"
+          style={{ top: selPopup.y, left: selPopup.x }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            // If this block is already a node, open as Edit (preserve id/clusters). Otherwise seed label.
+            const existing = readInlineNodes(content, room.path).find((n) => n.blockTs === selPopup.blockTs);
+            setNodeEditor({
+              ts: selPopup.blockTs,
+              meta: existing
+                ? { id: existing.id, label: existing.label, clusters: existing.clusters }
+                : { id: '', label: selPopup.label, clusters: [] },
+            });
+            setSelPopup(null);
+            window.getSelection()?.removeAllRanges();
+          }}
+        >
+          <Graph size={12} weight="bold" />
+          {language === 'ko' ? '노드로 만들기' : 'Make node'}
+        </button>
+      )}
+
+      {/* Node editor modal (Neural Link P1) */}
+      {nodeEditor && (
+        <NodeEditor
+          initial={nodeEditor.meta && nodeEditor.meta.id ? nodeEditor.meta : null}
+          seedLabel={nodeEditor.meta && !nodeEditor.meta.id ? nodeEditor.meta.label : undefined}
+          workspaceId={workspace.id}
+          clusters={graph.clusters}
+          language={language}
+          onClose={() => setNodeEditor(null)}
+          onSave={(label, picks) => handleSaveNode(nodeEditor.ts, label, picks)}
+        />
+      )}
+
+      {/* Cluster members modal (Neural Link P2) */}
+      {clusterView && (
+        <ClusterModal
+          clusterId={clusterView}
+          graph={graph}
+          room={room}
+          language={language}
+          onClose={() => setClusterView(null)}
+          onJump={(ts) => { setClusterView(null); jumpToBlock(ts); }}
+          onNavigate={onNavigateRoom ? (path, ts) => { setClusterView(null); onNavigateRoom(path, ts); } : undefined}
+        />
+      )}
+
+      {/* Graph view (Neural Link P4) */}
+      {graphOpen && (
+        <NeuralGraphView
+          graph={graph}
+          currentRoom={room.path}
+          language={language}
+          getBlockText={getBlockText}
+          onClose={() => setGraphOpen(false)}
+          onJump={(ts) => { setGraphOpen(false); jumpToBlock(ts); }}
+          onNavigateRoom={(path, ts) => { setGraphOpen(false); onNavigateRoom?.(path, ts); }}
+        />
+      )}
+
+      {/* Cross-repo neural search modal (Neural Link P3) */}
+      {searchOpen && (
+        <NeuralSearchModal
+          workspace={workspace}
+          language={language}
+          onClose={() => setSearchOpen(false)}
+          onPick={(hit) => {
+            setSearchOpen(false);
+            if (hit.workspace_id === workspace.id) {
+              if (hit.room === room.path) jumpToBlock(hit.block_ts);
+              else onNavigateRoom?.(hit.room, hit.block_ts);
+            } else {
+              navigate(`/workspace/${hit.workspace_id}`);
+            }
+          }}
+        />
+      )}
+
+      {/* Node link editor modal (Neural Link P2.5) */}
+      {linkEditor && (
+        <LinkEditor
+          source={linkEditor}
+          graph={graph}
+          room={room}
+          language={language}
+          onClose={() => setLinkEditor(null)}
+          onLink={(toId, type) => handleLinkEdge(linkEditor.id, toId, type)}
+          onUnlink={(toId) => handleUnlinkEdge(linkEditor.id, toId)}
+        />
+      )}
+
       {/* Error banner */}
       {error && (
         <div className="error-banner">
@@ -717,6 +1045,13 @@ ${filteredContent}
               remoteContent={remoteContent}
               workspace={workspace}
               room={room}
+              graph={graph}
+              onJump={jumpToBlock}
+              onNavigateRoom={onNavigateRoom}
+              onOpenCluster={(id) => setClusterView(id)}
+              onNodify={(ts, meta) => setNodeEditor({ ts, meta })}
+              onRemoveNode={(ts) => handleRemoveNode(ts)}
+              onLinkNode={(id, label) => setLinkEditor({ id, label })}
               onFixWithAgent={onFixWithAgent}
               onDeleteBlock={(blockTimestamp) => {
                 // Delete the block by removing its timestamp header and all lines until the next ## header
@@ -773,6 +1108,10 @@ ${filteredContent}
               content={content}
               onChange={handleContentChange}
               readOnly={false}
+              onSelectionForNode={(blockTs, label, anchor) => {
+                if (!blockTs || !anchor) { setSelPopup(null); return; }
+                setSelPopup({ x: anchor.x, y: anchor.y + 4, blockTs, label: label.slice(0, 80) });
+              }}
             />
           </div>
         )}
@@ -820,20 +1159,31 @@ ${filteredContent}
 }
 
 // Simple timeline renderer
-function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock, onChangeSource, onFixWithAgent }: {
+function TimelineView({ content, remoteContent, workspace, room, graph, onDeleteBlock, onChangeSource, onFixWithAgent, onNodify, onRemoveNode, onLinkNode, onJump, onNavigateRoom, onOpenCluster }: {
   content: string;
   remoteContent: string;
   workspace: Workspace;
   room: Room;
+  graph?: NeuralGraph;
   onDeleteBlock?: (timestamp: string) => void;
   onChangeSource?: (timestamp: string, newSource: string) => void;
   onFixWithAgent?: (text: string, timestamp: string) => void;
+  onNodify?: (timestamp: string, meta: InlineNodeMeta | null) => void;
+  onRemoveNode?: (timestamp: string) => void;
+  onLinkNode?: (nodeId: string, label: string) => void;
+  onJump?: (timestamp: string) => void;
+  onNavigateRoom?: (roomPath: string, blockTs: string) => void;
+  onOpenCluster?: (clusterId: string) => void;
 }) {
+  const { language } = useLanguage();
+  const ko = language === 'ko';
+  const clusterName = (id: string) => graph?.clusters.find((c) => c.id === id)?.name ?? id;
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const lines = content.split('\n');
   const remoteLines = new Set(remoteContent.split('\n'));
-  const blocks: Array<{ lines: string[]; isPushed: boolean; timestamp?: string; source?: string }> = [];
-  let currentBlock: { lines: string[]; isPushed: boolean; timestamp?: string; source?: string } | null = null;
+  type Block = { lines: string[]; isPushed: boolean; timestamp?: string; source?: string; node?: InlineNodeMeta };
+  const blocks: Block[] = [];
+  let currentBlock: Block | null = null;
 
   for (const line of lines) {
     const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
@@ -849,8 +1199,11 @@ function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock, 
       currentBlock = { lines: [line], isPushed: true };
     } else if (currentBlock) {
       const sourceMatch = line.match(/^<!-- source: (\w+) -->/);
+      const nodeMeta = parseNodeComment(line);
       if (sourceMatch && !currentBlock.source) {
         currentBlock.source = sourceMatch[1];
+      } else if (nodeMeta) {
+        currentBlock.node = nodeMeta;
       } else {
         currentBlock.lines.push(line);
       }
@@ -881,6 +1234,7 @@ function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock, 
         <div
           key={i}
           className={`timeline-block ${block.isPushed ? 'pushed' : 'draft'}`}
+          data-block-ts={block.timestamp}
         >
           {block.timestamp && (
             <div className="timeline-timestamp">
@@ -896,8 +1250,28 @@ function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock, 
               ) : block.source ? (
                 <span className={`source-badge source-${block.source}`}>{block.source}</span>
               ) : null}
-              {/* Three-dot menu for draft blocks */}
-              {!block.isPushed && block.timestamp && (
+              {/* Neural Link node badge + cluster chips */}
+              {block.node && (
+                <span className="node-badge" title={ko ? '뉴럴 링크 노드' : 'Neural Link node'}>
+                  <Graph size={10} weight="bold" /> {block.node.label || (ko ? '노드' : 'node')}
+                </span>
+              )}
+              {block.node && block.node.clusters.length > 0 && (
+                <span className="timeline-clusters">
+                  {block.node.clusters.map((id) => (
+                    <button
+                      key={id}
+                      className="cluster-chip cluster-chip-btn"
+                      onClick={() => onOpenCluster?.(id)}
+                      title={ko ? '이 클러스터의 노드 보기' : 'View nodes in this cluster'}
+                    >
+                      <Tag size={9} /> {clusterName(id)}
+                    </button>
+                  ))}
+                </span>
+              )}
+              {/* Three-dot menu (all blocks: node actions; drafts also get Fix/Delete) */}
+              {block.timestamp && (
                 <div className="draft-menu-wrapper">
                   <button
                     className="draft-menu-trigger"
@@ -911,7 +1285,43 @@ function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock, 
                   </button>
                   {openMenu === i && (
                     <div className="draft-menu-popup" onClick={(e) => e.stopPropagation()}>
-                      {onFixWithAgent && (
+                      {onNodify && (
+                        <button
+                          className="draft-menu-item draft-menu-node"
+                          onClick={() => {
+                            setOpenMenu(null);
+                            onNodify(block.timestamp!, block.node ?? null);
+                          }}
+                        >
+                          <Graph size={13} />
+                          <span>{block.node ? (ko ? '노드 편집' : 'Edit node') : (ko ? '노드로 만들기' : 'Make node')}</span>
+                        </button>
+                      )}
+                      {block.node && onLinkNode && (
+                        <button
+                          className="draft-menu-item draft-menu-node"
+                          onClick={() => {
+                            setOpenMenu(null);
+                            onLinkNode(block.node!.id, block.node!.label || block.node!.id);
+                          }}
+                        >
+                          <LinkSimple size={13} />
+                          <span>{ko ? '노드 연결' : 'Link node'}</span>
+                        </button>
+                      )}
+                      {block.node && onRemoveNode && (
+                        <button
+                          className="draft-menu-item"
+                          onClick={() => {
+                            setOpenMenu(null);
+                            onRemoveNode(block.timestamp!);
+                          }}
+                        >
+                          <X size={13} />
+                          <span>{ko ? '노드 해제' : 'Remove node'}</span>
+                        </button>
+                      )}
+                      {!block.isPushed && onFixWithAgent && (
                         <button
                           className="draft-menu-item"
                           onClick={() => {
@@ -923,16 +1333,18 @@ function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock, 
                           <span>Fix with Agent</span>
                         </button>
                       )}
-                      <button
-                        className="draft-menu-item draft-menu-delete"
-                        onClick={() => {
-                          setOpenMenu(null);
-                          onDeleteBlock?.(block.timestamp!);
-                        }}
-                      >
-                        <Trash2 size={13} />
-                        <span>Delete</span>
-                      </button>
+                      {!block.isPushed && (
+                        <button
+                          className="draft-menu-item draft-menu-delete"
+                          onClick={() => {
+                            setOpenMenu(null);
+                            onDeleteBlock?.(block.timestamp!);
+                          }}
+                        >
+                          <Trash2 size={13} />
+                          <span>{ko ? '삭제' : 'Delete'}</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -942,8 +1354,66 @@ function TimelineView({ content, remoteContent, workspace, room, onDeleteBlock, 
           <div className="timeline-content">
             <BlockContent text={block.lines.join('\n')} workspace={workspace} room={room} />
           </div>
+          {block.node && graph && (
+            <RelatedStrip
+              graph={graph}
+              nodeId={block.node.id}
+              room={room}
+              ko={ko}
+              clusterName={clusterName}
+              onJump={onJump}
+              onNavigateRoom={onNavigateRoom}
+            />
+          )}
         </div>
       ))}
+    </div>
+  );
+}
+
+// Related-nodes strip shown under a node block (Neural Link P2).
+// Same-cluster + edge-linked nodes across the repo; same-room jumps scroll,
+// cross-room jumps navigate to that chat.
+function RelatedStrip({ graph, nodeId, room, ko, clusterName, onJump, onNavigateRoom }: {
+  graph: NeuralGraph;
+  nodeId: string;
+  room: Room;
+  ko: boolean;
+  clusterName: (id: string) => string;
+  onJump?: (timestamp: string) => void;
+  onNavigateRoom?: (roomPath: string, blockTs: string) => void;
+}) {
+  const { sameCluster, linked } = relatedNodes(graph, nodeId);
+  const seen = new Set<string>([nodeId]);
+  const items: Array<{ n: NeuralNode; kind: 'link' | 'cluster' }> = [];
+  for (const n of linked) { if (!seen.has(n.id)) { seen.add(n.id); items.push({ n, kind: 'link' }); } }
+  for (const n of sameCluster) { if (!seen.has(n.id)) { seen.add(n.id); items.push({ n, kind: 'cluster' }); } }
+  if (items.length === 0) return null;
+
+  const go = (n: NeuralNode) => {
+    if (n.room === room.path) onJump?.(n.blockTs);
+    else onNavigateRoom?.(n.room, n.blockTs);
+  };
+
+  const shown = items.slice(0, 6);
+  return (
+    <div className="related-strip">
+      <span className="related-label"><LinkSimple size={11} /> {ko ? '관련' : 'Related'}</span>
+      {shown.map(({ n, kind }) => (
+        <button
+          key={n.id}
+          className="related-pill"
+          onClick={() => go(n)}
+          title={kind === 'link' ? (ko ? '직접 연결' : 'Linked') : (ko ? `클러스터: ${n.clusters.map(clusterName).join(', ')}` : `Cluster: ${n.clusters.map(clusterName).join(', ')}`)}
+        >
+          {kind === 'link' ? <LinkSimple size={10} /> : <Tag size={10} />}
+          <span className="related-pill-label">{n.label || n.id}</span>
+          {n.room !== room.path && (
+            <span className="related-room"><ArrowSquareOut size={9} /> {n.room}</span>
+          )}
+        </button>
+      ))}
+      {items.length > shown.length && <span className="related-more">+{items.length - shown.length}</span>}
     </div>
   );
 }
@@ -1086,6 +1556,413 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+// Neural Link node editor — label + cluster picker (P1, P3 elastic index search)
+type Pick = { name: string; id?: string };
+function NodeEditor({ initial, seedLabel, workspaceId, clusters, language, onSave, onClose }: {
+  initial: InlineNodeMeta | null;
+  /** Prefill the label for a brand-new node (from text selection). */
+  seedLabel?: string;
+  /** Current workspace id — used to mark cross-repo hits in the picker. */
+  workspaceId: string;
+  clusters: Cluster[];
+  language: string;
+  onSave: (label: string, picks: Pick[]) => void;
+  onClose: () => void;
+}) {
+  const ko = language === 'ko';
+  const idToName = (id: string) => clusters.find((c) => c.id === id)?.name ?? id;
+  const [label, setLabel] = useState(initial?.label ?? seedLabel ?? '');
+  const [selected, setSelected] = useState<Pick[]>(
+    (initial?.clusters ?? []).map((id) => ({ id, name: idToName(id) })),
+  );
+  const [query, setQuery] = useState('');
+  const [indexHits, setIndexHits] = useState<NeuralClusterHit[]>([]);
+  const [indexLoading, setIndexLoading] = useState(false);
+
+  // Debounced cross-repo index search — surfaces clusters created elsewhere that
+  // the local neural.json hasn't seen yet (or live in other repos entirely).
+  useEffect(() => {
+    let cancelled = false;
+    const id = setTimeout(async () => {
+      const qq = query.trim();
+      if (!qq) { setIndexHits([]); setIndexLoading(false); return; }
+      setIndexLoading(true);
+      try {
+        const res = await neuralApi.search(qq);
+        if (!cancelled) setIndexHits(res.clusters ?? []);
+      } catch { /* silent — local list still works */ }
+      finally { if (!cancelled) setIndexLoading(false); }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(id); };
+  }, [query]);
+
+  const q = query.trim();
+  const ql = q.toLowerCase();
+
+  const isSelected = (p: Pick) =>
+    selected.some((s) => (p.id && s.id === p.id) || s.name.toLowerCase() === p.name.toLowerCase());
+
+  const localMatches: Pick[] = clusters
+    .filter((c) => !isSelected({ name: c.name, id: c.id }))
+    .filter((c) => !q || c.name.toLowerCase().includes(ql) || c.id.includes(ql))
+    .map((c) => ({ name: c.name, id: c.id }));
+
+  // Index hits: dedupe vs local + selected; preserve workspace tagging for the chip.
+  const localIds = new Set(clusters.map((c) => c.id));
+  type IndexPick = Pick & { fromOtherRepo?: boolean };
+  const indexMatches: IndexPick[] = indexHits
+    .filter((h) => !localIds.has(h.cluster_id))
+    .filter((h) => !isSelected({ name: h.name, id: h.cluster_id }))
+    .map((h) => ({ name: h.name, id: h.cluster_id, fromOtherRepo: h.workspace_id !== workspaceId }));
+
+  const exactExists =
+    clusters.some((c) => c.name.toLowerCase() === ql) ||
+    indexHits.some((h) => h.name.toLowerCase() === ql) ||
+    selected.some((s) => s.name.toLowerCase() === ql);
+
+  const add = (pick: Pick) => {
+    const n = pick.name.trim();
+    if (!n) return;
+    if (!isSelected(pick)) setSelected([...selected, { ...pick, name: n }]);
+    setQuery('');
+  };
+  const remove = (pick: Pick) => setSelected(selected.filter((s) => s !== pick));
+  const canSave = label.trim().length > 0 || selected.length > 0;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content node-editor" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3><Graph size={18} /> {initial ? (ko ? '노드 편집' : 'Edit node') : (ko ? '노드로 만들기' : 'Make node')}</h3>
+          <button className="icon-button" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="modal-body">
+          <label className="node-editor-label">{ko ? '라벨' : 'Label'}</label>
+          <input
+            className="input"
+            autoFocus
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder={ko ? '이 생각 묶음의 이름' : 'Name this thought node'}
+            onKeyDown={(e) => { if (e.key === 'Enter' && canSave) onSave(label.trim(), selected); }}
+          />
+
+          <label className="node-editor-label">{ko ? '클러스터' : 'Clusters'}</label>
+          {selected.length > 0 && (
+            <div className="cluster-chips">
+              {selected.map((p, i) => (
+                <span key={`${p.id ?? p.name}-${i}`} className="cluster-chip selected">
+                  <Tag size={11} /> {p.name}
+                  <button onClick={() => remove(p)} aria-label="remove"><X size={10} /></button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="cluster-search">
+            <MagnifyingGlass size={14} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={ko ? '클러스터 검색 또는 생성 (다른 챗·레포 포함)…' : 'Search or create cluster (incl. other chats/repos)…'}
+              onKeyDown={(e) => { if (e.key === 'Enter' && q && !exactExists) add({ name: q }); }}
+            />
+            {indexLoading && <Loader2 size={12} className="spin" />}
+          </div>
+          {(localMatches.length > 0 || indexMatches.length > 0 || (q && !exactExists)) && (
+            <div className="cluster-options">
+              {localMatches.map((p) => (
+                <button key={`l:${p.id}`} className="cluster-option" onClick={() => add(p)}>
+                  <Tag size={12} /> {p.name} <span className="cluster-option-id">{p.id}</span>
+                </button>
+              ))}
+              {indexMatches.map((p) => (
+                <button key={`i:${p.id}`} className="cluster-option" onClick={() => add(p)}>
+                  <Tag size={12} /> {p.name}
+                  <span className="cluster-option-id">
+                    {p.fromOtherRepo ? (ko ? '다른 레포' : 'other repo') : (ko ? '인덱스' : 'index')} · {p.id}
+                  </span>
+                </button>
+              ))}
+              {q && !exactExists && (
+                <button className="cluster-option create" onClick={() => add({ name: q })}>
+                  <Plus size={12} /> {ko ? `'${q}' 새 클러스터` : `New cluster '${q}'`}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="node-editor-footer">
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>{ko ? '취소' : 'Cancel'}</button>
+          <button className="btn btn-primary btn-sm" disabled={!canSave} onClick={() => onSave(label.trim(), selected)}>
+            {ko ? '저장' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Cluster members viewer — all nodes in a cluster across the repo (Neural Link P2)
+function ClusterModal({ clusterId, graph, room, language, onClose, onJump, onNavigate }: {
+  clusterId: string;
+  graph: NeuralGraph;
+  room: Room;
+  language: string;
+  onClose: () => void;
+  onJump: (timestamp: string) => void;
+  onNavigate?: (roomPath: string, blockTs: string) => void;
+}) {
+  const ko = language === 'ko';
+  const cluster = graph.clusters.find((c) => c.id === clusterId);
+  const members = clusterMembers(graph, clusterId);
+
+  const go = (n: NeuralNode) => {
+    if (n.room === room.path) onJump(n.blockTs);
+    else onNavigate?.(n.room, n.blockTs);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content cluster-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3><Tag size={18} /> {cluster?.name ?? clusterId}</h3>
+          <button className="icon-button" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="modal-body">
+          <p className="cluster-modal-count">
+            {ko ? `${members.length}개 노드` : `${members.length} node${members.length === 1 ? '' : 's'}`}
+            {cluster?.desc ? ` · ${cluster.desc}` : ''}
+          </p>
+          {members.length === 0 ? (
+            <p className="text-muted">{ko ? '이 클러스터에 노드가 없습니다.' : 'No nodes in this cluster.'}</p>
+          ) : (
+            <div className="cluster-member-list">
+              {members.map((n) => (
+                <button key={n.id} className="cluster-member" onClick={() => go(n)}>
+                  <Graph size={12} weight="bold" />
+                  <span className="cluster-member-label">{n.label || n.id}</span>
+                  <span className="cluster-member-room">
+                    {n.room === room.path ? (ko ? '이 챗' : 'this chat') : <><ArrowSquareOut size={10} /> {n.room}</>}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Node-to-node edge editor (Neural Link P2.5) — link/unlink + relation type
+const EDGE_TYPES: Array<{ id: string; ko: string; en: string }> = [
+  { id: 'relates', ko: '관련', en: 'Relates' },
+  { id: 'supersedes', ko: '대체', en: 'Supersedes' },
+  { id: 'supports', ko: '근거', en: 'Supports' },
+];
+
+function LinkEditor({ source, graph, room, language, onClose, onLink, onUnlink }: {
+  source: { id: string; label: string };
+  graph: NeuralGraph;
+  room: Room;
+  language: string;
+  onClose: () => void;
+  onLink: (toId: string, type: string) => void;
+  onUnlink: (toId: string) => void;
+}) {
+  const ko = language === 'ko';
+  const [type, setType] = useState('relates');
+  const [query, setQuery] = useState('');
+
+  const nodeOf = (id: string) => graph.nodes.find((n) => n.id === id);
+  const links = graph.edges.filter((e) => e.from === source.id || e.to === source.id);
+  const otherId = (e: { from: string; to: string }) => (e.from === source.id ? e.to : e.from);
+  const linkedIds = new Set(links.map(otherId));
+
+  const q = query.trim().toLowerCase();
+  const candidates = graph.nodes
+    .filter((n) => n.id !== source.id && !linkedIds.has(n.id))
+    .filter((n) => !q || (n.label || n.id).toLowerCase().includes(q))
+    .slice(0, 30);
+
+  const typeLabel = (id?: string) => {
+    const t = EDGE_TYPES.find((x) => x.id === id);
+    return t ? (ko ? t.ko : t.en) : (id ?? '');
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content link-editor" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3><LinkSimple size={18} /> {ko ? '노드 연결' : 'Link node'}</h3>
+          <button className="icon-button" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="modal-body">
+          <p className="link-source"><Graph size={12} weight="bold" /> {source.label}</p>
+
+          {links.length > 0 && (
+            <>
+              <label className="node-editor-label">{ko ? '연결됨' : 'Linked'}</label>
+              <div className="link-list">
+                {links.map((e) => {
+                  const oid = otherId(e);
+                  const n = nodeOf(oid);
+                  return (
+                    <div key={oid} className="link-row">
+                      <LinkSimple size={11} />
+                      <span className="link-row-label">{n?.label || oid}</span>
+                      {e.type && <span className="link-type-badge">{typeLabel(e.type)}</span>}
+                      {n && n.room !== room.path && <span className="link-row-room">{n.room}</span>}
+                      <button className="link-row-remove" onClick={() => onUnlink(oid)} aria-label="unlink"><X size={12} /></button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          <label className="node-editor-label">{ko ? '관계 유형' : 'Relation'}</label>
+          <div className="edge-type-row">
+            {EDGE_TYPES.map((t) => (
+              <button
+                key={t.id}
+                className={`edge-type-btn ${type === t.id ? 'active' : ''}`}
+                onClick={() => setType(t.id)}
+              >{ko ? t.ko : t.en}</button>
+            ))}
+          </div>
+
+          <label className="node-editor-label">{ko ? '연결할 노드' : 'Link to'}</label>
+          <div className="cluster-search">
+            <MagnifyingGlass size={14} />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={ko ? '노드 검색…' : 'Search nodes…'}
+            />
+          </div>
+          <div className="cluster-options">
+            {candidates.length === 0 ? (
+              <p className="text-muted" style={{ padding: '8px 10px', fontSize: 'var(--text-xs)' }}>
+                {ko ? '연결할 노드가 없습니다.' : 'No nodes to link.'}
+              </p>
+            ) : candidates.map((n) => (
+              <button key={n.id} className="cluster-option" onClick={() => onLink(n.id, type)}>
+                <Graph size={12} /> {n.label || n.id}
+                {n.room !== room.path && <span className="cluster-option-id">{n.room}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Cross-repo neural search (Neural Link P3) — queries the Supabase derived index
+function NeuralSearchModal({ workspace, language, onClose, onPick }: {
+  workspace: Workspace;
+  language: string;
+  onClose: () => void;
+  onPick: (hit: NeuralNodeHit) => void;
+}) {
+  const ko = language === 'ko';
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [clusters, setClusters] = useState<NeuralClusterHit[]>([]);
+  const [nodes, setNodes] = useState<NeuralNodeHit[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const id = setTimeout(async () => {
+      const q = query.trim();
+      if (!q) { if (!cancelled) { setClusters([]); setNodes([]); setError(null); setLoading(false); } return; }
+      if (!cancelled) setLoading(true);
+      try {
+        const res = await neuralApi.search(q);
+        if (cancelled) return;
+        setClusters(res.clusters ?? []);
+        setNodes(res.nodes ?? []);
+        setError(null);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Search failed');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(id); };
+  }, [query]);
+
+  const repoLabel = (hit: NeuralClusterHit | NeuralNodeHit) =>
+    hit.workspace_id === workspace.id
+      ? (ko ? '이 레포' : 'this repo')
+      : (hit.workspaces ? `${hit.workspaces.github_owner}/${hit.workspaces.github_repo}` : hit.workspace_id.slice(0, 8));
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content neural-search" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3><Graph size={18} /> {ko ? '뉴럴 검색 — 레포 전체' : 'Neural search — across repos'}</h3>
+          <button className="icon-button" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="modal-body">
+          <div className="cluster-search">
+            <MagnifyingGlass size={14} />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={ko ? '클러스터·노드 라벨 검색…' : 'Search clusters & node labels…'}
+            />
+            {loading && <Loader2 size={14} className="spin" />}
+          </div>
+
+          {error && <p className="agent-error" style={{ marginTop: 8 }}>{error}</p>}
+
+          {query.trim() && !loading && clusters.length === 0 && nodes.length === 0 && !error && (
+            <p className="text-muted" style={{ marginTop: 12, fontSize: 'var(--text-sm)' }}>
+              {ko ? '결과 없음. push 후 인덱싱되며, 설정에서 재인덱스할 수 있어요.' : 'No results. Indexed on push — or run Reindex.'}
+            </p>
+          )}
+
+          {clusters.length > 0 && (
+            <>
+              <label className="node-editor-label">{ko ? '클러스터' : 'Clusters'}</label>
+              <div className="neural-search-clusters">
+                {clusters.map((c) => (
+                  <span key={`${c.workspace_id}:${c.cluster_id}`} className="cluster-chip" onClick={() => setQuery(c.name)} style={{ cursor: 'pointer' }}>
+                    <Tag size={9} /> {c.name}
+                    <span className="neural-search-repo">{repoLabel(c)}</span>
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+
+          {nodes.length > 0 && (
+            <>
+              <label className="node-editor-label">{ko ? '노드' : 'Nodes'}</label>
+              <div className="cluster-member-list">
+                {nodes.map((n) => (
+                  <button key={`${n.workspace_id}:${n.node_id}`} className="cluster-member" onClick={() => onPick(n)}>
+                    <Graph size={12} weight="bold" />
+                    <span className="cluster-member-label">{n.label || n.node_id}</span>
+                    <span className="cluster-member-room">
+                      <ArrowSquareOut size={10} /> {repoLabel(n)}{n.room ? ` · ${n.room}` : ''}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // Synced success toast – auto-hides after 2s

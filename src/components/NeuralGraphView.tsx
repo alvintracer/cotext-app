@@ -1,0 +1,686 @@
+// ============================================================
+// Neural Link — interactive graph view (P4)
+// 결정 D-009 / 계획서 §32
+//
+// d3-force based force-directed layout. KYT-style cluster/node graph
+// specialized for Cotext: click selects (right panel), drag moves, click
+// vs drag distinguished by motion threshold. Physics toggle (off → all
+// pinned). Cluster-collapse toggle merges members into one super-node.
+// Edge labels show relation type (관련/대체/근거).
+//
+// NOTE: react-hooks/immutability is disabled file-wide — d3-force owns
+// the node array and mutates n.x/y/fx/fy/pinned in-place as part of its
+// API. Mutations happen inside effects/handlers only.
+// ============================================================
+/* eslint-disable react-hooks/immutability */
+
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  forceSimulation, forceManyBody, forceLink, forceCenter, forceCollide,
+  type Simulation, type SimulationNodeDatum, type SimulationLinkDatum,
+} from 'd3-force';
+import {
+  X, MagnifyingGlass, Lightning, Pause, ArrowsOutCardinal, PushPinSlash, ArrowSquareOut,
+  CirclesThree, CircleDashed, Graph as GraphIcon, Tag, ArrowRight, Spinner as Loader2,
+} from '@phosphor-icons/react';
+import type { NeuralGraph, NeuralNode, Cluster } from '../lib/neural';
+
+interface GNode extends SimulationNodeDatum {
+  id: string;
+  label: string;
+  room: string;
+  blockTs: string;
+  clusters: string[];
+  source?: string;
+  pinned?: boolean;
+  /** true when this is a synthetic cluster super-node in collapse mode */
+  isCluster?: boolean;
+  /** ids of member nodes when isCluster=true */
+  memberIds?: string[];
+  /** member NeuralNodes (resolved) for cluster panel rendering */
+  members?: NeuralNode[];
+}
+interface GLink extends SimulationLinkDatum<GNode> {
+  type?: string;
+  viaCluster?: string;
+}
+
+const CLUSTER_COLORS = [
+  '#3b9eff', '#a78bfa', '#f59e0b', '#10b981', '#ec4899',
+  '#06b6d4', '#f97316', '#84cc16', '#8b5cf6', '#ef4444',
+];
+
+const EDGE_TYPE_LABEL: Record<string, { ko: string; en: string }> = {
+  relates: { ko: '관련', en: 'Relates' },
+  supersedes: { ko: '대체', en: 'Supersedes' },
+  supports: { ko: '근거', en: 'Supports' },
+};
+
+function colorFor(clusterId: string | undefined, palette: Map<string, string>): string {
+  if (!clusterId) return 'var(--text-dim)';
+  let c = palette.get(clusterId);
+  if (!c) { c = CLUSTER_COLORS[palette.size % CLUSTER_COLORS.length]; palette.set(clusterId, c); }
+  return c;
+}
+
+export default function NeuralGraphView({
+  graph, currentRoom, language, getBlockText, onClose, onJump, onNavigateRoom,
+}: {
+  graph: NeuralGraph;
+  currentRoom: string;
+  language: string;
+  /** Async block-text fetch for the detail panel (current room = local; others = GitHub). */
+  getBlockText?: (roomPath: string, blockTs: string) => Promise<string | null>;
+  onClose: () => void;
+  onJump: (blockTs: string) => void;
+  onNavigateRoom?: (roomPath: string, blockTs: string) => void;
+}) {
+  const ko = language === 'ko';
+  const svgRef = useRef<SVGSVGElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 800, h: 600 });
+  const [physics, setPhysics] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
+  const [hover, setHover] = useState<GNode | null>(null);
+  const [query, setQuery] = useState('');
+  const [view, setView] = useState({ x: 0, y: 0, k: 1 });
+  const [, force] = useState(0); // re-render on tick
+  const [panning, setPanning] = useState(false);
+  // Selection: either a node or a synthetic cluster super-node.
+  const [selected, setSelected] = useState<GNode | null>(null);
+
+  // Resize observer
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const r = el.getBoundingClientRect();
+      setSize({ w: r.width, h: r.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Build base sim nodes/links from the graph.
+  const { palette, clusterList, baseNodes, baseLinks, originalById } = useMemo(() => {
+    const pal = new Map<string, string>();
+    for (const c of graph.clusters) colorFor(c.id, pal);
+    const ns: GNode[] = graph.nodes.map((n: NeuralNode) => ({
+      id: n.id, label: n.label || n.id, room: n.room, blockTs: n.blockTs,
+      clusters: n.clusters, source: n.source,
+    }));
+    const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+    const ids = new Set(ns.map((n) => n.id));
+    const ls: GLink[] = graph.edges
+      .filter((e) => ids.has(e.from) && ids.has(e.to))
+      .map((e) => ({ source: e.from, target: e.to, type: e.type, viaCluster: e.viaCluster }));
+    return { palette: pal, clusterList: graph.clusters, baseNodes: ns, baseLinks: ls, originalById: byId };
+  }, [graph]);
+
+  // Collapsed view: group nodes by their first cluster; merge members into one super-node.
+  // Unclustered nodes remain as themselves. Edges aggregate between groups.
+  const { nodes, links } = useMemo(() => {
+    if (!collapsed) return { nodes: baseNodes, links: baseLinks };
+
+    const groupOf = new Map<string, string>(); // nodeId -> groupId
+    for (const n of baseNodes) groupOf.set(n.id, n.clusters[0] ?? n.id);
+
+    const membersByGroup = new Map<string, GNode[]>();
+    for (const n of baseNodes) {
+      const g = groupOf.get(n.id)!;
+      const arr = membersByGroup.get(g) ?? [];
+      arr.push(n);
+      membersByGroup.set(g, arr);
+    }
+
+    const synthIdOf = (groupId: string) => {
+      const isCluster = clusterList.some((c) => c.id === groupId);
+      return isCluster ? `cluster:${groupId}` : groupId;
+    };
+
+    const cNodes: GNode[] = [];
+    for (const [groupId, members] of membersByGroup) {
+      const isCluster = clusterList.some((c) => c.id === groupId);
+      if (!isCluster && members.length === 1) {
+        cNodes.push(members[0]);
+        continue;
+      }
+      const cluster = clusterList.find((c) => c.id === groupId);
+      cNodes.push({
+        id: `cluster:${groupId}`,
+        label: cluster?.name ?? groupId,
+        room: members[0].room,
+        blockTs: '',
+        clusters: [groupId],
+        isCluster: true,
+        memberIds: members.map((m) => m.id),
+        members: members.map((m) => originalById.get(m.id)!).filter(Boolean),
+      });
+    }
+
+    const seen = new Set<string>();
+    const cLinks: GLink[] = [];
+    for (const e of baseLinks) {
+      const sId = typeof e.source === 'string' ? e.source : (e.source as GNode).id;
+      const tId = typeof e.target === 'string' ? e.target : (e.target as GNode).id;
+      const sg = groupOf.get(sId);
+      const tg = groupOf.get(tId);
+      if (!sg || !tg || sg === tg) continue;
+      const ss = synthIdOf(sg);
+      const tt = synthIdOf(tg);
+      const key = `${ss}::${tt}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cLinks.push({ source: ss, target: tt, type: e.type, viaCluster: e.viaCluster });
+    }
+
+    return { nodes: cNodes, links: cLinks };
+  }, [collapsed, baseNodes, baseLinks, clusterList, originalById]);
+
+  // d3-force simulation, rebuilt on nodes/links swap.
+  const simRef = useRef<Simulation<GNode, GLink> | null>(null);
+  useEffect(() => {
+    const sim = forceSimulation<GNode>(nodes)
+      .force('charge', forceManyBody().strength(-220))
+      .force('link', forceLink<GNode, GLink>(links).id((d) => d.id).distance(90).strength(0.55))
+      .force('center', forceCenter(size.w / 2, size.h / 2))
+      .force('collide', forceCollide<GNode>().radius((d) => (d.isCluster ? 26 + Math.min(20, (d.memberIds?.length ?? 0) * 1.5) : 22)));
+    sim.on('tick', () => force((n) => (n + 1) & 0xffff));
+    simRef.current = sim;
+    return () => { sim.stop(); };
+  }, [nodes, links]);
+
+  useEffect(() => {
+    const sim = simRef.current;
+    if (!sim) return;
+    sim.force('center', forceCenter(size.w / 2, size.h / 2));
+    if (physics) sim.alpha(0.5).restart();
+  }, [size.w, size.h]);
+
+  // Physics toggle: OFF → pin all at current positions; ON → unfreeze non-user-pinned.
+  useEffect(() => {
+    const sim = simRef.current;
+    if (!sim) return;
+    if (physics) {
+      for (const n of nodes) {
+        if (!n.pinned) { n.fx = null; n.fy = null; }
+      }
+      sim.alpha(0.7).restart();
+    } else {
+      for (const n of nodes) {
+        if (n.x != null) n.fx = n.x;
+        if (n.y != null) n.fy = n.y;
+        n.pinned = true;
+      }
+      sim.alpha(0).stop();
+    }
+  }, [physics, nodes]);
+
+  const unpinAll = () => {
+    for (const n of nodes) { n.fx = null; n.fy = null; n.pinned = false; }
+    simRef.current?.alpha(0.5).restart();
+  };
+
+  // Click vs drag distinction — track motion since pointerdown.
+  const dragRef = useRef<{ id: string; downX: number; downY: number; moved: boolean } | null>(null);
+  const DRAG_THRESHOLD = 4; // px
+
+  function onPointerDown(e: React.PointerEvent<SVGGElement>, n: GNode) {
+    (e.target as Element).setPointerCapture(e.pointerId);
+    dragRef.current = { id: n.id, downX: e.clientX, downY: e.clientY, moved: false };
+    e.stopPropagation();
+  }
+  function onPointerMove(e: React.PointerEvent<SVGGElement>, n: GNode) {
+    const d = dragRef.current;
+    if (!d || d.id !== n.id) return;
+    const dx = e.clientX - d.downX, dy = e.clientY - d.downY;
+    if (!d.moved && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+      d.moved = true;
+      // start a real drag — pin and pulse the sim
+      n.fx = n.x; n.fy = n.y; n.pinned = true;
+      simRef.current?.alphaTarget(0.2).restart();
+    }
+    if (d.moved) {
+      const { x, y } = svgPoint(svgRef.current!, e.clientX, e.clientY, view);
+      n.fx = x; n.fy = y;
+    }
+    e.stopPropagation();
+  }
+  function onPointerUp(e: React.PointerEvent<SVGGElement>, n: GNode) {
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (!d || d.id !== n.id) return;
+    simRef.current?.alphaTarget(0);
+    if (!d.moved) {
+      // Treat as click → select (no navigation)
+      setSelected(n);
+    }
+    e.stopPropagation();
+  }
+
+  // Background pan + wheel zoom.
+  const panRef = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+  function onBgDown(e: React.PointerEvent<SVGSVGElement>) {
+    panRef.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
+    (e.target as Element).setPointerCapture(e.pointerId);
+    setPanning(true);
+  }
+  function onBgMove(e: React.PointerEvent<SVGSVGElement>) {
+    if (!panRef.current) return;
+    setView((v) => ({ ...v, x: panRef.current!.vx + (e.clientX - panRef.current!.x), y: panRef.current!.vy + (e.clientY - panRef.current!.y) }));
+  }
+  function onBgUp() { panRef.current = null; setPanning(false); }
+  function onWheel(e: React.WheelEvent<SVGSVGElement>) {
+    e.preventDefault();
+    const delta = -e.deltaY * 0.0015;
+    const k = Math.max(0.3, Math.min(3, view.k * (1 + delta)));
+    const rect = svgRef.current!.getBoundingClientRect();
+    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+    const px = (cx - view.x) / view.k, py = (cy - view.y) / view.k;
+    setView({ k, x: cx - px * k, y: cy - py * k });
+  }
+
+  // Search highlight
+  const q = query.trim().toLowerCase();
+  const isHit = (n: GNode) =>
+    !q || n.label.toLowerCase().includes(q) || n.clusters.some((c) => c.toLowerCase().includes(q));
+
+  const typeLabel = (id?: string) => {
+    if (!id) return '';
+    const t = EDGE_TYPE_LABEL[id];
+    return t ? (ko ? t.ko : t.en) : id;
+  };
+
+  // When current selection is a real node, lazily fetch its block text.
+  const [blockText, setBlockText] = useState<string | null>(null);
+  const [blockTextLoading, setBlockTextLoading] = useState(false);
+  useEffect(() => {
+    if (!selected || selected.isCluster || !getBlockText) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset cache on selection clear
+      setBlockText(null);
+      return;
+    }
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset to loading on selection swap
+    setBlockTextLoading(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale text immediately
+    setBlockText(null);
+    getBlockText(selected.room, selected.blockTs).then((txt) => {
+      if (cancelled) return;
+      setBlockText(txt ?? '');
+      setBlockTextLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [selected, getBlockText]);
+
+  function nodeRadius(n: GNode): number {
+    if (n.isCluster) return 14 + Math.min(18, (n.memberIds?.length ?? 0) * 1.2);
+    return 9;
+  }
+  function selectMember(realNodeId: string) {
+    const real = baseNodes.find((n) => n.id === realNodeId);
+    if (real) setSelected(real);
+  }
+  function jumpFromPanel(n: GNode) {
+    if (n.isCluster) return;
+    if (n.room === currentRoom) onJump(n.blockTs);
+    else onNavigateRoom?.(n.room, n.blockTs);
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content neural-graph" onClick={(e) => e.stopPropagation()}>
+        <div className="neural-graph-toolbar">
+          <div className="neural-graph-title">{ko ? '뉴럴 링크 그래프' : 'Neural Link graph'}</div>
+          <div className="neural-graph-search">
+            <MagnifyingGlass size={13} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={ko ? '라벨·클러스터 검색…' : 'Search labels & clusters…'}
+            />
+          </div>
+          <button
+            className={`btn btn-ghost btn-sm ${collapsed ? 'active' : ''}`}
+            onClick={() => setCollapsed((c) => !c)}
+            title={ko ? '같은 클러스터 노드를 하나로 묶기' : 'Collapse same-cluster nodes'}
+          >
+            {collapsed ? <CirclesThree size={13} weight="fill" /> : <CircleDashed size={13} />}
+            {collapsed ? (ko ? '묶음 ON' : 'Grouped') : (ko ? '묶음 OFF' : 'Individual')}
+          </button>
+          <button
+            className={`btn btn-ghost btn-sm ${physics ? '' : 'active'}`}
+            onClick={() => setPhysics((p) => !p)}
+            title={ko ? '물리엔진 켜기/끄기' : 'Toggle physics'}
+          >
+            {physics ? <><Lightning size={13} /> {ko ? '물리 ON' : 'Physics on'}</> : <><Pause size={13} /> {ko ? '물리 OFF (고정)' : 'Physics off (pinned)'}</>}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={unpinAll} title={ko ? '모든 핀 해제' : 'Unpin all'}>
+            <PushPinSlash size={13} /> {ko ? '핀 해제' : 'Unpin all'}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setView({ x: 0, y: 0, k: 1 })} title={ko ? '뷰 리셋' : 'Reset view'}>
+            <ArrowsOutCardinal size={13} /> {ko ? '뷰 리셋' : 'Reset'}
+          </button>
+          <button className="icon-button" onClick={onClose} aria-label="close"><X size={16} /></button>
+        </div>
+
+        <div className="neural-graph-body">
+          <aside className="neural-graph-legend">
+            <p className="neural-graph-stat">
+              {ko
+                ? `노드 ${nodes.length} · 클러스터 ${clusterList.length} · 엣지 ${links.length}`
+                : `${nodes.length} nodes · ${clusterList.length} clusters · ${links.length} edges`}
+            </p>
+            <div className="neural-graph-clusters">
+              {clusterList.map((c) => (
+                <button
+                  key={c.id}
+                  className="neural-graph-cluster-row"
+                  onClick={() => setQuery(c.id)}
+                  title={ko ? '이 클러스터로 필터' : 'Filter to this cluster'}
+                >
+                  <span className="neural-graph-swatch" style={{ background: palette.get(c.id) }} />
+                  <span className="neural-graph-cluster-name">{c.name}</span>
+                </button>
+              ))}
+              {clusterList.length === 0 && (
+                <p className="text-muted" style={{ fontSize: 'var(--text-xs)' }}>
+                  {ko ? '클러스터가 아직 없습니다.' : 'No clusters yet.'}
+                </p>
+              )}
+            </div>
+            <div className="neural-graph-help">
+              <p>{ko ? '클릭: 선택 (우측 패널)' : 'Click: select (panel)'}</p>
+              <p>{ko ? '드래그: 노드 이동(자동 핀)' : 'Drag: move node (auto-pin)'}</p>
+              <p>{ko ? '휠/팬: 줌·이동' : 'Wheel/pan: zoom·move'}</p>
+              <p>{ko ? '물리 OFF: 모든 위치 고정' : 'Physics off: pin all'}</p>
+              <p>{ko ? '묶음 ON: 클러스터 단위' : 'Grouped: collapse by cluster'}</p>
+            </div>
+          </aside>
+
+          <div className="neural-graph-canvas-wrap" ref={wrapRef}>
+            <svg
+              ref={svgRef}
+              width={size.w}
+              height={size.h}
+              onPointerDown={onBgDown}
+              onPointerMove={onBgMove}
+              onPointerUp={onBgUp}
+              onPointerLeave={onBgUp}
+              onWheel={onWheel}
+              style={{ display: 'block', cursor: panning ? 'grabbing' : 'grab' }}
+            >
+              <defs>
+                <marker id="ng-arrow" viewBox="0 -5 10 10" refX="14" refY="0" markerWidth="6" markerHeight="6" orient="auto">
+                  <path d="M0,-5L10,0L0,5" fill="var(--text-dim)" />
+                </marker>
+              </defs>
+              <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
+                {/* Edges + edge labels */}
+                {links.map((l, i) => {
+                  const s = l.source as GNode; const t = l.target as GNode;
+                  if (s?.x == null || t?.x == null) return null;
+                  const dashed = l.type === 'supersedes';
+                  const mx = (s.x + t.x!) / 2;
+                  const my = (s.y! + t.y!) / 2;
+                  const tlabel = typeLabel(l.type);
+                  return (
+                    <g key={i}>
+                      <line
+                        x1={s.x} y1={s.y!} x2={t.x} y2={t.y!}
+                        stroke="var(--text-dim)" strokeOpacity={0.5} strokeWidth={1.3}
+                        strokeDasharray={dashed ? '4 3' : undefined}
+                        markerEnd={l.type ? 'url(#ng-arrow)' : undefined}
+                      />
+                      {tlabel && view.k > 0.55 && (
+                        <g transform={`translate(${mx},${my})`}>
+                          <rect x={-tlabel.length * 3 - 5} y={-7} width={tlabel.length * 6 + 10} height={13} rx={6}
+                                fill="var(--surface)" stroke="var(--border)" strokeWidth={0.7} />
+                          <text textAnchor="middle" y={3} fontSize={9} fill="var(--text-muted)" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                            {tlabel}
+                          </text>
+                        </g>
+                      )}
+                    </g>
+                  );
+                })}
+                {/* Nodes */}
+                {nodes.map((n) => {
+                  const dim = !isHit(n);
+                  const isSelected = selected?.id === n.id;
+                  const ringColor = colorFor(n.clusters[0], palette);
+                  const r = nodeRadius(n);
+                  return (
+                    <g
+                      key={n.id}
+                      transform={`translate(${n.x ?? 0},${n.y ?? 0})`}
+                      style={{ cursor: 'pointer', opacity: dim ? 0.2 : 1 }}
+                      onPointerDown={(e) => onPointerDown(e, n)}
+                      onPointerMove={(e) => onPointerMove(e, n)}
+                      onPointerUp={(e) => onPointerUp(e, n)}
+                      onMouseEnter={() => setHover(n)}
+                      onMouseLeave={() => setHover((h) => (h?.id === n.id ? null : h))}
+                    >
+                      {n.isCluster ? (
+                        <>
+                          <circle r={r + 4} fill={ringColor} fillOpacity={0.12} stroke={ringColor} strokeOpacity={0.5} strokeWidth={1} strokeDasharray="3 2" />
+                          <circle r={r} fill={ringColor} fillOpacity={0.85} stroke={isSelected ? 'var(--accent)' : ringColor} strokeWidth={isSelected ? 3 : 1.5} />
+                          <text textAnchor="middle" y={3} fontSize={10} fontWeight={700} fill="#fff" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                            {n.memberIds?.length ?? 0}
+                          </text>
+                        </>
+                      ) : (
+                        <>
+                          {n.clusters.slice(0, 3).map((c, idx) => (
+                            <circle key={idx} r={r + 2 + idx * 2.5} fill="none" stroke={colorFor(c, palette)} strokeWidth={2} strokeOpacity={0.65 - idx * 0.15} />
+                          ))}
+                          <circle r={r} fill="var(--surface)" stroke={isSelected ? 'var(--accent)' : ringColor} strokeWidth={isSelected ? 2.5 : 1.5} />
+                          {n.pinned && <circle r={2.5} cx={r - 2} cy={-(r - 2)} fill="var(--accent)" stroke="var(--surface)" strokeWidth={1} />}
+                          {n.room !== currentRoom && <circle r={2.5} cx={-(r - 2)} cy={-(r - 2)} fill="var(--draft)" stroke="var(--surface)" strokeWidth={1} />}
+                        </>
+                      )}
+                      <text
+                        x={r + 4} y={4}
+                        fontSize={10}
+                        fontWeight={isSelected ? 600 : 400}
+                        fill="var(--text)"
+                        style={{ pointerEvents: 'none', userSelect: 'none' }}
+                      >
+                        {n.label.length > 24 ? n.label.slice(0, 23) + '…' : n.label}
+                      </text>
+                    </g>
+                  );
+                })}
+              </g>
+            </svg>
+
+            {/* Hover tooltip — only shown when nothing selected, to avoid overlap */}
+            {hover && !selected && hover.x != null && hover.y != null && (
+              <div
+                className="neural-graph-tip"
+                style={{ left: view.x + hover.x * view.k + 16, top: view.y + hover.y * view.k - 8 }}
+              >
+                <div className="neural-graph-tip-label">{hover.label || hover.id}</div>
+                <div className="neural-graph-tip-meta">
+                  {hover.isCluster ? (
+                    <>{ko ? `클러스터 · ${hover.memberIds?.length ?? 0}개 노드` : `Cluster · ${hover.memberIds?.length ?? 0} nodes`}</>
+                  ) : hover.room === currentRoom ? (
+                    ko ? '이 챗' : 'this chat'
+                  ) : (
+                    <><ArrowSquareOut size={9} /> {hover.room}</>
+                  )}
+                  {hover.source ? ` · ${hover.source}` : ''}
+                </div>
+              </div>
+            )}
+
+            {nodes.length === 0 && (
+              <div className="neural-graph-empty">
+                <p>{ko ? '아직 노드가 없습니다. 블록을 노드로 만들면 여기 나타납니다.' : 'No nodes yet. Make a block into a node to see it here.'}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Right detail panel */}
+          {selected && (
+            <aside className="neural-graph-detail">
+              <div className="neural-graph-detail-header">
+                {selected.isCluster ? <Tag size={14} /> : <GraphIcon size={14} weight="bold" />}
+                <span className="neural-graph-detail-title">{selected.label}</span>
+                <button className="icon-button" onClick={() => setSelected(null)} aria-label="close"><X size={14} /></button>
+              </div>
+
+              {selected.isCluster ? (
+                <ClusterPanel
+                  node={selected}
+                  clusterList={clusterList}
+                  palette={palette}
+                  currentRoom={currentRoom}
+                  ko={ko}
+                  onPickMember={(id) => selectMember(id)}
+                />
+              ) : (
+                <NodePanel
+                  node={selected}
+                  graph={graph}
+                  clusterList={clusterList}
+                  palette={palette}
+                  currentRoom={currentRoom}
+                  blockText={blockText}
+                  blockTextLoading={blockTextLoading}
+                  ko={ko}
+                  typeLabel={typeLabel}
+                  onPickNode={(id) => selectMember(id)}
+                  onJump={() => jumpFromPanel(selected)}
+                />
+              )}
+            </aside>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Right panel: node detail ----
+function NodePanel({ node, graph, clusterList, palette, currentRoom, blockText, blockTextLoading, ko, typeLabel, onPickNode, onJump }: {
+  node: GNode;
+  graph: NeuralGraph;
+  clusterList: Cluster[];
+  palette: Map<string, string>;
+  currentRoom: string;
+  blockText: string | null;
+  blockTextLoading: boolean;
+  ko: boolean;
+  typeLabel: (id?: string) => string;
+  onPickNode: (id: string) => void;
+  onJump: () => void;
+}) {
+  // Edges touching this node
+  const myEdges = graph.edges.filter((e) => e.from === node.id || e.to === node.id);
+  const otherId = (e: { from: string; to: string }) => (e.from === node.id ? e.to : e.from);
+  const nameOf = (id: string) => graph.nodes.find((n) => n.id === id)?.label || id;
+  const roomOf = (id: string) => graph.nodes.find((n) => n.id === id)?.room || '';
+  return (
+    <div className="neural-graph-detail-body">
+      <div className="neural-graph-detail-meta">
+        <span>{node.room === currentRoom ? (ko ? '이 챗' : 'this chat') : <><ArrowSquareOut size={10} /> {node.room}</>}</span>
+        {node.source && <span className={`source-badge source-${node.source}`}>{node.source}</span>}
+      </div>
+
+      {node.clusters.length > 0 && (
+        <>
+          <label className="node-editor-label">{ko ? '클러스터' : 'Clusters'}</label>
+          <div className="cluster-chips">
+            {node.clusters.map((id) => {
+              const c = clusterList.find((x) => x.id === id);
+              const col = palette.get(id);
+              return (
+                <span key={id} className="cluster-chip" style={{ borderColor: col, color: col }}>
+                  <Tag size={10} /> {c?.name ?? id}
+                </span>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <label className="node-editor-label">{ko ? '본문' : 'Content'}</label>
+      <div className="neural-graph-block-text">
+        {blockTextLoading ? (
+          <span className="text-muted"><Loader2 size={12} className="spin" /> {ko ? '불러오는 중…' : 'Loading…'}</span>
+        ) : blockText ? (
+          blockText
+        ) : (
+          <span className="text-muted">{ko ? '본문을 불러올 수 없습니다.' : 'Unable to load content.'}</span>
+        )}
+      </div>
+
+      {myEdges.length > 0 && (
+        <>
+          <label className="node-editor-label">{ko ? '연결' : 'Connections'}</label>
+          <div className="neural-graph-edge-list">
+            {myEdges.map((e, i) => {
+              const oid = otherId(e);
+              return (
+                <button key={`${oid}-${i}`} className="neural-graph-edge-row" onClick={() => onPickNode(oid)}>
+                  <ArrowRight size={11} />
+                  <span className="neural-graph-edge-label">{nameOf(oid)}</span>
+                  {e.type && <span className="link-type-badge">{typeLabel(e.type)}</span>}
+                  {roomOf(oid) && roomOf(oid) !== currentRoom && (
+                    <span className="link-row-room">{roomOf(oid)}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <button className="btn btn-primary btn-sm neural-graph-jump" onClick={onJump}>
+        <ArrowSquareOut size={13} /> {node.room === currentRoom ? (ko ? '이 블록으로 이동' : 'Jump to block') : (ko ? '챗 열기' : 'Open chat')}
+      </button>
+    </div>
+  );
+}
+
+// ---- Right panel: cluster detail ----
+function ClusterPanel({ node, clusterList, palette, currentRoom, ko, onPickMember }: {
+  node: GNode;
+  clusterList: Cluster[];
+  palette: Map<string, string>;
+  currentRoom: string;
+  ko: boolean;
+  onPickMember: (id: string) => void;
+}) {
+  const cluster = clusterList.find((c) => c.id === node.clusters[0]);
+  const color = palette.get(node.clusters[0]);
+  return (
+    <div className="neural-graph-detail-body">
+      <div className="neural-graph-detail-meta">
+        <span className="neural-graph-swatch" style={{ background: color }} />
+        <span>{ko ? `${node.memberIds?.length ?? 0}개 노드` : `${node.memberIds?.length ?? 0} nodes`}</span>
+      </div>
+      {cluster?.desc && <p className="text-muted" style={{ fontSize: 'var(--text-xs)' }}>{cluster.desc}</p>}
+
+      <label className="node-editor-label">{ko ? '소속 노드' : 'Members'}</label>
+      <div className="neural-graph-member-list">
+        {node.members?.map((m) => (
+          <button key={m.id} className="neural-graph-member" onClick={() => onPickMember(m.id)}>
+            <GraphIcon size={11} weight="bold" />
+            <span className="neural-graph-member-label">{m.label || m.id}</span>
+            <span className="neural-graph-member-room">
+              {m.room === currentRoom ? (ko ? '이 챗' : 'this chat') : <><ArrowSquareOut size={9} /> {m.room}</>}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Convert client (x, y) to svg-local coords accounting for current transform.
+function svgPoint(svg: SVGSVGElement, clientX: number, clientY: number, view: { x: number; y: number; k: number }) {
+  const rect = svg.getBoundingClientRect();
+  return { x: (clientX - rect.left - view.x) / view.k, y: (clientY - rect.top - view.y) / view.k };
+}

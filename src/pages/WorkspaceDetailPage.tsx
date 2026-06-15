@@ -63,6 +63,8 @@ export default function WorkspaceDetailPage() {
   const [agentSeed, setAgentSeed] = useState<{ text: string; nonce: number } | null>(null);
   const [fixOriginTs, setFixOriginTs] = useState<string | null>(null);
   const [agentApply, setAgentApply] = useState<{ text: string; source: string; replaceTimestamp?: string; nonce: number } | null>(null);
+  // Neural Link (P2): cross-room jump target (block ts to scroll to after switching chats)
+  const [focusTs, setFocusTs] = useState<string | null>(null);
 
   // Team & Invite state
   const [teammates, setTeammates] = useState<Teammate[]>([]);
@@ -455,6 +457,15 @@ export default function WorkspaceDetailPage() {
               setFixOriginTs(ts);
             }}
             apply={agentApply}
+            onNavigateRoom={(path, ts) => {
+              const target = rooms.find((r) => r.path === path);
+              if (target) {
+                setSelectedRoom(target);
+                setFocusTs(ts);
+              }
+            }}
+            focusBlockTs={focusTs}
+            rooms={rooms}
           />
         ) : (
           <div className="empty-room-state">

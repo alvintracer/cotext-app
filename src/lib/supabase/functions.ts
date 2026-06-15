@@ -44,6 +44,37 @@ export const githubApi = {
   },
 };
 
+// Neural Link derived-index API (P3) — ingest + cross-repo search via Edge Function.
+export interface NeuralSearchHit {
+  workspace_id: string;
+  workspaces?: { github_owner: string; github_repo: string } | null;
+}
+export interface NeuralClusterHit extends NeuralSearchHit { cluster_id: string; name: string; color?: string | null }
+export interface NeuralNodeHit extends NeuralSearchHit {
+  node_id: string; label: string; room: string; block_ts: string; clusters: string[]; source?: string | null;
+}
+
+export const neuralApi = {
+  /** Push one workspace's in-memory graph into the derived index (repo-unit replace). */
+  sync(workspaceId: string, graph: unknown) {
+    return invokeFunction<{ ok: boolean; clusters: number; nodes: number; edges: number }>(
+      'neural-index', { action: 'sync', workspace_id: workspaceId, graph },
+    );
+  },
+  /** Cross-repo search across all the user's indexed clusters + nodes. */
+  search(query: string, limit = 50) {
+    return invokeFunction<{ clusters: NeuralClusterHit[]; nodes: NeuralNodeHit[] }>(
+      'neural-index', { action: 'search', query, limit },
+    );
+  },
+  /** Server-side rebuild: read each repo's neural.json from GitHub into the index. */
+  reindex() {
+    return invokeFunction<{ ok: boolean; results: Array<Record<string, unknown>> }>(
+      'neural-index', { action: 'reindex' },
+    );
+  },
+};
+
 // GitHub Models inference via Edge Function proxy (BYOK fine-grained PAT with models:read).
 // Proxied because the browser-direct endpoint has CORS/header constraints.
 export async function chatGithubModels(

@@ -78,6 +78,44 @@ MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context
   - 결과를 **GitHub push가 아니라 RoomView 로컬 콘텐츠에 적용**(draft 충돌 회피): "추가" / "원본 대체(원본 블록 삭제+새 블록)"
   - 배선: RoomView `onFixWithAgent`/`apply` ↔ WorkspaceDetailPage(seed·fixOriginTs·agentApply) ↔ AgentPanel(seed 자동전송·onApply·canReplace)
   - source→me 전환, +추가는 기존 기능 재사용
+- (2026-06-15) **§32 Neural Link 그래프 (계획 승격, P0 착수)** (결정 D-009):
+  - repo 블록을 **노드·클러스터·엣지**로 연결. 포지셔닝 = "에이전트가 읽는 컨텍스트 그래프"
+  - 노드=블록(timestamp+source 재사용), 클러스터>freelink, 하이브리드 저장(repo 정본 + Supabase 파생 인덱스)
+  - **단일 쓰기 경로**(`src/lib/neural`): UI 버튼·MCP 도구 공용 → 사람 키 없이 동작, 에이전트는 같은 경로 재사용(선택)
+  - 무료=단일 레포(GitHub-native), 유료=크로스 레포+그래프 뷰+에이전트 그래프 API(Supabase)
+  - 단계 P0(스키마+lib)→P1 수동 캡처→P2 백링크→P3 인덱스/크로스레포(유료)→P4 그래프 뷰→P5 에이전트
+  - **P0 완료**: `src/lib/neural/{types,id,format,graph,index}.ts`(순수 단일 쓰기 lib) + `supabase/migrations/20260615_neural_link.sql`(파생 인덱스 3테이블+RLS+GIN). 라운드트립 스모크 통과
+  - **P1 완료**: RoomView 블록 3-dot에 "노드로 만들기/편집·해제"(모든 블록), 라벨+클러스터 검색·생성 팝업(`NodeEditor`), 타임라인 노드 배지+클러스터 칩, `.cotext/neural.json` push 경로 연동(`persistNeuralGraph`, 재페치 머지). `src/styles/neural.css`. tsc/빌드 클린, 신규 lint 0
+  - **P2 완료**: 노드 블록 아래 "관련" 스트립(`RelatedStrip` — `relatedNodes`: 같은 클러스터+엣지, 같은 챗=스크롤/다른 챗=네비), 클러스터 칩 클릭→멤버 뷰어(`ClusterModal`, 레포 전체), 크로스-룸 점프(WorkspaceDetailPage `onNavigateRoom`+`focusBlockTs`, 로드 후 스크롤+하이라이트). tsc/빌드 클린, 신규 lint 0
+  - **P2.5 완료**: 노드↔노드 직접 엣지 UI(`LinkEditor` — 블록 3-dot "노드 연결", 노드 검색·관계 유형 관련/대체/근거, 기존 링크 해제). 엣지는 neural.json만 거주 → 콘텐츠 push에 안 묶임 → **디바운스(1.5s) 자동 persist**(graphRef/contentRef 기반 `persistNeuralGraph` 리팩터). tsc/빌드 클린, 신규 lint 0
+  - **DB 배포 완료(2026-06-15)**: `20260615_neural_link.sql`을 원격(프로젝트 `qyyqsuzqstkhnrmyqskn` = transight-big-brother, .env 링크됨)에 적용. `neural_clusters/neural_nodes/neural_edges` 3테이블 + RLS(user_id=auth.uid()) + GIN(clusters) 인덱스 생성·검증 완료. 마이그레이션 히스토리 `20260615 applied` 기록됨
+    - ⚠️ **주의**: `supabase db push`는 선행 `20260614`(team_invites) 로컬↔원격 버전 불일치로 막힘. 그래서 neural만 **Management API(`/database/query`)로 직접 적용** 후 `migration repair --status applied 20260615`로 기록. `20260614` 불일치는 다른 세션 산출물이라 손대지 않음 — 향후 `db push` 전에 별도 정리 필요(blind `repair --reverted`는 team_invites 재실행→`create policy` 비멱등 충돌 위험)
+  - **P3 완료 (유료 Neural Link 시작점)**: Edge Function `neural-index` 배포(프로젝트 qyyqsuzqstkhnrmyqskn). 3 액션 — `sync`(클라 in-memory 그래프→인덱스 레포단위 교체), `search`(사용자 전체 레포 가로지르는 클러스터/노드 ilike 검색), `reindex`(서버가 GitHub에서 각 레포 neural.json 직접 읽어 재구축, GitHub 토큰 서버전용 D-002 준수)
+    - 클라: `neuralApi`(functions.ts) + persistNeuralGraph 후 `neuralApi.sync` 자동 호출(best-effort) + RoomView 헤더 "뉴럴 검색" 버튼→`NeuralSearchModal`(디바운스 크로스레포 검색, 같은 레포=점프/네비·타 레포=`/workspace/:id` 이동)
+    - 인증: verify_jwt(기본) + getUser, RLS 사용자 스코프. 배포·auth게이트(401) 스모크 통과. tsc/빌드/신규 lint 0
+    - ⚠️ e2e(sync/search/reindex)는 로그인 세션 필요 → 사용자 확인 대상
+  - **선택→노드화 (P1 확장)**: 채팅뷰(브라우저 selection)·에디터뷰(CodeMirror selectionSet) 둘 다 텍스트 드래그 시 **"노드로 만들기" 떠 있는 버튼**(.selection-popup, fixed). 선택을 감싸는 `## ts` 블록을 노드 대상으로, **선택 텍스트는 라벨 시드**. 노드 모델(블록=노드) 유지. 이미 노드면 자동으로 편집 모드.
+    - lib: `findEnclosingBlockTs(content, offset)` (에디터뷰에서 enclosing 블록 ts 탐색)
+    - CotextEditor: `onSelectionForNode` 콜백 prop (selectionSet 후크, coordsAtPos)
+    - RoomView: document mouseup 리스너(timeline/preview), CotextEditor 콜백 통합 → 단일 `selPopup` 상태 → NodeEditor 시드
+  - **클러스터 피커 elastic 인덱스 검색 (P1+P3 통합)**: NodeEditor 클러스터 검색이 로컬 graph.clusters만 보던 문제 수정. 입력 후 **300ms 디바운스로 `neuralApi.search` 호출** → 다른 챗/레포에서 만든 클러스터도 자동 노출. 인덱스 결과는 "다른 레포" / "인덱스" 라벨로 구분. 픽 시 cluster_id(slug) 보존하여 cross-repo 동일 클러스터로 머지(`handleSaveNode` picks 시그니처 변경: name→{name,id?}, `upsertCluster`가 id 인자 활용). 이전 동작(없으면 새로 생성)도 그대로 유지.
+  - **선택 영역 하이라이트 보강**: drag한 자리가 popup 클릭으로 deselect되어 안 보이던 문제 수정. **CSS Custom Highlight API**로 `::highlight(neural-selection)` 등록(Range 스냅샷, focus 변경에도 살아남음, popup 닫힐 때 정리). `.room-timeline/preview ::selection` 색도 32%로 진하게. 에디터뷰 `.cm-selectionBackground` 20→30%·25→35%
+  - **P4 그래프 뷰 완료**: `NeuralGraphView` 모달(`d3-force` 추가) — 룸 헤더 "그래프" 버튼으로 열림
+    - **물리엔진 ON/OFF 토글**: OFF 시 **모든 노드 현재 위치에 자동 핀**(`fx/fy` 고정, `sim.alpha(0).stop()`). ON 시 사용자가 핀한 것 외엔 해제하고 시뮬레이션 재시작
+    - **드래그=자동 핀**(사용자가 옮긴 노드 그 자리 유지), **모든 핀 해제** 버튼
+    - **KYT 스타일 시각화**: 노드를 클러스터별 색깔 링(최대 3개 stacked rings)으로 표시, 엣지 supersedes는 dashed+화살표
+    - **인터랙션**: 클릭→블록 점프(타 챗은 네비), 휠 줌(커서 기준), 배경 드래그 팬, hover 툴팁(라벨/룸/클러스터/핀 상태)
+    - **legend 사이드바**: 노드/클러스터/엣지 카운트, 클러스터 색 스와치(클릭→필터), 도움말. 검색 박스(라벨/클러스터 substring 매칭, 비매칭 노드는 흐리게)
+    - 특화: 타 챗 노드는 좌상단 amber 도트, 핀 노드는 우상단 accent 도트. ResizeObserver로 viewport 적응. 모바일 풀스크린
+    - 구현 메모: d3-force는 node array 직접 mutate(API 특성), `react-hooks/immutability`만 파일 레벨 disable(개별 disable이 React Compiler 분석 단위와 안 맞아 unused로 떨어졌음). 그 외 lint 0, tsc/빌드 클린
+  - **P4 그래프 뷰 보강 (UX 사용자 피드백)**:
+    - **클릭=선택, 드래그=이동 분리**(4px 모션 임계값). 클릭은 더 이상 자동 점프하지 않음 → 우측 디테일 패널이 열림
+    - **우측 디테일 패널** (`NodePanel`/`ClusterPanel`): 라벨·룸·source·클러스터 칩(색)·**블록 본문**(현재 룸=local, 타 룸=GitHub fetch + 캐시)·연결 노드 목록(관계 라벨)·"이 블록으로 이동" 버튼·닫기. 패널 닫을 때까지 hover 툴팁 억제(겹침 방지)
+    - **엣지 라벨** SVG 미드포인트에 표시(관련/대체/근거), 줌 0.55배 이상에서만 렌더(클러터 방지), 작은 rounded rect 배경
+    - **클러스터 묶음 토글** (`collapsed`): ON 시 같은(첫) 클러스터 노드를 **하나의 super-node**로 머지(멤버 수에 비례하는 반지름·점선 halo·color fill·멤버 카운트). 엣지는 그룹간으로 집계(중복 제거, 자기참조 필터). 클러스터 super-node 클릭 → ClusterPanel(소속 노드 리스트, 클릭으로 개별 노드 선택)
+    - 블록 텍스트 페치: RoomView에 `rooms` prop 추가(WorkspaceDetailPage→RoomView), 현재 룸은 local content에서 `extractBlockText`(format.ts 신규), 타 룸은 githubApi.getRoomContent + ref 캐시
+    - Jump 시 그래프 모달 자동 close (RoomView에서 `setGraphOpen(false)` 래핑)
+    - 신규 lint 0(reset-on-selection set-state-in-effect 3건만 disable, 의도된 패턴)
 
 ## 관련 문서
 - [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]] — 스택·토큰·이미지 압축 등 핵심 결정

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight, Sun, Moon, Monitor, PaperPlaneRight as Send,
@@ -136,8 +137,17 @@ export default function LandingPage() {
   const { theme, setTheme } = useTheme();
   const { language, setLanguage } = useLanguage();
   const c = CONTENT[language === 'ko' ? 'ko' : 'en'];
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
 
   const launch = () => navigate('/login');
+
+  // Fetch latest release version on mount
+  useEffect(() => {
+    fetch('https://api.github.com/repos/alvintracer/cotext-app/releases/latest')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.tag_name) setLatestVersion(data.tag_name); })
+      .catch(() => {});
+  }, []);
   
   const downloadAndroidApp = async () => {
     try {
@@ -204,9 +214,12 @@ export default function LandingPage() {
           <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={launch}>
             {c.launch} <ArrowRight size={18} />
           </button>
-          <button className="lp-btn lp-btn-ghost" onClick={downloadAndroidApp}>
-            <AndroidLogo size={18} /> {c.downloadApp}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+            <button className="lp-btn lp-btn-ghost" onClick={downloadAndroidApp}>
+              <AndroidLogo size={18} /> {c.downloadApp}
+            </button>
+            {latestVersion && <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{latestVersion}</span>}
+          </div>
           <button className="lp-btn lp-btn-ghost" onClick={launch}>
             <GithubLogo size={18} /> {c.githubStart}
           </button>
@@ -375,9 +388,12 @@ export default function LandingPage() {
             <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={launch}>
               {c.ctaBtn} <ArrowRight size={18} />
             </button>
-            <button className="lp-btn lp-btn-ghost" onClick={downloadAndroidApp}>
-              <AndroidLogo size={18} /> {c.downloadApp}
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+              <button className="lp-btn lp-btn-ghost" onClick={downloadAndroidApp}>
+                <AndroidLogo size={18} /> {c.downloadApp}
+              </button>
+              {latestVersion && <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{latestVersion}</span>}
+            </div>
           </div>
         </div>
       </section>

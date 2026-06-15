@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '../lib/supabase/client';
 
 interface AuthContextValue {
@@ -98,6 +99,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         provider: 'github',
         options: {
           scopes: 'repo,user:email',
+          ...(Capacitor.isNativePlatform() && {
+            redirectTo: 'com.alvintracer.cotext://auth/callback',
+          }),
         },
       });
       if (signInError) throw signInError;

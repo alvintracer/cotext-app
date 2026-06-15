@@ -4,6 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Sun, Moon, Monitor, SignOut as LogOut, User, ArrowsClockwise } from '@phosphor-icons/react';
 import { supabase } from '../../lib/supabase/client';
+import { Capacitor } from '@capacitor/core';
 
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -46,6 +47,9 @@ export default function AppLayout() {
           provider: 'github',
           options: {
             scopes: 'repo,user:email',
+            ...(Capacitor.isNativePlatform() && {
+              redirectTo: 'com.alvintracer.cotext://auth/callback',
+            }),
           },
         });
       }

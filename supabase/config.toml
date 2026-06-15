@@ -385,6 +385,14 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# context-api and context-share use their own auth (ctx_xxx api keys or share tokens),
+# not Supabase JWT — disable JWT verification so the gateway doesn't reject before our code runs.
+[functions.context-api]
+verify_jwt = false
+
+[functions.context-share]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

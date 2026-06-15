@@ -1,19 +1,19 @@
 {
   "name": "cotext-mcp",
-  "version": "0.1.1",
-  "description": "Cotext MCP Server — expose your Cotext context pool to AI agents (local + remote)",
+  "version": "0.2.0",
+  "description": "Cotext MCP Server — expose your Cotext context pool (and Neural Link graph) to AI agents (local + remote)",
   "type": "module",
   "bin": {
     "cotext-mcp": "dist/index.js"
   },
   "main": "dist/index.js",
-  "files": ["dist"],
+  "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js"
   },
-  "keywords": ["cotext", "mcp", "context", "llm", "ai-agent"],
+  "keywords": ["cotext", "mcp", "context", "llm", "ai-agent", "neural-link", "knowledge-graph"],
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",

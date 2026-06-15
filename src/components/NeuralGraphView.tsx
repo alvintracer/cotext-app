@@ -22,8 +22,12 @@ import {
 import {
   X, MagnifyingGlass, Lightning, Pause, ArrowsOutCardinal, PushPinSlash, ArrowSquareOut,
   CirclesThree, CircleDashed, Graph as GraphIcon, Tag, ArrowRight, Spinner as Loader2,
+  Trash, LinkSimple, ArrowsClockwise, ArrowFatUp,
 } from '@phosphor-icons/react';
 import type { NeuralGraph, NeuralNode, Cluster } from '../lib/neural';
+
+// React FC alias for Phosphor icon components (used in ring menu segments).
+type IconFC = React.FC<{ size?: number; color?: string; weight?: 'regular' | 'bold' | 'fill' }>;
 
 interface GNode extends SimulationNodeDatum {
   id: string;
@@ -56,6 +60,32 @@ const EDGE_TYPE_LABEL: Record<string, { ko: string; en: string }> = {
   supports: { ko: '근거', en: 'Supports' },
 };
 
+// 4-section ring menu layout (compass orientation: top=delete, then clockwise).
+// Icons are language-neutral so segments are readable in both ko/en.
+interface RingSection { id: 'delete' | 'relates' | 'supersedes' | 'supports'; ko: string; en: string; angle: number; color: string; Icon: IconFC }
+const RING_SECTIONS: RingSection[] = [
+  { id: 'delete', ko: '삭제', en: 'Delete', angle: -Math.PI / 2, color: '#ef4444', Icon: Trash },
+  { id: 'relates', ko: '관련', en: 'Relates', angle: 0, color: '#3b9eff', Icon: LinkSimple },
+  { id: 'supersedes', ko: '대체', en: 'Supersedes', angle: Math.PI / 2, color: '#f59e0b', Icon: ArrowsClockwise },
+  { id: 'supports', ko: '근거', en: 'Supports', angle: Math.PI, color: '#10b981', Icon: ArrowFatUp },
+];
+
+const RING_SPAN = Math.PI / 2; // each segment spans 90°
+
+/** SVG path for a donut-arc segment centered at (cx,cy). */
+function arcSegment(cx: number, cy: number, rOuter: number, rInner: number, startAngle: number, endAngle: number): string {
+  const x1o = cx + rOuter * Math.cos(startAngle);
+  const y1o = cy + rOuter * Math.sin(startAngle);
+  const x2o = cx + rOuter * Math.cos(endAngle);
+  const y2o = cy + rOuter * Math.sin(endAngle);
+  const x1i = cx + rInner * Math.cos(endAngle);
+  const y1i = cy + rInner * Math.sin(endAngle);
+  const x2i = cx + rInner * Math.cos(startAngle);
+  const y2i = cy + rInner * Math.sin(startAngle);
+  const large = endAngle - startAngle > Math.PI ? 1 : 0;
+  return `M${x1o},${y1o} A${rOuter},${rOuter} 0 ${large} 1 ${x2o},${y2o} L${x1i},${y1i} A${rInner},${rInner} 0 ${large} 0 ${x2i},${y2i} Z`;
+}
+
 function colorFor(clusterId: string | undefined, palette: Map<string, string>): string {
   if (!clusterId) return 'var(--text-dim)';
   let c = palette.get(clusterId);
@@ -65,6 +95,7 @@ function colorFor(clusterId: string | undefined, palette: Map<string, string>): 
 
 export default function NeuralGraphView({
   graph, currentRoom, language, getBlockText, onClose, onJump, onNavigateRoom,
+  onDeleteNode, onLinkEdge, onUnlinkEdge,
 }: {
   graph: NeuralGraph;
   currentRoom: string;
@@ -74,6 +105,10 @@ export default function NeuralGraphView({
   onClose: () => void;
   onJump: (blockTs: string) => void;
   onNavigateRoom?: (roomPath: string, blockTs: string) => void;
+  /** Editor capabilities — same handlers the timeline/menu uses, so graph edits flow to repo. */
+  onDeleteNode?: (node: GNode) => void;
+  onLinkEdge?: (fromId: string, toId: string, type: string) => void;
+  onUnlinkEdge?: (fromId: string, toId: string) => void;
 }) {
   const ko = language === 'ko';
   const svgRef = useRef<SVGSVGElement>(null);
@@ -88,6 +123,10 @@ export default function NeuralGraphView({
   const [panning, setPanning] = useState(false);
   // Selection: either a node or a synthetic cluster super-node.
   const [selected, setSelected] = useState<GNode | null>(null);
+  // Selected edge (for the circular edit menu over its midpoint).
+  const [selectedEdge, setSelectedEdge] = useState<{ from: string; to: string; type?: string } | null>(null);
+  // Edge being drafted via drag from a ring-menu segment.
+  const [draftEdge, setDraftEdge] = useState<{ from: string; type: string; toX: number; toY: number; hoverNode?: string } | null>(null);
 
   // Resize observer
   useEffect(() => {
@@ -194,7 +233,9 @@ export default function NeuralGraphView({
     const sim = simRef.current;
     if (!sim) return;
     sim.force('center', forceCenter(size.w / 2, size.h / 2));
-    if (physics) sim.alpha(0.5).restart();
+    // No alpha restart on size change — the right panel opening would otherwise
+    // bounce the whole layout. Sim is already running on initial mount, and for
+    // user-driven resizes the gentle center-force update is enough.
   }, [size.w, size.h]);
 
   // Physics toggle: OFF → pin all at current positions; ON → unfreeze non-user-pinned.
@@ -258,18 +299,81 @@ export default function NeuralGraphView({
     e.stopPropagation();
   }
 
-  // Background pan + wheel zoom.
-  const panRef = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+  // Background pan + wheel zoom. Also: click-on-empty clears selections.
+  const panRef = useRef<{ x: number; y: number; vx: number; vy: number; moved: boolean } | null>(null);
   function onBgDown(e: React.PointerEvent<SVGSVGElement>) {
-    panRef.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
+    panRef.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false };
     (e.target as Element).setPointerCapture(e.pointerId);
     setPanning(true);
   }
   function onBgMove(e: React.PointerEvent<SVGSVGElement>) {
     if (!panRef.current) return;
-    setView((v) => ({ ...v, x: panRef.current!.vx + (e.clientX - panRef.current!.x), y: panRef.current!.vy + (e.clientY - panRef.current!.y) }));
+    const dx = e.clientX - panRef.current.x, dy = e.clientY - panRef.current.y;
+    if (Math.hypot(dx, dy) > DRAG_THRESHOLD) panRef.current.moved = true;
+    setView((v) => ({ ...v, x: panRef.current!.vx + dx, y: panRef.current!.vy + dy }));
   }
-  function onBgUp() { panRef.current = null; setPanning(false); }
+  function onBgUp() {
+    const had = panRef.current;
+    const wasMoved = had?.moved ?? false;
+    panRef.current = null;
+    setPanning(false);
+    // Only clear selections if this was a real background interaction (had a down).
+    // Without this guard, clicking on a node/edge (which stopPropagation()'d down)
+    // would still bubble its up event here and immediately deselect.
+    if (had && !wasMoved) { setSelected(null); setSelectedEdge(null); }
+  }
+
+  // Drag-to-link gesture from a ring-menu edge-type segment.
+  // We bypass setPointerCapture so we can detect the drop target via elementFromPoint.
+  function startEdgeDraft(e: React.PointerEvent, fromId: string, type: string) {
+    e.stopPropagation();
+    e.preventDefault();
+    const svg = svgRef.current;
+    if (!svg) return;
+    const initial = svgPoint(svg, e.clientX, e.clientY, view);
+    setDraftEdge({ from: fromId, type, toX: initial.x, toY: initial.y });
+
+    function onMove(ev: PointerEvent) {
+      const pt = svgPoint(svg!, ev.clientX, ev.clientY, view);
+      const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
+      const targetEl = el?.closest('[data-graph-node-id]');
+      const targetId = targetEl?.getAttribute('data-graph-node-id') ?? undefined;
+      setDraftEdge((d) => d ? { ...d, toX: pt.x, toY: pt.y, hoverNode: targetId && targetId !== fromId ? targetId : undefined } : null);
+    }
+    function onUp(ev: PointerEvent) {
+      const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
+      const targetEl = el?.closest('[data-graph-node-id]');
+      const targetId = targetEl?.getAttribute('data-graph-node-id') ?? undefined;
+      if (targetId && targetId !== fromId && onLinkEdge) {
+        onLinkEdge(fromId, targetId, type);
+      }
+      setDraftEdge(null);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+    }
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }
+
+  function handleDeleteSelectedNode() {
+    if (!selected || selected.isCluster || !onDeleteNode) return;
+    if (selected.room !== currentRoom) {
+      // Cross-room deletion needs that room's content — not wired yet.
+      return;
+    }
+    onDeleteNode(selected);
+    setSelected(null);
+  }
+
+  function handleEdgeMenuPick(type: string) {
+    if (!selectedEdge) return;
+    if (type === 'delete') {
+      onUnlinkEdge?.(selectedEdge.from, selectedEdge.to);
+    } else {
+      onLinkEdge?.(selectedEdge.from, selectedEdge.to, type);
+    }
+    setSelectedEdge(null);
+  }
   function onWheel(e: React.WheelEvent<SVGSVGElement>) {
     e.preventDefault();
     const delta = -e.deltaY * 0.0015;
@@ -416,7 +520,7 @@ export default function NeuralGraphView({
                 </marker>
               </defs>
               <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
-                {/* Edges + edge labels */}
+                {/* Edges + invisible click overlay + edge labels */}
                 {links.map((l, i) => {
                   const s = l.source as GNode; const t = l.target as GNode;
                   if (s?.x == null || t?.x == null) return null;
@@ -424,19 +528,49 @@ export default function NeuralGraphView({
                   const mx = (s.x + t.x!) / 2;
                   const my = (s.y! + t.y!) / 2;
                   const tlabel = typeLabel(l.type);
+                  const sId = typeof l.source === 'string' ? l.source : (l.source as GNode).id;
+                  const tId = typeof l.target === 'string' ? l.target : (l.target as GNode).id;
+                  const editable = !collapsed && onUnlinkEdge && !sId.startsWith('cluster:') && !tId.startsWith('cluster:');
+                  const isSelectedEdge = selectedEdge && selectedEdge.from === sId && selectedEdge.to === tId;
                   return (
                     <g key={i}>
                       <line
                         x1={s.x} y1={s.y!} x2={t.x} y2={t.y!}
-                        stroke="var(--text-dim)" strokeOpacity={0.5} strokeWidth={1.3}
+                        stroke={isSelectedEdge ? 'var(--accent)' : 'var(--text-dim)'}
+                        strokeOpacity={isSelectedEdge ? 0.9 : 0.5}
+                        strokeWidth={isSelectedEdge ? 2 : 1.3}
                         strokeDasharray={dashed ? '4 3' : undefined}
                         markerEnd={l.type ? 'url(#ng-arrow)' : undefined}
                       />
+                      {editable && (
+                        <line
+                          x1={s.x} y1={s.y!} x2={t.x} y2={t.y!}
+                          stroke="transparent" strokeWidth={14}
+                          style={{ cursor: 'pointer' }}
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            setSelectedEdge({ from: sId, to: tId, type: l.type });
+                            setSelected(null);
+                          }}
+                        />
+                      )}
                       {tlabel && view.k > 0.55 && (
-                        <g transform={`translate(${mx},${my})`}>
+                        <g
+                          transform={`translate(${mx},${my})`}
+                          style={{ cursor: editable ? 'pointer' : 'default' }}
+                          onPointerDown={editable ? (e) => {
+                            e.stopPropagation();
+                            setSelectedEdge({ from: sId, to: tId, type: l.type });
+                            setSelected(null);
+                          } : undefined}
+                        >
                           <rect x={-tlabel.length * 3 - 5} y={-7} width={tlabel.length * 6 + 10} height={13} rx={6}
-                                fill="var(--surface)" stroke="var(--border)" strokeWidth={0.7} />
-                          <text textAnchor="middle" y={3} fontSize={9} fill="var(--text-muted)" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                                fill={isSelectedEdge ? 'var(--accent-muted)' : 'var(--surface)'}
+                                stroke={isSelectedEdge ? 'var(--accent)' : 'var(--border)'} strokeWidth={isSelectedEdge ? 1 : 0.7} />
+                          <text textAnchor="middle" y={3} fontSize={9}
+                                fill={isSelectedEdge ? 'var(--accent)' : 'var(--text-muted)'}
+                                fontWeight={isSelectedEdge ? 700 : 400}
+                                style={{ pointerEvents: 'none', userSelect: 'none' }}>
                             {tlabel}
                           </text>
                         </g>
@@ -453,8 +587,9 @@ export default function NeuralGraphView({
                   return (
                     <g
                       key={n.id}
+                      data-graph-node-id={n.id}
                       transform={`translate(${n.x ?? 0},${n.y ?? 0})`}
-                      style={{ cursor: 'pointer', opacity: dim ? 0.2 : 1 }}
+                      style={{ cursor: 'pointer', opacity: dim ? 0.2 : (draftEdge && draftEdge.hoverNode === n.id ? 1 : 1) }}
                       onPointerDown={(e) => onPointerDown(e, n)}
                       onPointerMove={(e) => onPointerMove(e, n)}
                       onPointerUp={(e) => onPointerUp(e, n)}
@@ -475,22 +610,84 @@ export default function NeuralGraphView({
                             <circle key={idx} r={r + 2 + idx * 2.5} fill="none" stroke={colorFor(c, palette)} strokeWidth={2} strokeOpacity={0.65 - idx * 0.15} />
                           ))}
                           <circle r={r} fill="var(--surface)" stroke={isSelected ? 'var(--accent)' : ringColor} strokeWidth={isSelected ? 2.5 : 1.5} />
+                          {draftEdge?.hoverNode === n.id && (
+                            <circle r={r + 8} fill="none" stroke="var(--accent)" strokeWidth={2} strokeDasharray="3 2" />
+                          )}
                           {n.pinned && <circle r={2.5} cx={r - 2} cy={-(r - 2)} fill="var(--accent)" stroke="var(--surface)" strokeWidth={1} />}
                           {n.room !== currentRoom && <circle r={2.5} cx={-(r - 2)} cy={-(r - 2)} fill="var(--draft)" stroke="var(--surface)" strokeWidth={1} />}
                         </>
                       )}
-                      <text
-                        x={r + 4} y={4}
-                        fontSize={10}
-                        fontWeight={isSelected ? 600 : 400}
-                        fill="var(--text)"
-                        style={{ pointerEvents: 'none', userSelect: 'none' }}
-                      >
-                        {n.label.length > 24 ? n.label.slice(0, 23) + '…' : n.label}
-                      </text>
+                      {!isSelected && (
+                        <text
+                          x={r + 4} y={4}
+                          fontSize={10}
+                          fontWeight={400}
+                          fill="var(--text)"
+                          style={{ pointerEvents: 'none', userSelect: 'none' }}
+                        >
+                          {n.label.length > 24 ? n.label.slice(0, 23) + '…' : n.label}
+                        </text>
+                      )}
                     </g>
                   );
                 })}
+
+                {/* Draft-edge preview (during drag-to-link) — colored by type, label at midpoint */}
+                {draftEdge && (() => {
+                  const src = nodes.find((n) => n.id === draftEdge.from);
+                  if (!src || src.x == null) return null;
+                  const sec = RING_SECTIONS.find((s) => s.id === draftEdge.type);
+                  const color = sec?.color ?? '#3b9eff';
+                  const label = sec ? (ko ? sec.ko : sec.en) : draftEdge.type;
+                  const mx = (src.x + draftEdge.toX) / 2;
+                  const my = (src.y! + draftEdge.toY) / 2;
+                  const labelW = Math.max(48, label.length * 8 + 18);
+                  return (
+                    <g style={{ pointerEvents: 'none' }}>
+                      <line
+                        x1={src.x} y1={src.y!} x2={draftEdge.toX} y2={draftEdge.toY}
+                        stroke={color} strokeWidth={2.5} strokeDasharray="5 3" strokeOpacity={0.9}
+                      />
+                      <g transform={`translate(${mx},${my})`}>
+                        <rect x={-labelW / 2} y={-10} width={labelW} height={20} rx={10}
+                              fill={color} fillOpacity={0.95} />
+                        <text textAnchor="middle" y={4} fontSize={11} fontWeight={700} fill="#fff">
+                          {label}
+                        </text>
+                      </g>
+                    </g>
+                  );
+                })()}
+
+                {/* Ring menu around selected real node (delete + 3 edge types, draggable) */}
+                {selected && !selected.isCluster && selected.x != null && (
+                  <RingMenu
+                    cx={selected.x}
+                    cy={selected.y!}
+                    nodeRadius={nodeRadius(selected)}
+                    canDelete={selected.room === currentRoom && !!onDeleteNode}
+                    canLink={!!onLinkEdge}
+                    draftType={draftEdge?.from === selected.id ? draftEdge.type : null}
+                    onDelete={handleDeleteSelectedNode}
+                    onStartDraft={(type, e) => startEdgeDraft(e, selected.id, type)}
+                  />
+                )}
+
+                {/* Edge edit menu (delete + change type) — only outside collapsed mode */}
+                {selectedEdge && !collapsed && (() => {
+                  const s = nodes.find((n) => n.id === selectedEdge.from);
+                  const t = nodes.find((n) => n.id === selectedEdge.to);
+                  if (!s || !t || s.x == null || t.x == null) return null;
+                  const cx = (s.x + t.x!) / 2;
+                  const cy = (s.y! + t.y!) / 2;
+                  return (
+                    <EdgeMenu
+                      cx={cx} cy={cy}
+                      currentType={selectedEdge.type}
+                      onPick={handleEdgeMenuPick}
+                    />
+                  );
+                })()}
               </g>
             </svg>
 
@@ -676,6 +873,106 @@ function ClusterPanel({ node, clusterList, palette, currentRoom, ko, onPickMembe
         ))}
       </div>
     </div>
+  );
+}
+
+// Render a Phosphor icon inside SVG at (cx, cy) with a transparent overlay
+// so it doesn't intercept pointer events on the underlying segment.
+function SvgIcon({ Icon, cx, cy, size = 14 }: { Icon: IconFC; cx: number; cy: number; size?: number }) {
+  return (
+    <foreignObject x={cx - size / 2} y={cy - size / 2} width={size} height={size} style={{ pointerEvents: 'none', overflow: 'visible' }}>
+      <div style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+        <Icon size={size} weight="bold" color="#fff" />
+      </div>
+    </foreignObject>
+  );
+}
+
+// Ring menu around a selected node — 4 solid-color donut segments with white icons:
+// top=Delete, right=Relates, bottom=Supersedes, left=Supports.
+// Edge-type segments are draggable to another node (drag-to-link).
+function RingMenu({ cx, cy, nodeRadius: nr, canDelete, canLink, draftType, onDelete, onStartDraft }: {
+  cx: number; cy: number; nodeRadius: number;
+  canDelete: boolean; canLink: boolean;
+  draftType: string | null;
+  onDelete: () => void;
+  onStartDraft: (type: string, e: React.PointerEvent) => void;
+}) {
+  const rInner = nr + 10;
+  const rOuter = nr + 32;
+  const iconR = (rInner + rOuter) / 2;
+  return (
+    <g style={{ pointerEvents: 'all' }}>
+      {RING_SECTIONS.map((sec) => {
+        const start = sec.angle - RING_SPAN / 2;
+        const end = sec.angle + RING_SPAN / 2;
+        const path = arcSegment(cx, cy, rOuter, rInner, start, end);
+        const ix = cx + iconR * Math.cos(sec.angle);
+        const iy = cy + iconR * Math.sin(sec.angle);
+        const isDelete = sec.id === 'delete';
+        const enabled = isDelete ? canDelete : canLink;
+        const isActive = draftType === sec.id;
+        return (
+          <g key={sec.id} style={{ opacity: enabled ? 1 : 0.35, cursor: enabled ? (isDelete ? 'pointer' : 'grab') : 'not-allowed' }}>
+            <path
+              d={path}
+              fill={sec.color}
+              fillOpacity={isActive ? 1 : 0.78}
+              stroke={isActive ? '#fff' : sec.color}
+              strokeWidth={isActive ? 1.6 : 0.8}
+              onPointerDown={(e) => {
+                if (!enabled) return;
+                if (isDelete) {
+                  e.stopPropagation();
+                  onDelete();
+                } else {
+                  onStartDraft(sec.id, e);
+                }
+              }}
+            />
+            <SvgIcon Icon={sec.Icon} cx={ix} cy={iy} size={14} />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+// Edge edit menu — same 4-section ring near the edge midpoint, white icons.
+// Click delete to remove, click an edge-type to change relation type. The
+// current type's segment is rendered solid as the active indicator.
+function EdgeMenu({ cx, cy, currentType, onPick }: {
+  cx: number; cy: number; currentType?: string;
+  onPick: (typeOrDelete: string) => void;
+}) {
+  const rInner = 16;
+  const rOuter = 38;
+  const iconR = (rInner + rOuter) / 2;
+  return (
+    <g style={{ pointerEvents: 'all' }}>
+      <circle cx={cx} cy={cy} r={rInner - 2} fill="var(--surface)" stroke="var(--border)" strokeWidth={1} />
+      {RING_SECTIONS.map((sec) => {
+        const start = sec.angle - RING_SPAN / 2;
+        const end = sec.angle + RING_SPAN / 2;
+        const path = arcSegment(cx, cy, rOuter, rInner, start, end);
+        const ix = cx + iconR * Math.cos(sec.angle);
+        const iy = cy + iconR * Math.sin(sec.angle);
+        const isActive = sec.id !== 'delete' && currentType === sec.id;
+        return (
+          <g key={sec.id} style={{ cursor: 'pointer' }}>
+            <path
+              d={path}
+              fill={sec.color}
+              fillOpacity={isActive ? 1 : 0.78}
+              stroke={isActive ? '#fff' : sec.color}
+              strokeWidth={isActive ? 1.6 : 0.8}
+              onPointerDown={(e) => { e.stopPropagation(); onPick(sec.id); }}
+            />
+            <SvgIcon Icon={sec.Icon} cx={ix} cy={iy} size={13} />
+          </g>
+        );
+      })}
+    </g>
   );
 }
 

@@ -135,6 +135,29 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
     if (open) loadContext();
   }, [open, loadContext]);
 
+  // Neural Link grounding (P5.3): load .cotext/neural.json + extract inline nodes
+  // from the current room's content, then build a compact textual summary that
+  // gets injected into the system prompt below.
+  const [neuralSummary, setNeuralSummary] = useState<string>('');
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset cache when panel/room changes
+    if (!open || !room) { setNeuralSummary(''); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const folder = (workspace as PanelWorkspace & { cotext_folder_name?: string }).cotext_folder_name || '.cotext';
+        const neuralPath = `${folder}/neural.json`;
+        const res = await githubApi.getRoomContent(
+          workspace.github_owner, workspace.github_repo, workspace.default_branch, neuralPath,
+        );
+        if (cancelled) return;
+        const summary = buildNeuralSummary(res.content || '', context, room.path);
+        setNeuralSummary(summary);
+      } catch { if (!cancelled) setNeuralSummary(''); }
+    })();
+    return () => { cancelled = true; };
+  }, [open, room, workspace, context]);
+
   useEffect(() => {
     msgsRef.current?.scrollTo({ top: msgsRef.current.scrollHeight, behavior: 'auto' });
   }, [messages, loading]);
@@ -168,7 +191,10 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
     const body = context
       ? `\n--- CONTEXT (${room?.path || 'repo'}) ---\n${context}\n--- END CONTEXT ---`
       : `\n(No chat selected — answer without repo context.)`;
-    return head + body;
+    const neural = neuralSummary
+      ? `\n--- NEURAL LINK GRAPH ---\n${neuralSummary}\n--- END NEURAL ---`
+      : '';
+    return head + body + neural;
   };
 
   const send = useCallback(async () => {
@@ -595,4 +621,76 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
       </div>
     </aside>
   );
+}
+
+// Build a small, agent-friendly summary of the Neural Link graph (P5.3).
+// Goals: stay under ~1.5KB. Include:
+//   - repo-wide cluster index (id, name, member count)
+//   - current room's nodes (label, clusters, ts) — these are most relevant to context
+//   - edges touching those nodes (with related node labels)
+// Keeps the system prompt grounded without blowing token budget.
+function buildNeuralSummary(neuralJson: string, roomContent: string, currentRoom: string): string {
+  if (!neuralJson.trim()) return '';
+  type C = { id: string; name: string };
+  type E = { from: string; to: string; type?: string };
+  let g: { clusters?: C[]; edges?: E[] };
+  try { g = JSON.parse(neuralJson); } catch { return ''; }
+  const clusters = g.clusters ?? [];
+  const edges = g.edges ?? [];
+
+  // Parse inline nodes from THIS room's content (we don't have other rooms here)
+  type InlineNode = { id: string; label: string; clusters: string[]; ts: string };
+  const myNodes: InlineNode[] = [];
+  let curTs: string | null = null;
+  for (const line of roomContent.split('\n')) {
+    const tsM = line.match(/^##\s+(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+    if (tsM) { curTs = tsM[1]; continue; }
+    const nM = line.match(/^<!--\s*node:\s*(.*?)\s*-->\s*$/);
+    if (nM && curTs) {
+      const body = nM[1];
+      const idM = body.match(/\bid=(\S+)/);
+      const lM = body.match(/\blabel="([^"]*)"/);
+      const cM = body.match(/\bclusters=\[([^\]]*)\]/);
+      if (idM) myNodes.push({
+        id: idM[1],
+        label: lM ? lM[1] : '',
+        clusters: cM ? cM[1].split(',').map((s) => s.trim()).filter(Boolean) : [],
+        ts: curTs,
+      });
+    }
+  }
+
+  if (clusters.length === 0 && myNodes.length === 0) return '';
+
+  const nameOfCluster = (id: string) => clusters.find((c) => c.id === id)?.name ?? id;
+  const lines: string[] = [];
+  lines.push('Use this graph to identify thought clusters and explicit relationships.');
+  lines.push('Same cluster = implicit relation. Explicit edge = stronger claim.');
+  lines.push('');
+
+  if (clusters.length > 0) {
+    lines.push(`Clusters in repo: ${clusters.map((c) => `${c.name} [${c.id}]`).slice(0, 20).join(', ')}`);
+  }
+
+  if (myNodes.length > 0) {
+    lines.push('');
+    lines.push(`Nodes in this chat (${currentRoom}):`);
+    for (const n of myNodes.slice(0, 30)) {
+      const cstr = n.clusters.length ? ` · clusters:[${n.clusters.map(nameOfCluster).join(', ')}]` : '';
+      lines.push(`- [${n.id}] ${n.label || '(no label)'}${cstr} · block:${n.ts}`);
+    }
+  }
+
+  const myIds = new Set(myNodes.map((n) => n.id));
+  const touching = edges.filter((e) => myIds.has(e.from) || myIds.has(e.to));
+  if (touching.length > 0) {
+    lines.push('');
+    lines.push('Explicit edges touching these nodes:');
+    for (const e of touching.slice(0, 20)) {
+      lines.push(`- ${e.from} -[${e.type ?? 'relates'}]-> ${e.to}`);
+    }
+  }
+
+  const out = lines.join('\n');
+  return out.length > 1500 ? out.slice(0, 1500) + '\n…(truncated)' : out;
 }

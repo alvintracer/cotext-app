@@ -2128,7 +2128,17 @@ P2 백링크/관련 패널: 읽는 중 같은 클러스터·엣지 텍스트 노
 P2.5 노드↔노드 직접 엣지 UI(블록 3-dot "노드 연결", 관계 유형, 엣지는 neural.json만 거주 → 디바운스 자동 저장)
 P3 Supabase 인덱스 + 크로스 레포 검색 (유료 Neural Link 시작)
 P4 그래프 뷰 (Transight 스타일, 단일 레포는 무료)
-P5 에이전트 = 같은 lib 재사용 (MCP 도구 + AgentPanel 제안, 선택적 자동화)
+    + 그래프=에디터: 노드 도넛 RingMenu(삭제·관련·대체·근거), 드래그 투 링크,
+      엣지 클릭 EdgeMenu(삭제·타입 변경) — 정본 핸들러 재사용 → cotext.md/neural.json 흐름
+P5 에이전트 = 같은 lib 재사용 (계획)
+    P5.1 로컬 cotext-mcp 도구 추가: get_neural_graph, find_related(node_id),
+         search_clusters(query), get_node_context(node_id). neural.json 직접 파싱
+    P5.2 원격 context-api 그래프 액션: search_clusters, find_related (크로스 레포, Supabase)
+    P5.3 AgentPanel system 프롬프트에 현재 룸 노드의 클러스터·연결 노드를 자동 컨텍스트로 주입
+         (rooms·blockTs·neural.json 이미 클라이언트에 있음 — 그냥 직렬화)
+    P5.4 .cotext/NEURAL_INDEX.md 자동 생성(push 시): 사람·에이전트가 그냥 읽어도 그래프 구조 파악
+         가능한 markdown 표(클러스터→노드→라벨). COTEXT_GUIDE.md와 같은 패턴
+    상세: AI-Sessions/wiki/concepts/neural-link-mcp-grounding.md (옵션 비교·추천 조합)
 ```
 
 ### 32.5 미결

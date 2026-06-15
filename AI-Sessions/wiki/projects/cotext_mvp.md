@@ -116,6 +116,47 @@ MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context
     - 블록 텍스트 페치: RoomView에 `rooms` prop 추가(WorkspaceDetailPage→RoomView), 현재 룸은 local content에서 `extractBlockText`(format.ts 신규), 타 룸은 githubApi.getRoomContent + ref 캐시
     - Jump 시 그래프 모달 자동 close (RoomView에서 `setGraphOpen(false)` 래핑)
     - 신규 lint 0(reset-on-selection set-state-in-effect 3건만 disable, 의도된 패턴)
+  - **P4 그래프=에디터**: 그래프 안에서 채팅/에디터에서 할 수 있는 노드·엣지 편집을 동일하게 수행, 모두 repo 정본까지 흘러감(`handleRemoveNode`/`handleLinkEdge`/`handleUnlinkEdge` 재사용)
+    - **노드 도넛 4분할 링 메뉴** (`RingMenu`): 노드 선택 시 nodeRadius+8~+28 도넛 4 segments
+      - top=Delete(빨강, 현재 룸 노드만 활성), right=관련/Relates(파랑), bottom=대체/Supersedes(주황), left=근거/Supports(녹색)
+      - 색은 segment별 구분(빨강·파랑·주황·녹색), 비활성 시 35% opacity
+    - **드래그 투 링크**: 엣지 type segment를 다른 노드로 drag → 그 type으로 엣지 생성(setPointerCapture 안 쓰고 document level pointermove/up + `elementFromPoint`로 drop target 탐지). 드래그 중 source→cursor 점선 preview 라인, hover target은 점선 accent 링으로 강조
+    - **엣지 클릭→`EdgeMenu`** (작은 4분할 도넛): 같은 4 segments. type segment 클릭 시 `linkEdge(from,to,newType)`로 in-place 갱신(lib의 linkEdge가 기존 엣지면 type만 업데이트), delete segment 클릭 시 `unlinkEdge`. 현재 type은 fill opacity·font weight로 active 표시
+    - 엣지 클릭 영역 확장: visible line 위에 stroke=transparent strokeWidth=14 invisible overlay
+    - 배경 클릭(드래그 아닌 단순 클릭, 4px 임계 동일)으로 노드/엣지 선택 해제
+    - 묶음 모드(`collapsed`)에서는 엣지 편집 비활성(super-node 간 집계 엣지는 개별 엣지가 아님 — 일관성)
+    - 데이터: 노드 `<g>`에 `data-graph-node-id={n.id}` (drop target 탐지용)
+    - 한/영 (delete→삭제/Del, relates→관련/Rel, supersedes→대체/Sup, supports→근거/Sps)
+    - tsc/빌드 클린, 신규 lint 0
+  - **P5 계획 정리 (MCP grounding)**: [[AI-Sessions/wiki/concepts/neural-link-mcp-grounding]] 신규 — 옵시디언 비교(인라인 토큰 + grep), 4가지 옵션(A 정본 직접 파싱·B Supabase 인덱스 API·C `.cotext/NEURAL_INDEX.md` 자동 생성·D MCP 도구 함수). 추천 조합: 로컬 MCP=A+D, 원격=B+D, 보조=C, 임베드 AgentPanel=직접 system 주입. 계획서 §32.4에 P5.1~P5.4 세분화
+  - **P5.4 완료 (옵션 C grounding)**: `src/lib/neural/indexMd.ts` 신규 — `generateNeuralIndex(graph)` 가 사람·에이전트 둘 다 읽기 쉬운 markdown 표(Summary / Clusters 별 멤버 노드 표 / Explicit edges / Unclustered nodes / 사용법 안내) 출력. push 흐름(persistNeuralGraph)에 `.cotext/NEURAL_INDEX.md` 자동 업로드 추가(neural.json 옆에, 같은 best-effort 패턴, 기존 sha 확인 후 갱신). MCP/외부 에이전트는 이 한 파일만 읽어도 그래프 구조 파악 가능 — tool-call 없이 grounding 비용 0. 라운드트립 스모크 통과(클러스터·노드·엣지 정확 렌더). tsc/빌드 클린, 신규 lint 0
+  - **P5.1 완료 (옵션 A + D, 로컬 cotext-mcp)**: `packages/cotext-mcp`에 그래프 도구 4개 + 리소스 1개 추가
+    - `get_neural_graph` (format: summary/markdown/json), `find_related`, `search_clusters`, `get_node_context` (블록 본문 + 인접 노드 라벨)
+    - `cotext://neural-index` 리소스 — NEURAL_INDEX.md 그대로 노출
+    - 정본 직접 파싱: `loadGraph()`이 `.cotext/neural.json` + 전체 룸의 `cotext.md` 인라인 `<!-- node: -->` 주석을 합쳐서 일관된 그래프 복원(엣지 dangling 자동 정리)
+    - 파서·extractBlockText 인라인 작성 (src/lib/neural에 의존 안 함 — 패키지 독립 publish 가능 유지)
+    - 스모크 통과: tools/list에 9개 도구(기존 5 + 신규 4), `get_neural_graph summary` 정상 응답
+  - **P5.3 완료 (AgentPanel 임베드 grounding)**: 패널 열 때 `.cotext/neural.json` 자동 로드 + 현재 룸의 인라인 노드 파싱 → 컴팩트 텍스트 요약(`buildNeuralSummary`) 생성: 레포 전체 클러스터 인덱스(최대 20) + 이 챗의 노드 라벨/클러스터/ts(최대 30) + 이들에 닿는 엣지(최대 20). 1500자 이하 강제. `buildSystem()`이 system 프롬프트에 `--- NEURAL LINK GRAPH ---` 섹션으로 자동 주입 → AgentPanel 답변이 그래프 grounding 위에서 동작 (tool-call 없이도)
+  - **P5.2 완료 (옵션 B + D, 원격 context-api)**: 4 GET 엔드포인트 추가
+    - `/neural/graph?format=summary|json|markdown` (markdown은 GitHub `.cotext/NEURAL_INDEX.md` 그대로 streaming, json은 Supabase 3테이블 결합)
+    - `/neural/find_related?node_id=...`
+    - `/neural/search_clusters?q=...` (overlaps + ilike)
+    - `/neural/node?id=...` (Supabase 노드 메타 + GitHub에서 블록 본문 추출 + 인접 노드)
+    - `validateKey`가 `workspace_id` 추출하도록 보강, 모든 쿼리는 workspace 스코프(api_key 자체가 워크스페이스 한정)
+    - **config.toml에 `[functions.context-api]/[functions.context-share] verify_jwt = false` 명시** — 두 함수는 자체 ctx_xxx 키 인증이라 Supabase JWT 게이트웨이가 막으면 안 됨. `--no-verify-jwt` 플래그로 재배포(원래 대시보드 수동 설정에 의존하던 걸 코드로 명시화)
+    - **cotext-mcp REMOTE 모드 연결**: 동일 4 도구 + 리소스가 `apiFetch('neural/...')`로 자동 포워딩 → 로컬·원격 인터페이스 동형
+    - 라이브 배포 + 스모크 통과(invalid ctx_xxx → 우리 코드의 401, gateway 통과 확인)
+  - **§32 P5 일단락**: Obsidian 못하는 차별점(에이전트 1급·크로스 레포·MCP 표준 도구·grounding 0 비용 옵션)이 실제로 동작
+  - **그래프 뷰 너비 확대**: 모달 95vw / max 1400px → 98vw / max 1800px, 높이 90vh → 92vh
+  - **P4 그래프=에디터 UX 마감**:
+    - **선택 시 레이아웃 튕김 제거**: 우측 패널이 열려서 캔버스 폭이 줄면 ResizeObserver→resize effect가 `sim.alpha(0.5).restart()`를 호출해 전체 그래프가 흔들리던 것 — restart 제거(force center만 갱신)
+    - **엣지 선택 지속**: 노드/엣지 클릭 시 `stopPropagation()` 해도 pointerup가 SVG로 버블링해 `onBgUp`이 즉시 setSelectedEdge(null) 하던 문제 — `panRef.current` 존재했을 때만(진짜 배경 인터랙션) 클리어
+    - **엣지 라벨도 클릭 가능**: 라벨 그룹에 onPointerDown 추가, 선택 시 accent 색·굵게로 강조
+    - **노드 라벨 가리는 문제**: 선택된 노드의 인라인 라벨 숨김(블루 segment가 라벨 위 덮던 문제 — 라벨은 우측 패널에 있음)
+    - **링/엣지 메뉴 아이콘화** (i18n 통일·가독성): 한/영 모두 동일 Phosphor 아이콘(`Trash`/`LinkSimple`/`ArrowsClockwise`/`ArrowFatUp`) 흰색 — 영어에서 'Sup'이 supersedes/supports 둘 다 첫 3자 겹치던 문제 해결. `foreignObject`로 SVG 내부 렌더, pointerEvents:none
+    - **fill opacity 0.18→0.78**: 빨강 등 segment 색이 거의 안 보이던 문제. 활성 segment(드래그 중·현재 type)는 opacity 1 + 흰 테두리
+    - **드래그 투 링크 시각화**: preview 라인을 type 색깔로 + 미드포인트에 type 이름 풀 라벨(관련/대체/근거)을 색깔 pill로 띄움 → 어떤 종류 엣지 만들고 있는지 한눈에
+    - tsc/빌드 클린, lint 0
 
 ## 관련 문서
 - [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]] — 스택·토큰·이미지 압축 등 핵심 결정

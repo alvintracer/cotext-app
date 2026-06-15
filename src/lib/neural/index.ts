@@ -8,3 +8,4 @@ export * from './types';
 export * from './id';
 export * from './format';
 export * from './graph';
+export * from './indexMd';

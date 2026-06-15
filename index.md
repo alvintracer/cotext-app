@@ -36,6 +36,11 @@
 
 - [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]]
 
+## Concepts
+
+- [[AI-Sessions/wiki/concepts/neural-link-overview]] — Neural Link 종합 문서(구조·특징·효과·Obsidian 비교·사용 가이드·MCP 연결·개발자 레퍼런스)
+- [[AI-Sessions/wiki/concepts/neural-link-mcp-grounding]] — §32 Neural Link 그래프를 MCP에 이해시키는 옵션(A 정본 파싱·B Supabase API·C NEURAL_INDEX.md·D 도구 함수), 추천 조합
+
 ## Design
 
 - [[AI-Sessions/wiki/design/cotext-brand-and-landing]]

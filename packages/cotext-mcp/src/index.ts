@@ -81,6 +81,97 @@ function parseBlocks(content: string): Block[] {
   return blocks;
 }
 
+// --- Neural Link (P5.1, option A) ---
+// We deliberately keep these parsers self-contained — the MCP package is a
+// standalone publish, so it can't depend on the app's src/lib/neural. The
+// schema is stable (decision D-009) and tiny enough to inline.
+
+interface NeuralNode { id: string; room: string; blockTs: string; label: string; clusters: string[]; source?: string }
+interface NeuralCluster { id: string; name: string; color?: string; desc?: string }
+interface NeuralEdge { from: string; to: string; type?: string; viaCluster?: string }
+interface NeuralGraph { version?: 1; updatedAt?: string; clusters: NeuralCluster[]; nodes: NeuralNode[]; edges: NeuralEdge[] }
+
+function parseInlineNode(line: string): { id: string; label: string; clusters: string[] } | null {
+  const m = line.match(/^<!--\s*node:\s*(.*?)\s*-->\s*$/);
+  if (!m) return null;
+  const body = m[1];
+  const idM = body.match(/\bid=(\S+)/);
+  if (!idM) return null;
+  const labelM = body.match(/\blabel="([^"]*)"/);
+  const clustersM = body.match(/\bclusters=\[([^\]]*)\]/);
+  return {
+    id: idM[1],
+    label: labelM ? labelM[1] : '',
+    clusters: clustersM ? clustersM[1].split(',').map((s) => s.trim()).filter(Boolean) : [],
+  };
+}
+
+function readInlineNodes(content: string, room: string): NeuralNode[] {
+  const lines = content.split('\n');
+  const nodes: NeuralNode[] = [];
+  let curTs: string | null = null;
+  let curSource: string | undefined;
+  for (const line of lines) {
+    const tsM = line.match(/^##\s+(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+    if (tsM) { curTs = tsM[1]; curSource = undefined; continue; }
+    const srcM = line.match(/^<!--\s*source:\s*(\w+)\s*-->/);
+    if (srcM) { curSource = srcM[1]; continue; }
+    const meta = parseInlineNode(line);
+    if (meta && curTs) {
+      nodes.push({ id: meta.id, room, blockTs: curTs, label: meta.label, clusters: meta.clusters, source: curSource });
+    }
+  }
+  return nodes;
+}
+
+function extractBlockText(content: string, blockTs: string): string {
+  const lines = content.split('\n');
+  const headerRe = new RegExp('^##\\s+' + blockTs.replace(/[-:.\s]/g, '\\$&'));
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (headerRe.test(lines[i])) { start = i; break; }
+  }
+  if (start === -1) return '';
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^##\s+\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(lines[i])) { end = i; break; }
+  }
+  return lines.slice(start + 1, end)
+    .filter((l) => !/^<!--\s*(source|node):/.test(l))
+    .join('\n')
+    .trim();
+}
+
+/** Load the full graph from disk: clusters/edges from .cotext/neural.json (registry),
+ *  nodes re-derived from every room's cotext.md (truth). Edges referencing missing
+ *  nodes are dropped so the snapshot is always consistent. */
+async function loadGraph(): Promise<NeuralGraph> {
+  const neuralPath = path.join(repoRoot, '.cotext', 'neural.json');
+  let base: NeuralGraph = { clusters: [], nodes: [], edges: [] };
+  if (fs.existsSync(neuralPath)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(neuralPath, 'utf-8')) as Partial<NeuralGraph>;
+      base = {
+        clusters: Array.isArray(parsed.clusters) ? parsed.clusters : [],
+        nodes: [],
+        edges: Array.isArray(parsed.edges) ? parsed.edges : [],
+      };
+    } catch { /* ignore — fall through to empty */ }
+  }
+  const pattern = path.join(repoRoot, '**/.cotext/cotext.md').replace(/\\/g, '/');
+  const files = await glob(pattern, { ignore: '**/node_modules/**' });
+  const nodes: NeuralNode[] = [];
+  for (const f of files) {
+    const rel = path.relative(repoRoot, f).replace(/\\/g, '/');
+    const roomPath = rel.replace(/\/.cotext\/cotext\.md$/, '') || 'root';
+    const content = fs.readFileSync(f, 'utf-8');
+    nodes.push(...readInlineNodes(content, roomPath));
+  }
+  const validIds = new Set(nodes.map((n) => n.id));
+  const edges = base.edges.filter((e) => validIds.has(e.from) && validIds.has(e.to));
+  return { clusters: base.clusters, nodes, edges };
+}
+
 function formatBlockForAppend(content: string, source: string): string {
   const now = new Date();
   const y = now.getFullYear();
@@ -323,6 +414,138 @@ server.tool(
         text: `✓ Appended block to ${room_path} (source: ${source}). Don't forget to git commit & push.`,
       }],
     };
+  }
+);
+
+// --- Neural Link tools (P5.1 local + P5.2 remote) ---
+const wrapText = (obj: unknown) => ({ content: [{ type: 'text' as const, text: typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2) }] });
+
+server.tool(
+  'get_neural_graph',
+  'Get the Neural Link graph snapshot (clusters / nodes / edges). Use format="summary" for a quick overview, "markdown" for a human/agent-readable index, or "json" for the full machine-readable graph.',
+  {
+    format: z.enum(['summary', 'markdown', 'json']).optional().default('summary')
+      .describe('Output shape — "summary" (small), "markdown" (NEURAL_INDEX.md style), "json" (full graph)'),
+  },
+  async ({ format }) => {
+    if (REMOTE_MODE) {
+      const r = await apiFetch(`neural/graph?format=${format}`);
+      return wrapText(r);
+    }
+    const g = await loadGraph();
+    if (format === 'json') return wrapText(g);
+    if (format === 'markdown') {
+      const idxPath = path.join(repoRoot, '.cotext', 'NEURAL_INDEX.md');
+      if (fs.existsSync(idxPath)) return wrapText(fs.readFileSync(idxPath, 'utf-8'));
+      return wrapText('No NEURAL_INDEX.md yet — push from the Cotext app to generate.');
+    }
+    const sizes = g.clusters.map((c) => ({ cluster: c.name, id: c.id, count: g.nodes.filter((n) => n.clusters.includes(c.id)).length }))
+      .sort((a, b) => b.count - a.count);
+    return wrapText({ counts: { nodes: g.nodes.length, clusters: g.clusters.length, edges: g.edges.length }, clusters_by_size: sizes });
+  }
+);
+
+server.tool(
+  'find_related',
+  'Find nodes related to a given node: same-cluster members (implicit) plus explicit edge connections.',
+  { node_id: z.string().describe('Node id (e.g., "n_a1b2c3d4")') },
+  async ({ node_id }) => {
+    if (REMOTE_MODE) {
+      const r = await apiFetch(`neural/find_related?node_id=${encodeURIComponent(node_id)}`);
+      return wrapText(r);
+    }
+    const g = await loadGraph();
+    const self = g.nodes.find((n) => n.id === node_id);
+    if (!self) return wrapText(`Node ${node_id} not found`);
+    const sameCluster = g.nodes.filter((n) => n.id !== node_id && n.clusters.some((c) => self.clusters.includes(c)));
+    const linkedIds = new Set<string>();
+    const linkTypes: Record<string, string | undefined> = {};
+    for (const e of g.edges) {
+      if (e.from === node_id) { linkedIds.add(e.to); linkTypes[e.to] = e.type; }
+      else if (e.to === node_id) { linkedIds.add(e.from); linkTypes[e.from] = e.type; }
+    }
+    const linked = g.nodes.filter((n) => linkedIds.has(n.id))
+      .map((n) => ({ id: n.id, label: n.label, room: n.room, blockTs: n.blockTs, type: linkTypes[n.id] }));
+    return wrapText({
+      self: { id: self.id, label: self.label, room: self.room, blockTs: self.blockTs, clusters: self.clusters },
+      same_cluster: sameCluster.map((n) => ({ id: n.id, label: n.label, room: n.room, blockTs: n.blockTs, via: n.clusters.filter((c) => self.clusters.includes(c)) })),
+      linked,
+    });
+  }
+);
+
+server.tool(
+  'search_clusters',
+  'Search clusters by substring of name or id. Returns matching clusters with their member nodes.',
+  { query: z.string().describe('Substring to match (case-insensitive)') },
+  async ({ query }) => {
+    if (REMOTE_MODE) {
+      const r = await apiFetch(`neural/search_clusters?q=${encodeURIComponent(query)}`);
+      return wrapText(r);
+    }
+    const g = await loadGraph();
+    const q = query.toLowerCase();
+    const matches = g.clusters.filter((c) => c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q));
+    return wrapText(matches.map((c) => ({
+      cluster: { id: c.id, name: c.name, desc: c.desc },
+      members: g.nodes.filter((n) => n.clusters.includes(c.id))
+        .map((n) => ({ id: n.id, label: n.label, room: n.room, blockTs: n.blockTs, source: n.source })),
+    })));
+  }
+);
+
+server.tool(
+  'get_node_context',
+  'Get rich context for a single node: its block text, clusters, and adjacent (related) node labels — useful for grounding when answering about a topic.',
+  { node_id: z.string().describe('Node id (e.g., "n_a1b2c3d4")') },
+  async ({ node_id }) => {
+    if (REMOTE_MODE) {
+      const r = await apiFetch(`neural/node?id=${encodeURIComponent(node_id)}`);
+      return wrapText(r);
+    }
+    const g = await loadGraph();
+    const self = g.nodes.find((n) => n.id === node_id);
+    if (!self) return wrapText(`Node ${node_id} not found`);
+    const cotextPath = self.room === 'root'
+      ? path.join(repoRoot, '.cotext', 'cotext.md')
+      : path.join(repoRoot, self.room, '.cotext', 'cotext.md');
+    let blockText = '';
+    if (fs.existsSync(cotextPath)) blockText = extractBlockText(fs.readFileSync(cotextPath, 'utf-8'), self.blockTs);
+    const adjacent: Array<{ id: string; label: string; room: string; relation: string; type?: string }> = [];
+    for (const c of self.clusters) {
+      for (const n of g.nodes) {
+        if (n.id !== node_id && n.clusters.includes(c)) adjacent.push({ id: n.id, label: n.label, room: n.room, relation: `cluster:${c}` });
+      }
+    }
+    for (const e of g.edges) {
+      const other = e.from === node_id ? e.to : (e.to === node_id ? e.from : null);
+      if (!other) continue;
+      const n = g.nodes.find((x) => x.id === other);
+      if (n) adjacent.push({ id: n.id, label: n.label, room: n.room, relation: 'edge', type: e.type });
+    }
+    return wrapText({
+      id: self.id, label: self.label, room: self.room, blockTs: self.blockTs,
+      clusters: self.clusters, source: self.source,
+      block_text: blockText,
+      adjacent,
+    });
+  }
+);
+
+// Neural Index resource — exposes NEURAL_INDEX.md (option C grounding)
+server.resource(
+  'neural-index',
+  'cotext://neural-index',
+  async (uri) => {
+    if (REMOTE_MODE) {
+      const md = await apiFetch('neural/graph?format=markdown');
+      return { contents: [{ uri: uri.href, mimeType: 'text/markdown', text: typeof md === 'string' ? md : JSON.stringify(md) }] };
+    }
+    const idxPath = path.join(repoRoot, '.cotext', 'NEURAL_INDEX.md');
+    if (fs.existsSync(idxPath)) {
+      return { contents: [{ uri: uri.href, mimeType: 'text/markdown', text: fs.readFileSync(idxPath, 'utf-8') }] };
+    }
+    return { contents: [{ uri: uri.href, mimeType: 'text/markdown', text: 'No NEURAL_INDEX.md yet — push from Cotext app to generate.' }] };
   }
 );
 

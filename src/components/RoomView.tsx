@@ -17,7 +17,7 @@ import { generateCotextGuide, generateCotextIndex, generateAgentsPointerBlock, u
 import {
   nodifyBlock, removeNodeFromBlock, parseNodeComment, readInlineNodes, extractBlockText,
   emptyGraph, parseGraph, serializeGraph, upsertCluster, linkEdge, unlinkEdge, syncNodesFromContent, neuralFilePath,
-  relatedNodes, clusterMembers,
+  relatedNodes, clusterMembers, generateNeuralIndex, neuralIndexFilePath,
   type Cluster, type InlineNodeMeta, type NeuralGraph, type NeuralNode,
 } from '../lib/neural';
 import '../styles/neural.css';
@@ -338,6 +338,25 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
         workspace.github_owner, workspace.github_repo, workspace.default_branch,
         path, serializeGraph(merged), sha, 'cotext: sync neural graph',
       );
+      // Also publish a human/agent-readable NEURAL_INDEX.md (P5.4 — option C grounding).
+      // Best-effort: failure to publish the index never blocks the json sync.
+      (async () => {
+        try {
+          const idxPath = neuralIndexFilePath(workspace.cotext_folder_name || '.cotext');
+          let idxSha: string | null = null;
+          try {
+            const ex = await githubApi.getRoomContent(
+              workspace.github_owner, workspace.github_repo, workspace.default_branch, idxPath,
+            );
+            idxSha = ex.sha;
+          } catch { /* first time — no existing file */ }
+          const md = generateNeuralIndex(merged, `${workspace.github_owner}/${workspace.github_repo}`);
+          await githubApi.pushRoom(
+            workspace.github_owner, workspace.github_repo, workspace.default_branch,
+            idxPath, md, idxSha, 'cotext: sync neural index',
+          );
+        } catch (e) { console.warn('NEURAL_INDEX.md publish failed:', e); }
+      })();
       // Mirror into the Supabase derived index (P3) — best-effort, enables cross-repo search
       neuralApi.sync(workspace.id, merged).catch((e) => console.warn('Neural index sync failed:', e));
     } catch (err) {
@@ -978,6 +997,9 @@ ${filteredContent}
           onClose={() => setGraphOpen(false)}
           onJump={(ts) => { setGraphOpen(false); jumpToBlock(ts); }}
           onNavigateRoom={(path, ts) => { setGraphOpen(false); onNavigateRoom?.(path, ts); }}
+          onDeleteNode={(n) => { if (n.room === room.path) handleRemoveNode(n.blockTs); }}
+          onLinkEdge={handleLinkEdge}
+          onUnlinkEdge={handleUnlinkEdge}
         />
       )}
 

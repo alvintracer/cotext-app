@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import { supabase } from '../lib/supabase/client';
 
 interface AuthContextValue {
@@ -86,8 +87,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
+    // Native deep link handler: intercept OAuth redirect URL and set session
+    let appUrlListener: { remove: () => void } | null = null;
+    if (Capacitor.isNativePlatform()) {
+      CapacitorApp.addListener('appUrlOpen', async (event) => {
+        console.log('[Auth] appUrlOpen:', event.url);
+        try {
+          const url = event.url;
+          // Extract hash fragment: ...#access_token=...&refresh_token=...
+          const hashIndex = url.indexOf('#');
+          if (hashIndex === -1) return;
+          const hashParams = new URLSearchParams(url.substring(hashIndex + 1));
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+
+          if (accessToken && refreshToken) {
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (sessionError) {
+              console.error('[Auth] setSession error:', sessionError);
+            } else {
+              console.log('[Auth] Native OAuth session set successfully');
+            }
+          }
+        } catch (err) {
+          console.error('[Auth] appUrlOpen handler error:', err);
+        }
+      }).then(listener => { appUrlListener = listener; });
+    }
+
     return () => {
       subscription.unsubscribe();
+      if (appUrlListener) appUrlListener.remove();
     };
   }, []);
 

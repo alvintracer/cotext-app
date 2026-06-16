@@ -1277,8 +1277,6 @@ button:focus-visible {
   align-items: center;
   justify-content: center;
   min-height: 100dvh;
-  padding-top: var(--sat);
-  padding-bottom: var(--sab);
   background: var(--bg);
   position: relative;
   overflow: hidden;
@@ -1299,7 +1297,7 @@ button:focus-visible {
 
 .login-theme-toggle {
   position: fixed;
-  top: calc(16px + var(--sat));
+  top: 16px;
   right: 16px;
   z-index: 10;
 }
@@ -1437,8 +1435,8 @@ button:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: calc(52px + var(--sat));
-  padding: var(--sat) 16px 0;
+  height: 52px;
+  padding: 0 16px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -3419,7 +3417,7 @@ button:focus-visible {
 
 /* ── Morphing Composer ───────────────────────────────────── */
 .morphing-composer {
-  padding: 8px 16px calc(8px + var(--sab));
+  padding: 8px 16px;
   border-top: 1px solid var(--border);
   background: var(--surface);
   flex-shrink: 0;

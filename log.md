@@ -11,6 +11,10 @@ YYYY-MM-DD HH:mm | command | summary | linked files
 ```
 
 ## Log
+2026-06-16 18:45 | save | Cotext structure, Neural Link structure/principles, Obsidian differences, and second-brain/knowledge-network direction documented as a standalone concept note | [[AI-Sessions/wiki/concepts/cotext-neural-link-second-brain]]
+
+2026-06-16 18:10 | deploy | 공유 workspace 초대 멤버도 owner GitHub token으로 같은 private repo 내용을 읽고 쓰도록 room-content/github-tree/room-push server 함수 토큰 해석 수정, Supabase functions 배포 반영 | [[AI-Sessions/wiki/projects/cotext_mvp]]
+2026-06-16 18:32 | save | 블록 메타데이터를 `source + author` 한 줄 코멘트로 통일하고 chat timeline에 GitHub avatar/username 작성자 표시 추가, 기존 author 누락 블록은 repo owner fallback으로 처리 | [[AI-Sessions/wiki/projects/cotext_mvp]]
 
 2026-06-13 10:10 | save | ChatGPT 공유용 템플릿 압축 문서 3종 정리 | [[AI-Sessions/wiki/projects/chatgpt-share-01-overview]], [[AI-Sessions/wiki/projects/chatgpt-share-02-structure]], [[AI-Sessions/wiki/projects/chatgpt-share-03-rules-and-prompts]]
 2026-06-14 04:35 | ingest | cotext-development-plan 정리 및 MVP 완료 현황 업데이트 | [[AI-Sessions/wiki/sources/01_cotext-development-plan_summary]], [[AI-Sessions/wiki/projects/cotext_mvp]]

@@ -1,5 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts'
-import { getGitHubToken } from '../_shared/github.ts'
+import { getWorkspaceGitHubToken } from '../_shared/github.ts'
 
 // Decode base64 to UTF-8 string (handles Korean/Unicode properly)
 function base64ToUtf8(base64: string): string {
@@ -21,7 +21,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { token } = await getGitHubToken(authHeader)
     const body = await req.json().catch(() => ({}))
     const { owner, repo, branch = 'main', path, raw = false } = body
 
@@ -30,6 +29,8 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
+
+    const { token } = await getWorkspaceGitHubToken(authHeader, owner, repo)
 
     // Read-only: no need to ensure repo exists (invited users may not have create permission)
 

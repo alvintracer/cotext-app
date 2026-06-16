@@ -3,6 +3,7 @@ import {
   CodepenLogo, X, GearSix, PaperPlaneRight, Copy, Check, ArrowClockwise,
   Warning, ArrowSquareOut, Plus, Wrench, SpinnerGap, MagicWand, Trash,
 } from '@phosphor-icons/react';
+import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { githubApi } from '../lib/supabase/functions';
 import { appendMessage } from '../lib/markdown/index';
@@ -82,7 +83,9 @@ const STR = {
 const MAX_CONTEXT_CHARS = 60000;
 
 export default function AgentPanel({ open, onClose, workspace, room, rooms = [], onSaved, seed, onApply, canReplace }: AgentPanelProps) {
+  const { user } = useAuth();
   const { language } = useLanguage();
+  const currentAuthor = user?.user_metadata?.user_name || workspace.github_owner;
   const t = STR[language === 'ko' ? 'ko' : 'en'];
 
   const pref = getPref();
@@ -334,7 +337,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
       const cur = await githubApi.getRoomContent(
         workspace.github_owner, workspace.github_repo, workspace.default_branch, room.cotext_file_path,
       );
-      const updated = appendMessage(cur.content || '', content, undefined, providerId);
+      const updated = appendMessage(cur.content || '', content, undefined, { source: providerId, author: currentAuthor });
       await githubApi.pushRoom(
         workspace.github_owner, workspace.github_repo, workspace.default_branch,
         room.cotext_file_path, updated, cur.sha, `cotext: agent (${providerId}) note`,
@@ -397,7 +400,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
       const cur = await githubApi.getRoomContent(
         workspace.github_owner, workspace.github_repo, workspace.default_branch, target.cotext_file_path,
       );
-      const updated = appendMessage(cur.content || '', proposal.content, undefined, providerId);
+      const updated = appendMessage(cur.content || '', proposal.content, undefined, { source: providerId, author: currentAuthor });
       await githubApi.pushRoom(
         workspace.github_owner, workspace.github_repo, workspace.default_branch,
         target.cotext_file_path, updated, cur.sha, `cotext: agent (${providerId}) auto-edit`,

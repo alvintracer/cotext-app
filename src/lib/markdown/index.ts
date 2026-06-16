@@ -8,9 +8,37 @@ export function createTimestampHeader(): string {
   return `## ${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
-export function appendMessage(existingContent: string, message: string, attachments?: string[], source: string = 'me'): string {
+export interface BlockMeta {
+  source?: string;
+  author?: string;
+}
+
+function normalizeMetaValue(value: string | undefined, fallback: string): string {
+  const cleaned = (value || '').trim().replace(/[;\r\n-]+/g, '');
+  return cleaned || fallback;
+}
+
+export function formatBlockMeta(meta: BlockMeta = {}): string {
+  const source = normalizeMetaValue(meta.source, 'me');
+  const author = normalizeMetaValue(meta.author, '');
+  return author
+    ? `<!-- source: ${source}; author: ${author} -->`
+    : `<!-- source: ${source} -->`;
+}
+
+export function parseBlockMeta(line: string): BlockMeta | null {
+  const match = line.match(/^<!--\s*source:\s*([^;>]+?)(?:\s*;\s*author:\s*([^>]+?))?\s*-->$/);
+  if (!match) return null;
+  return {
+    source: match[1].trim() || undefined,
+    author: match[2]?.trim() || undefined,
+  };
+}
+
+export function appendMessage(existingContent: string, message: string, attachments?: string[], meta: string | BlockMeta = 'me'): string {
   const header = createTimestampHeader();
-  let block = `\n${header}\n<!-- source: ${source} -->\n\n${message}`;
+  const blockMeta = typeof meta === 'string' ? { source: meta } : meta;
+  let block = `\n${header}\n${formatBlockMeta(blockMeta)}\n\n${message}`;
   
   if (attachments && attachments.length > 0) {
     block += '\n\nAttachments:\n';
@@ -44,19 +72,20 @@ export function generateAssetFileName(originalName: string, type: 'image' | 'fil
   return `${datePart}-${timePart}-${type}-${seq}.${ext}`;
 }
 
-export function parseBlocks(content: string): Array<{ timestamp: string; content: string; isPushed: boolean; source?: string }> {
-  const blocks: Array<{ timestamp: string; content: string; isPushed: boolean; source?: string }> = [];
+export function parseBlocks(content: string): Array<{ timestamp: string; content: string; isPushed: boolean; source?: string; author?: string }> {
+  const blocks: Array<{ timestamp: string; content: string; isPushed: boolean; source?: string; author?: string }> = [];
   const lines = content.split('\n');
-  let currentBlock: { timestamp: string; content: string; isPushed: boolean; source?: string } | null = null;
+  let currentBlock: { timestamp: string; content: string; isPushed: boolean; source?: string; author?: string } | null = null;
   
   for (const line of lines) {
     const timestampMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
-    const sourceMatch = line.match(/^<!-- source: (\w+) -->/);
+    const blockMeta = parseBlockMeta(line);
     if (timestampMatch) {
       if (currentBlock) blocks.push(currentBlock);
       currentBlock = { timestamp: timestampMatch[1], content: '', isPushed: false };
-    } else if (sourceMatch && currentBlock && !currentBlock.source) {
-      currentBlock.source = sourceMatch[1];
+    } else if (blockMeta && currentBlock && !currentBlock.source) {
+      currentBlock.source = blockMeta.source;
+      currentBlock.author = blockMeta.author;
     } else if (currentBlock) {
       currentBlock.content += line + '\n';
     }

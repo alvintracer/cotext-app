@@ -102,9 +102,9 @@ Deno.serve(async (req) => {
           if (current) blocks.push(current)
           current = { header: line, lines: [] }
         } else if (current) {
-          const srcMatch = line.match(/^<!-- source: (\w+) -->/)
+          const srcMatch = line.match(/^<!--\s*source:\s*([^;>]+?)(?:\s*;\s*author:\s*([^>]+?))?\s*-->$/)
           if (srcMatch && !current.source) {
-            current.source = srcMatch[1]
+            current.source = srcMatch[1].trim()
           }
           current.lines.push(line)
         } else {

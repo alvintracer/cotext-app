@@ -9,7 +9,25 @@ const supabase = createClient(
 interface Block {
   timestamp: string
   source?: string
+  author?: string
   content: string
+}
+
+function parseBlockMeta(line: string): { source?: string; author?: string } | null {
+  const match = line.match(/^<!--\s*source:\s*([^;>]+?)(?:\s*;\s*author:\s*([^>]+?))?\s*-->$/)
+  if (!match) return null
+  return {
+    source: match[1].trim() || undefined,
+    author: match[2]?.trim() || undefined,
+  }
+}
+
+function formatBlockMeta(source?: string, author?: string): string {
+  const src = (source || 'me').trim()
+  const writer = (author || '').trim()
+  return writer
+    ? `<!-- source: ${src}; author: ${writer} -->`
+    : `<!-- source: ${src} -->`
 }
 
 function parseBlocks(content: string): Block[] {
@@ -18,12 +36,13 @@ function parseBlocks(content: string): Block[] {
   let current: Block | null = null
   for (const line of lines) {
     const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/)
-    const srcMatch = line.match(/^<!-- source: (\w+) -->/)
+    const meta = parseBlockMeta(line)
     if (tsMatch) {
       if (current) blocks.push(current)
       current = { timestamp: tsMatch[1], content: '' }
-    } else if (srcMatch && current && !current.source) {
-      current.source = srcMatch[1]
+    } else if (meta && current && !current.source) {
+      current.source = meta.source
+      current.author = meta.author
     } else if (current) {
       current.content += line + '\n'
     }
@@ -219,7 +238,7 @@ Deno.serve(async (req) => {
 
       const now = new Date().toISOString().split('T')[0]
       const blockTexts = filtered.map(b =>
-        `## ${b.timestamp}\n<!-- source: ${b.source || 'me'} -->\n${b.content.trimEnd()}`
+        `## ${b.timestamp}\n${formatBlockMeta(b.source || 'me', b.author || owner)}\n${b.content.trimEnd()}`
       ).join('\n\n')
 
       const filterNote = filtered.length < blocks.length
@@ -239,7 +258,7 @@ Deno.serve(async (req) => {
 
       const roomPath = decodeURIComponent(path.replace('rooms/', '').replace('/append', ''))
       const body = await req.json()
-      const { content: blockContent, source = 'agent' } = body
+      const { content: blockContent, source = 'agent', author = owner } = body
       if (!blockContent) return json({ error: 'Missing content field' }, 400)
 
       const filePath = roomPath === 'root'
@@ -261,13 +280,13 @@ Deno.serve(async (req) => {
 
       const now = new Date()
       const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
-      const newBlock = `\n## ${ts}\n<!-- source: ${source} -->\n\n${blockContent}\n`
+      const newBlock = `\n## ${ts}\n${formatBlockMeta(source, author)}\n\n${blockContent}\n`
       const updated = existing.trimEnd() + '\n' + newBlock
 
       const ok = await ghPutContent(ghToken, owner, repo, branch, filePath, updated, `cotext: append block (${source})`, sha)
       if (!ok) return json({ error: 'Failed to write to GitHub' }, 500)
 
-      return json({ ok: true, room: roomPath, source, timestamp: ts })
+      return json({ ok: true, room: roomPath, source, author, timestamp: ts })
     }
 
     // ===== Neural Link (P5.2): workspace-scoped graph queries against the

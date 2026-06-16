@@ -181,3 +181,17 @@ MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context
 - [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]] — 스택·토큰·이미지 압축 등 핵심 결정
 - [[AI-Sessions/wiki/design/cotext-brand-and-landing]] — 브랜드·디자인 시스템·랜딩
 - [[AI-Sessions/wiki/sources/01_cotext-development-plan_summary]] — 개발 계획서 요약
+## 2026-06-16 Addendum
+
+- 공유 워크스페이스 repo 접근 수정
+  - 초대 멤버가 room list는 보이지만 chat 내용이 비고 `Pull` 이후에도 비어 있던 원인은, server function이 항상 현재 사용자 GitHub token으로 private repo를 읽으려 했기 때문
+  - `supabase/functions/_shared/github.ts`에 `getWorkspaceGitHubToken(...)`을 추가해, workspace 멤버가 owner/repo 기준으로 매칭되면 owner의 GitHub token으로 동일 repo를 읽고 쓰게 변경
+  - 적용 함수: `supabase/functions/room-content/index.ts`, `supabase/functions/github-tree/index.ts`, `supabase/functions/room-push/index.ts`
+  - 의미: 초대받은 팀원도 owner와 같은 저장소 내용을 보고 수정하는 실제 협업 워크스페이스로 동작
+- 블록 `author` 메타데이터 도입
+  - 블록 메타데이터를 `<!-- source: me|chatgpt|claude...; author: github-username -->` 형식으로 통일
+  - `source`는 생성 주체, `author`는 실제 GitHub 작성자. AI가 저장해도 `author`는 당시 사용자 GitHub username 기준으로 기록
+  - 기존 블록에 `author`가 없으면 UI/API 모두 repo owner를 기본 작성자로 간주
+  - chat timeline에 작은 GitHub avatar + username pill을 추가해 블록 단위 작성자를 바로 식별 가능하게 함
+  - 정렬 범위: `src/lib/markdown`, `RoomView`, `AgentPanel`, `context-api`, `context-share`, Neural parser/guide
+  - 검증: `npm run build` 통과

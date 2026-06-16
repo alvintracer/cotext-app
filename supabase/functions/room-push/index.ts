@@ -1,5 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts'
-import { getGitHubToken, ensureRepoExists } from '../_shared/github.ts'
+import { getWorkspaceGitHubToken, ensureRepoExists } from '../_shared/github.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -14,7 +14,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { token } = await getGitHubToken(authHeader)
     const body = await req.json().catch(() => ({}))
     const { owner, repo, branch = 'main', path, content, message, sha, isBase64 = false } = body
 
@@ -23,6 +22,8 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
+
+    const { token } = await getWorkspaceGitHubToken(authHeader, owner, repo)
 
     // Ensure repo exists (auto-create if not)
     await ensureRepoExists(token, owner, repo)

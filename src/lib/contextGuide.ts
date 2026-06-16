@@ -70,7 +70,7 @@ Each entry ("block") in a cotext.md file:
 
 \`\`\`markdown
 ## YYYY-MM-DD HH:mm
-<!-- source: me -->
+<!-- source: me; author: YOUR_GITHUB_USERNAME -->
 
 Your content here (markdown).
 
@@ -82,14 +82,14 @@ Attachments:
 
 | Tag | Who | Meaning |
 |-----|-----|---------|
-| \`source: me\` | Human | Written by human through Cotext UI |
-| \`source: agent\` | Any AI | Generic AI-written content |
-| \`source: claude\` | Claude | Written by Claude |
-| \`source: chatgpt\` | ChatGPT | Written by ChatGPT |
-| \`source: gemini\` | Gemini | Written by Gemini |
-| \`source: antigravity\` | Antigravity | Written by Antigravity |
+| \`source: me\` | Human | Human-authored block |
+| \`source: agent\` | Any AI | AI-authored block |
+| \`source: claude\` | Claude | Written with Claude |
+| \`source: chatgpt\` | ChatGPT | Written with ChatGPT |
+| \`source: gemini\` | Gemini | Written with Gemini |
+| \`source: antigravity\` | Antigravity | Written with Antigravity |
 
-**Rule: Never omit the source tag.**
+**Rule: Never omit source and author metadata.**
 
 ---
 
@@ -163,7 +163,7 @@ Content-Type: application/json
 
 ## 6. Rules (All Agents)
 
-1. **Always tag your source** — Use \`<!-- source: YOUR_NAME -->\` for every block
+1. **Always tag source and author** — Use \`<!-- source: YOUR_NAME; author: YOUR_GITHUB_USERNAME -->\` for every block
 2. **Read before write** — Always read existing context before generating new content
 3. **Append only** — Add new blocks at the end. Don't modify existing blocks
 4. **Respect human content** — Blocks with \`source: me\` are primary. Don't summarize or rewrite

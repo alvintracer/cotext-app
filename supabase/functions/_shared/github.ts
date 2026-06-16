@@ -32,6 +32,71 @@ export async function getGitHubToken(authHeader: string): Promise<{ token: strin
   return { token: conn.access_token_encrypted, userId: user.id }
 }
 
+// Resolve the GitHub token that should access a repo in shared-workspace mode.
+// If the caller is a member of a workspace for this owner/repo, use that
+// workspace owner's GitHub token so invited members can read/write the same repo
+// without needing their own collaborator token. Otherwise, fall back to the
+// caller's own connected GitHub token.
+export async function getWorkspaceGitHubToken(
+  authHeader: string,
+  owner: string,
+  repo: string,
+): Promise<{ token: string; userId: string; tokenOwnerUserId: string }> {
+  const self = await getGitHubToken(authHeader)
+
+  const admin = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  )
+
+  const { data: workspaces, error: wsError } = await admin
+    .from('workspaces')
+    .select('id, user_id, created_at')
+    .eq('github_owner', owner)
+    .eq('github_repo', repo)
+    .order('created_at', { ascending: true })
+
+  if (wsError || !workspaces || workspaces.length === 0) {
+    return { ...self, tokenOwnerUserId: self.userId }
+  }
+
+  const workspaceIds = workspaces.map((w: { id: string }) => w.id)
+  const { data: memberships } = await admin
+    .from('workspace_members')
+    .select('workspace_id')
+    .eq('user_id', self.userId)
+    .in('workspace_id', workspaceIds)
+
+  const memberOf = new Set((memberships || []).map((m: { workspace_id: string }) => m.workspace_id))
+  const matchedWorkspace = workspaces.find((w: { id: string; user_id: string }) => (
+    w.user_id === self.userId || memberOf.has(w.id)
+  ))
+
+  if (!matchedWorkspace) {
+    return { ...self, tokenOwnerUserId: self.userId }
+  }
+
+  if (matchedWorkspace.user_id === self.userId) {
+    return { ...self, tokenOwnerUserId: self.userId }
+  }
+
+  const { data: ownerConn } = await admin
+    .from('github_connections')
+    .select('access_token_encrypted')
+    .eq('user_id', matchedWorkspace.user_id)
+    .maybeSingle()
+
+  if (!ownerConn?.access_token_encrypted) {
+    return { ...self, tokenOwnerUserId: self.userId }
+  }
+
+  return {
+    token: ownerConn.access_token_encrypted,
+    userId: self.userId,
+    tokenOwnerUserId: matchedWorkspace.user_id,
+  }
+}
+
 export async function githubFetch(token: string, path: string, options: RequestInit = {}) {
   const res = await fetch(`https://api.github.com${path}`, {
     ...options,

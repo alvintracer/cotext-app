@@ -153,8 +153,8 @@ export function readInlineNodes(content: string, room: string): NeuralNode[] {
   for (const line of lines) {
     const tsM = line.match(/^##\s+(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
     if (tsM) { curTs = tsM[1]; curSource = undefined; continue; }
-    const srcM = line.match(/^<!--\s*source:\s*(\w+)\s*-->/);
-    if (srcM) { curSource = srcM[1]; continue; }
+    const srcM = line.match(/^<!--\s*source:\s*([^;>]+?)(?:\s*;\s*author:\s*([^>]+?))?\s*-->/);
+    if (srcM) { curSource = srcM[1].trim(); continue; }
     const meta = parseNodeComment(line);
     if (meta && curTs) {
       nodes.push({

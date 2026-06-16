@@ -42,7 +42,7 @@ export function generateNeuralIndex(graph: NeuralGraph, repoLabel?: string): str
   lines.push('- **Clusters** are typed groups of nodes (think tags but first-class).');
   lines.push('- **Edges** are explicit node↔node relationships: `relates` (general), `supersedes` (this replaces that), `supports` (this backs that up).');
   lines.push('- Two nodes in the same cluster are implicitly related; an explicit edge is a stronger claim.');
-  lines.push('- Each block carries a `<!-- source: me|claude|chatgpt|... -->` provenance tag — prefer `me` blocks as primary intent.');
+  lines.push('- Each block carries a `<!-- source: me|claude|chatgpt|...; author: github-user -->` provenance tag — prefer `me` blocks as primary intent.');
   lines.push('');
   lines.push('When asked about a topic, first match against cluster names below, then fan out to the nodes inside.');
   lines.push('');

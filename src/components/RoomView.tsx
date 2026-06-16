@@ -4,7 +4,7 @@ import { githubApi, fetchAssetBlobUrl, neuralApi, type NeuralClusterHit, type Ne
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { appendMessage, createInitialContent, createImageLink, createFileLink, generateAssetFileName, parseBlocks } from '../lib/markdown/index';
+import { appendMessage, createInitialContent, createImageLink, createFileLink, formatBlockMeta, generateAssetFileName, parseBlockMeta, parseBlocks } from '../lib/markdown/index';
 import { compressImage, formatFileSize, isImageFile, MAX_FILE_SIZE } from '../lib/image/compress';
 import type { Room, LocalDraft, SyncStatus } from '../types/room';
 import type { Workspace } from '../types/workspace';
@@ -44,6 +44,7 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const navigate = useNavigate();
+  const currentAuthor = user?.user_metadata?.user_name || workspace.github_owner;
   const [content, setContent] = useState('');
   const [remoteContent, setRemoteContent] = useState('');
   const [remoteSha, setRemoteSha] = useState<string | null>(room.last_known_sha);
@@ -350,7 +351,7 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
       base = kept.join('\n').replace(/\n{3,}/g, '\n\n');
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- apply agent result to local draft on nonce change
-    handleContentChange(appendMessage(base, apply.text, undefined, apply.source));
+    handleContentChange(appendMessage(base, apply.text, undefined, { source: apply.source, author: currentAuthor }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applyNonce]);
 
@@ -402,7 +403,7 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
       }
     }
 
-    const newContent = appendMessage(content, message, attachments.length > 0 ? attachments : undefined);
+    const newContent = appendMessage(content, message, attachments.length > 0 ? attachments : undefined, { source: 'me', author: currentAuthor });
     handleContentChange(newContent);
 
     // Scroll to bottom
@@ -414,7 +415,7 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
         });
       }, 100);
     }
-  }, [content, handleContentChange, room.id]);
+  }, [content, currentAuthor, handleContentChange, room.id]);
 
   // Replace only a block's visible body in chat view. Metadata lines such as
   // source/node comments stay intact; any change makes the room a local draft
@@ -455,7 +456,7 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
         result.push(line);
         continue;
       }
-      if (!replaced && (line.match(/^<!-- source: \w+ -->/) || parseNodeComment(line))) {
+      if (!replaced && (parseBlockMeta(line) || parseNodeComment(line))) {
         metadata.push(line);
       } else {
         replaced = true;
@@ -491,14 +492,14 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
     const result = lines.map((line) => {
       const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
       if (tsMatch) inBlock = tsMatch[1] === blockTimestamp;
-      if (inBlock && !changed && line.match(/^<!-- source: \w+ -->/)) {
+      if (inBlock && !changed && parseBlockMeta(line)) {
         changed = true;
-        return `<!-- source: ${newSource} -->`;
+        return formatBlockMeta({ source: newSource, author: newSource === 'me' ? currentAuthor : workspace.github_owner });
       }
       return line;
     });
     handleContentChange(result.join('\n'));
-  }, [content, handleContentChange]);
+  }, [content, currentAuthor, handleContentChange, workspace.github_owner]);
 
   // Pull from GitHub
   const handlePull = useCallback(async () => {
@@ -654,7 +655,7 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
       const firstBlockIdx = content.indexOf('## ');
       const header = firstBlockIdx > 0 ? content.substring(0, firstBlockIdx) : '';
       const blockTexts = meBlocks.map(b =>
-        `## ${b.timestamp}\n<!-- source: me -->\n${b.content.trimEnd()}`
+        `## ${b.timestamp}\n${formatBlockMeta({ source: 'me', author: b.author || workspace.github_owner })}\n${b.content.trimEnd()}`
       );
       filteredContent = header + blockTexts.join('\n\n') + '\n';
     }
@@ -680,11 +681,11 @@ The blocks below are my notes, decisions, and context. Use them to understand my
 1. When you generate content I'll save back, use this block format:
    \`\`\`
    ## YYYY-MM-DD HH:mm
-   <!-- source: chatgpt -->  ← or claude, gemini, etc.
+   <!-- source: chatgpt; author: YOUR_GITHUB_USERNAME -->  ← or claude, gemini, etc.
 
    Your content here.
    \`\`\`
-2. Always tag your source — never omit \`<!-- source: ... -->\`.
+2. Always tag source and author — never omit \`<!-- source: ...; author: ... -->\`.
 3. My blocks (\`source: me\`) are primary. Don't summarize or rewrite them.
 4. Give me results as **markdown** so I can paste them back into Cotext.
 
@@ -1179,7 +1180,7 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const [editingTs, setEditingTs] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
-  type Block = { lines: string[]; rawLines: string[]; rawText: string; isPushed: boolean; timestamp?: string; source?: string; node?: InlineNodeMeta };
+  type Block = { lines: string[]; rawLines: string[]; rawText: string; isPushed: boolean; timestamp?: string; source?: string; author?: string; node?: InlineNodeMeta };
 
   function readBlocks(src: string): Block[] {
     const out: Block[] = [];
@@ -1194,9 +1195,12 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
         current = { lines: [line], rawLines: [line] };
       } else if (current) {
         current.rawLines.push(line);
-        const sourceMatch = line.match(/^<!-- source: (\w+) -->/);
+        const blockMeta = parseBlockMeta(line);
         const nodeMeta = parseNodeComment(line);
-        if (sourceMatch && !current.source) current.source = sourceMatch[1];
+        if (blockMeta && !current.source) {
+          current.source = blockMeta.source;
+          current.author = blockMeta.author;
+        }
         else if (nodeMeta) current.node = nodeMeta;
         else current.lines.push(line);
       }
@@ -1211,6 +1215,8 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
     ...block,
     isPushed: block.timestamp ? remoteByTs.get(block.timestamp) === block.rawText : true,
   }));
+
+  const getAuthor = (block: Block) => block.author || workspace.github_owner;
 
   // Close menu on outside click
   useEffect(() => {
@@ -1251,6 +1257,14 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
               <Clock size={12} />
               <span>{block.timestamp}</span>
               {!block.isPushed && <span className="draft-badge">Draft</span>}
+              <span className="timeline-author" title={getAuthor(block)}>
+                <img
+                  className="timeline-author-avatar"
+                  src={`https://github.com/${getAuthor(block)}.png?size=24`}
+                  alt={getAuthor(block)}
+                />
+                <span className="timeline-author-name">{getAuthor(block)}</span>
+              </span>
               {block.source && block.source !== 'me' && block.timestamp ? (
                 <span
                   className={`source-badge source-${block.source} source-clickable`}

@@ -1,5 +1,6 @@
 import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
+import { StatusBar } from '@capacitor/status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -25,6 +26,12 @@ const queryClient = new QueryClient({
 
 const isNative = Capacitor.isNativePlatform();
 const Router = isNative ? HashRouter : BrowserRouter;
+
+// Native platform setup: prevent WebView from rendering behind system bars
+if (isNative) {
+  document.documentElement.classList.add('native-app');
+  StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();

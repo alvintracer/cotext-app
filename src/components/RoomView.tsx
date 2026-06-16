@@ -15,7 +15,7 @@ import NeuralGraphView from './NeuralGraphView';
 import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X, PencilSimple, CodepenLogo, ArrowDown, Graph, Tag, Plus, MagnifyingGlass, LinkSimple, ArrowSquareOut } from '@phosphor-icons/react';
 import { generateCotextGuide, generateCotextIndex, generateAgentsPointerBlock, upsertPointerBlock } from '../lib/contextGuide';
 import {
-  nodifyBlock, removeNodeFromBlock, parseNodeComment, readInlineNodes, extractBlockText,
+  nodifyBlock, removeNodeFromBlock, parseNodeComment, extractBlockText,
   emptyGraph, parseGraph, serializeGraph, upsertCluster, linkEdge, unlinkEdge, syncNodesFromContent, neuralFilePath,
   relatedNodes, clusterMembers, generateNeuralIndex, neuralIndexFilePath,
   type Cluster, type InlineNodeMeta, type NeuralGraph, type NeuralNode,
@@ -96,10 +96,6 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
       return text;
     } catch { return null; }
   }, [content, room.path, rooms, workspace]);
-  // Neural Link (selection→node): floating "Make node" popup driven by text selection.
-  // x/y is the popup's anchor (top-center of the selection). `below` flips it under
-  // the selection when there isn't enough room above.
-  const [selPopup, setSelPopup] = useState<{ x: number; y: number; blockTs: string; label: string; below: boolean } | null>(null);
   const focusedRef = useRef<string | null>(null);
   // Latest graph/content for ref-based persistence (edges persist without a content push)
   const graphRef = useRef(graph);
@@ -205,66 +201,6 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
     const id = setTimeout(() => jumpToBlock(focusBlockTs), 200);
     return () => clearTimeout(id);
   }, [loading, focusBlockTs, jumpToBlock]);
-
-  // Browser-selection → "Make node" floating button (timeline + preview views).
-  // Editor view uses CotextEditor's onSelectionForNode callback instead.
-  // Also registers a CSS Custom Highlight so the dragged region stays visibly
-  // marked even after focus moves to the popup (native selection would clear).
-  useEffect(() => {
-    const HIGHLIGHTS = (CSS as unknown as { highlights?: Map<string, Highlight> }).highlights;
-
-    function setHighlight(range: Range | null) {
-      if (!HIGHLIGHTS || typeof Highlight === 'undefined') return;
-      HIGHLIGHTS.delete('neural-selection');
-      if (range) {
-        try { HIGHLIGHTS.set('neural-selection', new Highlight(range)); } catch { /* unsupported */ }
-      }
-    }
-
-    function clear() { setSelPopup(null); setHighlight(null); }
-
-    function onMouseUp(e: MouseEvent) {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      // Popup click — its onMouseDown handles the action; do nothing here
-      if (target.closest('.selection-popup')) return;
-      // CotextEditor has its own selection mechanism (via CodeMirror); don't
-      // let this global mouseup clobber the popup that the editor just set.
-      if (target.closest('.cotext-editor')) return;
-      const root = target.closest('.room-timeline, .room-preview') as HTMLElement | null;
-      if (!root) { clear(); return; }
-      const sel = window.getSelection();
-      if (!sel || sel.isCollapsed) { clear(); return; }
-      const text = sel.toString().trim();
-      if (!text) { clear(); return; }
-      const node = sel.anchorNode;
-      const el = node?.nodeType === 1 ? (node as Element) : node?.parentElement ?? null;
-      const block = el?.closest('[data-block-ts]') as HTMLElement | null;
-      if (!block) { clear(); return; }
-      const ts = block.dataset.blockTs;
-      if (!ts) { clear(); return; }
-      const range = sel.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      setHighlight(range.cloneRange());
-      // Anchor on top-center of the selection, clamp horizontally to viewport,
-      // flip below the selection when there isn't enough room above.
-      const midX = (rect.left + rect.right) / 2;
-      const SAFE = 100; // half typical button width
-      const x = Math.max(SAFE, Math.min(window.innerWidth - SAFE, midX));
-      const below = rect.top < 60;
-      const y = below ? rect.bottom : rect.top;
-      setSelPopup({ x, y, blockTs: ts, label: text.slice(0, 80), below });
-    }
-    document.addEventListener('mouseup', onMouseUp);
-    return () => { document.removeEventListener('mouseup', onMouseUp); setHighlight(null); };
-  }, []);
-
-  // Clear the CSS Custom Highlight when the popup is dismissed (any path).
-  useEffect(() => {
-    if (selPopup) return;
-    const H = (CSS as unknown as { highlights?: Map<string, Highlight> }).highlights;
-    H?.delete('neural-selection');
-  }, [selPopup]);
 
   // Save draft to Supabase (debounced)
   const saveDraftRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -479,6 +415,90 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
       }, 100);
     }
   }, [content, handleContentChange, room.id]);
+
+  // Replace only a block's visible body in chat view. Metadata lines such as
+  // source/node comments stay intact; any change makes the room a local draft
+  // until the next push.
+  const handleUpdateBlock = useCallback((blockTimestamp: string, nextBody: string) => {
+    const lines = content.split('\n');
+    const result: string[] = [];
+    let inBlock = false;
+    let replaced = false;
+    let metadata: string[] = [];
+
+    const flush = () => {
+      if (replaced) {
+        result.push(...metadata);
+        if (metadata.length > 0) result.push('');
+        const trimmed = nextBody.trim();
+        if (trimmed) result.push(...trimmed.split('\n'));
+        replaced = false;
+        metadata = [];
+      }
+    };
+
+    for (const line of lines) {
+      const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+      if (tsMatch) {
+        if (inBlock) flush();
+        inBlock = tsMatch[1] === blockTimestamp;
+        result.push(line);
+        continue;
+      }
+      if (line.match(/^# /)) {
+        if (inBlock) flush();
+        inBlock = false;
+        result.push(line);
+        continue;
+      }
+      if (!inBlock) {
+        result.push(line);
+        continue;
+      }
+      if (!replaced && (line.match(/^<!-- source: \w+ -->/) || parseNodeComment(line))) {
+        metadata.push(line);
+      } else {
+        replaced = true;
+      }
+    }
+
+    if (inBlock) flush();
+    handleContentChange(result.join('\n').replace(/\n{3,}/g, '\n\n'));
+  }, [content, handleContentChange]);
+
+  const handleDeleteBlock = useCallback((blockTimestamp: string) => {
+    const lines = content.split('\n');
+    const result: string[] = [];
+    let skipping = false;
+    for (const line of lines) {
+      const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+      if (tsMatch && tsMatch[1] === blockTimestamp) {
+        skipping = true;
+        continue;
+      }
+      if (skipping && (line.match(/^## \d{4}/) || line.match(/^# /))) {
+        skipping = false;
+      }
+      if (!skipping) result.push(line);
+    }
+    handleContentChange(result.join('\n').replace(/\n{3,}/g, '\n\n'));
+  }, [content, handleContentChange]);
+
+  const handleChangeBlockSource = useCallback((blockTimestamp: string, newSource: string) => {
+    const lines = content.split('\n');
+    let inBlock = false;
+    let changed = false;
+    const result = lines.map((line) => {
+      const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+      if (tsMatch) inBlock = tsMatch[1] === blockTimestamp;
+      if (inBlock && !changed && line.match(/^<!-- source: \w+ -->/)) {
+        changed = true;
+        return `<!-- source: ${newSource} -->`;
+      }
+      return line;
+    });
+    handleContentChange(result.join('\n'));
+  }, [content, handleContentChange]);
 
   // Pull from GitHub
   const handlePull = useCallback(async () => {
@@ -847,48 +867,52 @@ ${filteredContent}
           </span>
         </div>
         <div className="room-header-actions">
-          <button
-            className={`btn btn-ghost btn-sm context-pack-btn ${copiedPack ? 'copied' : ''}`}
-            onClick={handleCopyContextPack}
-            title={t('contextPack.copy')}
-          >
-            {copiedPack ? <><Check size={14} /> {t('contextPack.copied')}</> : <><Export size={14} /> {t('contextPack.copy')}</>}
-          </button>
-          <button
-            className="btn btn-ghost btn-sm context-pack-btn"
-            onClick={() => setShowShareModal(true)}
-            title={t('share.title')}
-          >
-            <ShareNetwork size={14} /> {t('share.title')}
-          </button>
-          <button
-            className="btn btn-ghost btn-sm context-pack-btn"
-            onClick={() => setSearchOpen(true)}
-            title={language === 'ko' ? '뉴럴 검색 (레포 전체)' : 'Neural search (across repos)'}
-          >
-            <Graph size={14} /> {language === 'ko' ? '뉴럴 검색' : 'Neural'}
-          </button>
-          <button
-            className="btn btn-ghost btn-sm context-pack-btn graph-btn"
-            onClick={() => setGraphOpen(true)}
-            title={language === 'ko' ? '뉴럴 링크 그래프' : 'Neural Link graph'}
-          >
-            <Graph size={14} weight="duotone" /> {language === 'ko' ? '그래프' : 'Graph'}
-          </button>
-          <div className="view-mode-tabs">
-            {(['chat', 'editor', 'split', 'preview'] as ViewMode[]).map((mode) => (
-              <button
-                key={mode}
-                className={`view-mode-tab ${viewMode === mode ? 'active' : ''}`}
-                onClick={() => setViewMode(mode)}
-              >
-                {mode === 'chat' && <MessageSquare size={14} />}
-                {mode === 'editor' && <Code size={14} />}
-                {mode === 'split' && <Split size={14} />}
-                {mode === 'preview' && <Eye size={14} />}
-                <span>{mode.charAt(0).toUpperCase() + mode.slice(1)}</span>
-              </button>
-            ))}
+          <div className="room-action-rail">
+            <button
+              className={`btn btn-ghost btn-sm context-pack-btn ${copiedPack ? 'copied' : ''}`}
+              onClick={handleCopyContextPack}
+              title={t('contextPack.copy')}
+            >
+              {copiedPack ? <><Check size={14} /> {t('contextPack.copied')}</> : <><Export size={14} /> {t('contextPack.copy')}</>}
+            </button>
+            <button
+              className="btn btn-ghost btn-sm context-pack-btn"
+              onClick={() => setShowShareModal(true)}
+              title={t('share.title')}
+            >
+              <ShareNetwork size={14} /> {t('share.title')}
+            </button>
+            <button
+              className="btn btn-ghost btn-sm context-pack-btn"
+              onClick={() => setSearchOpen(true)}
+              title={language === 'ko' ? '뉴럴 검색 (레포 전체)' : 'Neural search (across repos)'}
+            >
+              <Graph size={14} /> {language === 'ko' ? '뉴럴 검색' : 'Neural'}
+            </button>
+            <button
+              className="btn btn-ghost btn-sm context-pack-btn graph-btn"
+              onClick={() => setGraphOpen(true)}
+              title={language === 'ko' ? '뉴럴 링크 그래프' : 'Neural Link graph'}
+            >
+              <Graph size={14} weight="duotone" /> {language === 'ko' ? '그래프' : 'Graph'}
+            </button>
+          </div>
+          <div className="room-mode-rail">
+            <div className="view-mode-tabs">
+              {(['chat', 'editor', 'split', 'preview'] as ViewMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  className={`view-mode-tab ${viewMode === mode ? 'active' : ''}`}
+                  onClick={() => setViewMode(mode)}
+                >
+                  {mode === 'chat' && <MessageSquare size={14} />}
+                  {mode === 'editor' && <Code size={14} />}
+                  {mode === 'split' && <Split size={14} />}
+                  {mode === 'preview' && <Eye size={14} />}
+                  <span>{mode.charAt(0).toUpperCase() + mode.slice(1)}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -948,30 +972,6 @@ ${filteredContent}
             </div>
           </div>
         </div>
-      )}
-
-      {/* Floating "Make node" popup from text selection */}
-      {selPopup && !nodeEditor && (
-        <button
-          className={`selection-popup ${selPopup.below ? 'below' : ''}`}
-          style={{ top: selPopup.y, left: selPopup.x }}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            // If this block is already a node, open as Edit (preserve id/clusters). Otherwise seed label.
-            const existing = readInlineNodes(content, room.path).find((n) => n.blockTs === selPopup.blockTs);
-            setNodeEditor({
-              ts: selPopup.blockTs,
-              meta: existing
-                ? { id: existing.id, label: existing.label, clusters: existing.clusters }
-                : { id: '', label: selPopup.label, clusters: [] },
-            });
-            setSelPopup(null);
-            window.getSelection()?.removeAllRanges();
-          }}
-        >
-          <Graph size={12} weight="bold" />
-          {language === 'ko' ? '노드로 만들기' : 'Make node'}
-        </button>
       )}
 
       {/* Node editor modal (Neural Link P1) */}
@@ -1088,43 +1088,9 @@ ${filteredContent}
               onRemoveNode={(ts) => handleRemoveNode(ts)}
               onLinkNode={(id, label) => setLinkEditor({ id, label })}
               onFixWithAgent={onFixWithAgent}
-              onDeleteBlock={(blockTimestamp) => {
-                // Delete the block by removing its timestamp header and all lines until the next ## header
-                const lines = content.split('\n');
-                const result: string[] = [];
-                let skipping = false;
-                for (const line of lines) {
-                  const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
-                  if (tsMatch && tsMatch[1] === blockTimestamp) {
-                    skipping = true;
-                    continue;
-                  }
-                  if (skipping && (line.match(/^## \d{4}/) || line.match(/^# /))) {
-                    skipping = false;
-                  }
-                  if (!skipping) result.push(line);
-                }
-                // Clean up trailing empty lines
-                let cleaned = result.join('\n');
-                cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
-                handleContentChange(cleaned);
-              }}
-              onChangeSource={(blockTimestamp, newSource) => {
-                // Replace <!-- source: X --> with <!-- source: newSource --> in the block matching this timestamp
-                const lines = content.split('\n');
-                let inBlock = false;
-                let changed = false;
-                const result = lines.map((line) => {
-                  const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
-                  if (tsMatch) inBlock = tsMatch[1] === blockTimestamp;
-                  if (inBlock && !changed && line.match(/^<!-- source: \w+ -->/)) {
-                    changed = true;
-                    return `<!-- source: ${newSource} -->`;
-                  }
-                  return line;
-                });
-                handleContentChange(result.join('\n'));
-              }}
+              onDeleteBlock={handleDeleteBlock}
+              onEditBlock={handleUpdateBlock}
+              onChangeSource={handleChangeBlockSource}
             />
             {showScrollBtn && (
               <button
@@ -1143,14 +1109,6 @@ ${filteredContent}
               content={content}
               onChange={handleContentChange}
               readOnly={false}
-              onSelectionForNode={(blockTs, label, anchor) => {
-                if (!blockTs || !anchor) { setSelPopup(null); return; }
-                const SAFE = 100;
-                const x = Math.max(SAFE, Math.min(window.innerWidth - SAFE, anchor.x));
-                const below = anchor.y < 60;
-                const y = below ? anchor.y + (anchor.height ?? 18) : anchor.y;
-                setSelPopup({ x, y, blockTs, label: label.slice(0, 80), below });
-              }}
             />
           </div>
         )}
@@ -1198,13 +1156,14 @@ ${filteredContent}
 }
 
 // Simple timeline renderer
-function TimelineView({ content, remoteContent, workspace, room, graph, onDeleteBlock, onChangeSource, onFixWithAgent, onNodify, onRemoveNode, onLinkNode, onJump, onNavigateRoom, onOpenCluster }: {
+function TimelineView({ content, remoteContent, workspace, room, graph, onDeleteBlock, onEditBlock, onChangeSource, onFixWithAgent, onNodify, onRemoveNode, onLinkNode, onJump, onNavigateRoom, onOpenCluster }: {
   content: string;
   remoteContent: string;
   workspace: Workspace;
   room: Room;
   graph?: NeuralGraph;
   onDeleteBlock?: (timestamp: string) => void;
+  onEditBlock?: (timestamp: string, nextBody: string) => void;
   onChangeSource?: (timestamp: string, newSource: string) => void;
   onFixWithAgent?: (text: string, timestamp: string) => void;
   onNodify?: (timestamp: string, meta: InlineNodeMeta | null) => void;
@@ -1218,37 +1177,40 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
   const ko = language === 'ko';
   const clusterName = (id: string) => graph?.clusters.find((c) => c.id === id)?.name ?? id;
   const [openMenu, setOpenMenu] = useState<number | null>(null);
-  const lines = content.split('\n');
-  const remoteLines = new Set(remoteContent.split('\n'));
-  type Block = { lines: string[]; isPushed: boolean; timestamp?: string; source?: string; node?: InlineNodeMeta };
-  const blocks: Block[] = [];
-  let currentBlock: Block | null = null;
+  const [editingTs, setEditingTs] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
+  type Block = { lines: string[]; rawLines: string[]; rawText: string; isPushed: boolean; timestamp?: string; source?: string; node?: InlineNodeMeta };
 
-  for (const line of lines) {
-    const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
-    if (tsMatch) {
-      if (currentBlock) blocks.push(currentBlock);
-      currentBlock = {
-        lines: [],
-        isPushed: remoteLines.has(line),
-        timestamp: tsMatch[1],
-      };
-    } else if (line.match(/^# /)) {
-      if (currentBlock) blocks.push(currentBlock);
-      currentBlock = { lines: [line], isPushed: true };
-    } else if (currentBlock) {
-      const sourceMatch = line.match(/^<!-- source: (\w+) -->/);
-      const nodeMeta = parseNodeComment(line);
-      if (sourceMatch && !currentBlock.source) {
-        currentBlock.source = sourceMatch[1];
-      } else if (nodeMeta) {
-        currentBlock.node = nodeMeta;
-      } else {
-        currentBlock.lines.push(line);
+  function readBlocks(src: string): Block[] {
+    const out: Block[] = [];
+    let current: Omit<Block, 'rawText' | 'isPushed'> | null = null;
+    for (const line of src.split('\n')) {
+      const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+      if (tsMatch) {
+        if (current) out.push({ ...current, rawText: current.rawLines.join('\n'), isPushed: false });
+        current = { lines: [], rawLines: [line], timestamp: tsMatch[1] };
+      } else if (line.match(/^# /)) {
+        if (current) out.push({ ...current, rawText: current.rawLines.join('\n'), isPushed: false });
+        current = { lines: [line], rawLines: [line] };
+      } else if (current) {
+        current.rawLines.push(line);
+        const sourceMatch = line.match(/^<!-- source: (\w+) -->/);
+        const nodeMeta = parseNodeComment(line);
+        if (sourceMatch && !current.source) current.source = sourceMatch[1];
+        else if (nodeMeta) current.node = nodeMeta;
+        else current.lines.push(line);
       }
     }
+    if (current) out.push({ ...current, rawText: current.rawLines.join('\n'), isPushed: false });
+    return out;
   }
-  if (currentBlock) blocks.push(currentBlock);
+
+  const remoteBlocks = readBlocks(remoteContent);
+  const remoteByTs = new Map(remoteBlocks.filter((b) => b.timestamp).map((b) => [b.timestamp!, b.rawText]));
+  const blocks = readBlocks(content).map((block) => ({
+    ...block,
+    isPushed: block.timestamp ? remoteByTs.get(block.timestamp) === block.rawText : true,
+  }));
 
   // Close menu on outside click
   useEffect(() => {
@@ -1257,6 +1219,15 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
   }, [openMenu]);
+
+  useEffect(() => {
+    if (!editingTs) return;
+    const block = blocks.find((b) => b.timestamp === editingTs);
+    if (!block) {
+      setEditingTs(null);
+      setEditingValue('');
+    }
+  }, [blocks, editingTs]);
 
   if (blocks.length === 0) {
     return (
@@ -1309,7 +1280,7 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
                   ))}
                 </span>
               )}
-              {/* Three-dot menu (all blocks: node actions; drafts also get Fix/Delete) */}
+              {/* Three-dot menu (all blocks share the same local-edit workflow) */}
               {block.timestamp && (
                 <div className="draft-menu-wrapper">
                   <button
@@ -1333,7 +1304,20 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
                           }}
                         >
                           <Graph size={13} />
-                          <span>{block.node ? (ko ? '노드 편집' : 'Edit node') : (ko ? '노드로 만들기' : 'Make node')}</span>
+                          <span>{block.node ? (ko ? '노드 편집' : 'Edit node') : (ko ? '노드로' : 'To node')}</span>
+                        </button>
+                      )}
+                      {onEditBlock && (
+                        <button
+                          className="draft-menu-item"
+                          onClick={() => {
+                            setOpenMenu(null);
+                            setEditingTs(block.timestamp!);
+                            setEditingValue(block.lines.join('\n').trim());
+                          }}
+                        >
+                          <PencilSimple size={13} />
+                          <span>{ko ? '수정' : 'Edit'}</span>
                         </button>
                       )}
                       {block.node && onLinkNode && (
@@ -1360,7 +1344,7 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
                           <span>{ko ? '노드 해제' : 'Remove node'}</span>
                         </button>
                       )}
-                      {!block.isPushed && onFixWithAgent && (
+                      {onFixWithAgent && (
                         <button
                           className="draft-menu-item"
                           onClick={() => {
@@ -1369,10 +1353,10 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
                           }}
                         >
                           <CodepenLogo size={13} />
-                          <span>Fix with Agent</span>
+                          <span>{ko ? 'Agent로' : 'To Agent'}</span>
                         </button>
                       )}
-                      {!block.isPushed && (
+                      {onDeleteBlock && (
                         <button
                           className="draft-menu-item draft-menu-delete"
                           onClick={() => {
@@ -1391,7 +1375,40 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
             </div>
           )}
           <div className="timeline-content">
-            <BlockContent text={block.lines.join('\n')} workspace={workspace} room={room} />
+            {editingTs === block.timestamp ? (
+              <div className="timeline-edit">
+                <textarea
+                  className="timeline-edit-input"
+                  value={editingValue}
+                  onChange={(e) => setEditingValue(e.target.value)}
+                  rows={Math.max(6, editingValue.split('\n').length + 1)}
+                  autoFocus
+                />
+                <div className="timeline-edit-actions">
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      setEditingTs(null);
+                      setEditingValue('');
+                    }}
+                  >
+                    {ko ? '취소' : 'Cancel'}
+                  </button>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => {
+                      onEditBlock?.(block.timestamp!, editingValue);
+                      setEditingTs(null);
+                      setEditingValue('');
+                    }}
+                  >
+                    {ko ? '로컬에 저장' : 'Save draft'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <BlockContent text={block.lines.join('\n')} workspace={workspace} room={room} />
+            )}
           </div>
           {block.node && graph && (
             <RelatedStrip
@@ -1439,18 +1456,27 @@ function RelatedStrip({ graph, nodeId, room, ko, clusterName, onJump, onNavigate
     <div className="related-strip">
       <span className="related-label"><LinkSimple size={11} /> {ko ? '관련' : 'Related'}</span>
       {shown.map(({ n, kind }) => (
-        <button
-          key={n.id}
-          className="related-pill"
-          onClick={() => go(n)}
-          title={kind === 'link' ? (ko ? '직접 연결' : 'Linked') : (ko ? `클러스터: ${n.clusters.map(clusterName).join(', ')}` : `Cluster: ${n.clusters.map(clusterName).join(', ')}`)}
-        >
-          {kind === 'link' ? <LinkSimple size={10} /> : <Tag size={10} />}
-          <span className="related-pill-label">{n.label || n.id}</span>
-          {n.room !== room.path && (
-            <span className="related-room"><ArrowSquareOut size={9} /> {n.room}</span>
-          )}
-        </button>
+        (() => {
+          const label = n.label || n.id;
+          const showRoom = n.room !== room.path && label.length <= 26;
+          const metaTitle = kind === 'link'
+            ? (ko ? '직접 연결' : 'Linked')
+            : (ko ? `클러스터: ${n.clusters.map(clusterName).join(', ')}` : `Cluster: ${n.clusters.map(clusterName).join(', ')}`);
+          return (
+            <button
+              key={n.id}
+              className="related-pill"
+              onClick={() => go(n)}
+              title={`${label}${n.room !== room.path ? ` · ${n.room}` : ''} · ${metaTitle}`}
+            >
+              {kind === 'link' ? <LinkSimple size={10} /> : <Tag size={10} />}
+              <span className="related-pill-label">{label}</span>
+              {showRoom && (
+                <span className="related-room"><ArrowSquareOut size={9} /> {n.room}</span>
+              )}
+            </button>
+          );
+        })()
       ))}
       {items.length > shown.length && <span className="related-more">+{items.length - shown.length}</span>}
     </div>

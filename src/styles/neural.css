@@ -161,7 +161,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  max-width: 24ch;
+  max-width: 36ch;
   font-size: var(--text-xs);
   color: var(--text-muted);
   background: var(--surface-2);
@@ -172,11 +172,18 @@
   transition: all var(--duration-fast) var(--ease-default);
 }
 .related-pill:hover { color: var(--accent); border-color: var(--accent); }
-.related-pill-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.related-pill-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 26ch;
+}
 .related-room {
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  flex: 0 0 auto;
   font-family: var(--font-mono);
   font-size: 9px;
   color: var(--text-dim);
@@ -285,45 +292,13 @@
 .edge-type-btn:hover { border-color: var(--accent); }
 .edge-type-btn.active { color: var(--accent-fg); background: var(--accent); border-color: var(--accent); }
 
-/* ---- Selection → Make node: persistent highlight + floating popup ---- */
+/* ---- Block-level nodify: stronger selection highlight in chat/editor ---- */
 
-/* Persisted highlight via the CSS Custom Highlight API — survives focus loss
-   when the user clicks the floating button. Native ::selection used as a
-   fallback (browsers without the Highlight API still get the strong color). */
-::highlight(neural-selection) {
-  background-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  color: white;
-}
 .room-timeline ::selection,
 .room-preview ::selection,
 .cotext-editor .cm-selectionBackground {
   background-color: color-mix(in srgb, var(--accent) 55%, transparent) !important;
 }
-
-/* Floating "Make node" button — anchored ABOVE the selection, centered on
-   selection midpoint, clamped to viewport so text never wraps off-screen. */
-.selection-popup {
-  position: fixed;
-  z-index: var(--z-modal);
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-  color: var(--accent-fg);
-  background: var(--accent);
-  border: none;
-  border-radius: var(--radius-full);
-  box-shadow: var(--shadow-lg);
-  cursor: pointer;
-  white-space: nowrap;
-  transform: translate(-50%, -100%);
-  animation: fadeIn var(--duration-fast) var(--ease-default);
-}
-.selection-popup:hover { background: var(--accent-hover); }
-/* When too close to viewport top, flip the button below the selection. */
-.selection-popup.below { transform: translate(-50%, 8px); }
 
 /* ---- P3: cross-repo neural search ---- */
 .neural-search { max-width: 520px; width: 100%; }

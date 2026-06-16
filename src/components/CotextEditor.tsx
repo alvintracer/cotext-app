@@ -17,11 +17,6 @@ interface CotextEditorProps {
   content: string;
   onChange: (content: string) => void;
   readOnly?: boolean;
-  /** Neural Link selection hook — fires when a text range is selected inside a dated block.
-   *  anchor = { x: viewport-x at selection horizontal midpoint,
-   *             y: viewport-y at selection TOP,
-   *             height: line height in px (so the parent can flip below if needed) } */
-  onSelectionForNode?: (blockTs: string, label: string, anchor: { x: number; y: number; height: number } | null) => void;
 }
 
 interface ToolbarAction {
@@ -163,13 +158,11 @@ const toolbarActions: ToolbarAction[] = [
   },
 ];
 
-export default function CotextEditor({ content, onChange, readOnly = false, onSelectionForNode }: CotextEditorProps) {
+export default function CotextEditor({ content, onChange, readOnly = false }: CotextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const isUpdating = useRef(false);
   const [showMobileSheet, setShowMobileSheet] = useState(false);
-  const selectionCbRef = useRef(onSelectionForNode);
-  useEffect(() => { selectionCbRef.current = onSelectionForNode; }, [onSelectionForNode]);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -217,37 +210,6 @@ export default function CotextEditor({ content, onChange, readOnly = false, onSe
     const updateListener = EditorView.updateListener.of((update: any) => {
       if (update.docChanged && !isUpdating.current) {
         onChange(update.state.doc.toString());
-      }
-      // Neural Link — emit selection (for "Make node" floating button)
-      if (update.selectionSet && selectionCbRef.current) {
-        const sel = update.state.selection.main;
-        if (sel.empty) {
-          selectionCbRef.current('', '', null);
-        } else {
-          const text = update.state.sliceDoc(sel.from, sel.to);
-          // Find enclosing `## YYYY-MM-DD HH:mm` block by scanning lines above sel.from
-          const doc = update.state.doc;
-          const startLine = doc.lineAt(sel.from).number;
-          let blockTs: string | null = null;
-          for (let i = startLine; i >= 1; i--) {
-            const m = doc.line(i).text.match(/^##\s+(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
-            if (m) { blockTs = m[1]; break; }
-          }
-          if (blockTs) {
-            // Anchor on top-center of the selection so the parent can place the
-            // floating button above (matches the chat view's anchor convention).
-            const fromCoords = update.view.coordsAtPos(sel.from);
-            const toCoords = update.view.coordsAtPos(sel.to);
-            const anchor = (fromCoords && toCoords)
-              ? {
-                  x: (fromCoords.left + toCoords.right) / 2,
-                  y: Math.min(fromCoords.top, toCoords.top),
-                  height: Math.max(fromCoords.bottom - fromCoords.top, toCoords.bottom - toCoords.top),
-                }
-              : null;
-            selectionCbRef.current(blockTs, text, anchor);
-          }
-        }
       }
     });
 

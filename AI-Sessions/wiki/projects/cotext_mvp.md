@@ -157,6 +157,25 @@ MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context
     - **fill opacity 0.18→0.78**: 빨강 등 segment 색이 거의 안 보이던 문제. 활성 segment(드래그 중·현재 type)는 opacity 1 + 흰 테두리
     - **드래그 투 링크 시각화**: preview 라인을 type 색깔로 + 미드포인트에 type 이름 풀 라벨(관련/대체/근거)을 색깔 pill로 띄움 → 어떤 종류 엣지 만들고 있는지 한눈에
     - tsc/빌드 클린, lint 0
+  - (2026-06-16) **채팅 블록 편집 워크플로우 정리**:
+    - chat 탭의 3-dot 메뉴를 pushed/draft 공통 모델로 정리. 공통 액션은 **To node / Edit / To Agent / Delete**. 노드가 이미 있으면 기존 `노드 편집/연결/해제`도 유지
+    - **푸시된 블록도 chat 탭에서 직접 수정 가능**: 블록 본문을 인라인 편집하고 저장하면 원격 GitHub 정본은 건드리지 않고 로컬 `content`만 바뀜
+    - 블록 상태 판정을 **timestamp 존재 여부가 아니라 블록 전체(raw block) 비교**로 수정. `timestamp + source + node comment + body`가 원격과 완전히 같을 때만 pushed, 하나라도 다르면 draft
+    - 따라서 pushed 블록을 수정·삭제하거나 `To Agent` 결과로 치환하면 즉시 **draft 블록**으로 내려오고, room 전체도 draft 상태가 됨. 이후 Push해야 다시 pushed
+    - 이로써 editor 뷰의 로컬 초안 모델과 chat 뷰의 블록 조작 모델이 동일해짐. chat은 "블록 단위 편집 UI", editor는 "문서 단위 편집 UI"로 역할만 다름
+    - 구현 파일: `src/components/RoomView.tsx`, `src/index.css`
+  - (2026-06-16) **노드 생성 진입점 단순화**:
+    - 드래그 텍스트 선택 시 뜨던 떠있는 `노드로 만들기` 버튼 제거. 현재 노드 정본은 여전히 **블록 단위**(`## timestamp` 블록 기준)라서, 부분 선택 기반 UI가 실제 데이터 모델과 어긋났기 때문
+    - 앞으로 노드 생성/편집 진입점은 **블록 3-dot 메뉴의 `To node`만 유지**. 사용자는 "선택한 문장만 노드화"가 아니라 "이 블록을 노드화"한다는 모델만 보게 됨
+    - 에디터/채팅의 selection 하이라이트는 읽기 보조로만 남기고, selection→node 전용 훅/팝업/CSS Custom Highlight 코드는 제거
+    - 구현 파일: `src/components/RoomView.tsx`, `src/components/CotextEditor.tsx`, `src/styles/neural.css`
+  - (2026-06-16) **모바일 room header 재구성**:
+    - 기존에는 mobile에서 `Context Pack/Share/Neural/Graph` 액션과 `chat/editor/split/preview` 탭이 같은 가로 공간을 경쟁해 버튼이 찌그러졌음
+    - mobile에서는 header를 **메타 영역 + 액션 레일 + 뷰 전환 레일** 3단 구조로 재구성
+    - 액션 버튼은 pill 형태의 **가로 스크롤 action rail**로 유지. `Graph`도 mobile에서 숨기지 않고 같은 레일에서 접근 가능
+    - view mode는 별도의 **가로 스크롤 segmented rail**로 분리해 label을 숨기지 않고도 찌그러짐 없이 유지. active 탭은 capsule 강조
+    - 데스크톱 구조는 유지하고 mobile media query에서만 rail/gradient/mask 처리
+    - 구현 파일: `src/components/RoomView.tsx`, `src/index.css`
 
 ## 관련 문서
 - [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]] — 스택·토큰·이미지 압축 등 핵심 결정

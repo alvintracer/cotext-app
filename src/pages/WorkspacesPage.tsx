@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useNavigate } from 'react-router-dom';
-import { Plus, GitBranch, FolderSimple as FolderGit2, CaretRight as ChevronRight, Link, FilePlus, Spinner as Loader2, MagnifyingGlass as Search } from '@phosphor-icons/react';
+import { Plus, GitBranch, FolderSimple as FolderGit2, CaretRight as ChevronRight, Link, FilePlus, Spinner as Loader2, MagnifyingGlass as Search, Crown, UserPlus } from '@phosphor-icons/react';
 import { githubApi } from '../lib/supabase/functions';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Workspace } from '../types/workspace';
@@ -417,6 +417,15 @@ export default function WorkspacesPage() {
                 <span className="badge">
                   {ws.default_branch}
                 </span>
+                {ws.user_id === user?.id ? (
+                  <span className="badge badge-owner">
+                    <Crown size={10} weight="fill" /> Owner
+                  </span>
+                ) : (
+                  <span className="badge badge-invited">
+                    <UserPlus size={10} weight="fill" /> Invited
+                  </span>
+                )}
                 <span className="text-muted text-xs">
                   {new Date(ws.created_at).toLocaleDateString()}
                 </span>

@@ -96,8 +96,10 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
       return text;
     } catch { return null; }
   }, [content, room.path, rooms, workspace]);
-  // Neural Link (selection→node): floating "Make node" popup driven by text selection
-  const [selPopup, setSelPopup] = useState<{ x: number; y: number; blockTs: string; label: string } | null>(null);
+  // Neural Link (selection→node): floating "Make node" popup driven by text selection.
+  // x/y is the popup's anchor (top-center of the selection). `below` flips it under
+  // the selection when there isn't enough room above.
+  const [selPopup, setSelPopup] = useState<{ x: number; y: number; blockTs: string; label: string; below: boolean } | null>(null);
   const focusedRef = useRef<string | null>(null);
   // Latest graph/content for ref-based persistence (edges persist without a content push)
   const graphRef = useRef(graph);
@@ -219,27 +221,39 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
       }
     }
 
+    function clear() { setSelPopup(null); setHighlight(null); }
+
     function onMouseUp(e: MouseEvent) {
       const target = e.target as HTMLElement | null;
       if (!target) return;
-      // Ignore clicks on the popup itself — its onMouseDown handles opening
+      // Popup click — its onMouseDown handles the action; do nothing here
       if (target.closest('.selection-popup')) return;
+      // CotextEditor has its own selection mechanism (via CodeMirror); don't
+      // let this global mouseup clobber the popup that the editor just set.
+      if (target.closest('.cotext-editor')) return;
       const root = target.closest('.room-timeline, .room-preview') as HTMLElement | null;
-      if (!root) { setSelPopup(null); setHighlight(null); return; }
+      if (!root) { clear(); return; }
       const sel = window.getSelection();
-      if (!sel || sel.isCollapsed) { setSelPopup(null); setHighlight(null); return; }
+      if (!sel || sel.isCollapsed) { clear(); return; }
       const text = sel.toString().trim();
-      if (!text) { setSelPopup(null); setHighlight(null); return; }
+      if (!text) { clear(); return; }
       const node = sel.anchorNode;
       const el = node?.nodeType === 1 ? (node as Element) : node?.parentElement ?? null;
       const block = el?.closest('[data-block-ts]') as HTMLElement | null;
-      if (!block) { setSelPopup(null); setHighlight(null); return; }
+      if (!block) { clear(); return; }
       const ts = block.dataset.blockTs;
-      if (!ts) { setSelPopup(null); setHighlight(null); return; }
+      if (!ts) { clear(); return; }
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       setHighlight(range.cloneRange());
-      setSelPopup({ x: rect.right, y: rect.bottom + 4, blockTs: ts, label: text.slice(0, 80) });
+      // Anchor on top-center of the selection, clamp horizontally to viewport,
+      // flip below the selection when there isn't enough room above.
+      const midX = (rect.left + rect.right) / 2;
+      const SAFE = 100; // half typical button width
+      const x = Math.max(SAFE, Math.min(window.innerWidth - SAFE, midX));
+      const below = rect.top < 60;
+      const y = below ? rect.bottom : rect.top;
+      setSelPopup({ x, y, blockTs: ts, label: text.slice(0, 80), below });
     }
     document.addEventListener('mouseup', onMouseUp);
     return () => { document.removeEventListener('mouseup', onMouseUp); setHighlight(null); };
@@ -679,12 +693,11 @@ ${filteredContent}
   const syncGuideFiles = useCallback(async () => {
     if (!workspace || !user) return;
 
-    // Fetch all rooms for this workspace to build the index
+    // Fetch all rooms for this workspace to build the index (member-scoped via RLS)
     const { data: allRooms } = await supabase
       .from('rooms')
       .select('path, updated_at')
       .eq('workspace_id', workspace.id)
-      .eq('user_id', user.id)
       .order('updated_at', { ascending: false });
 
     const roomList = (allRooms || []).map(r => ({ path: r.path, updatedAt: r.updated_at }));
@@ -940,7 +953,7 @@ ${filteredContent}
       {/* Floating "Make node" popup from text selection */}
       {selPopup && !nodeEditor && (
         <button
-          className="selection-popup"
+          className={`selection-popup ${selPopup.below ? 'below' : ''}`}
           style={{ top: selPopup.y, left: selPopup.x }}
           onMouseDown={(e) => {
             e.preventDefault();
@@ -1132,7 +1145,11 @@ ${filteredContent}
               readOnly={false}
               onSelectionForNode={(blockTs, label, anchor) => {
                 if (!blockTs || !anchor) { setSelPopup(null); return; }
-                setSelPopup({ x: anchor.x, y: anchor.y + 4, blockTs, label: label.slice(0, 80) });
+                const SAFE = 100;
+                const x = Math.max(SAFE, Math.min(window.innerWidth - SAFE, anchor.x));
+                const below = anchor.y < 60;
+                const y = below ? anchor.y + (anchor.height ?? 18) : anchor.y;
+                setSelPopup({ x, y, blockTs, label: label.slice(0, 80), below });
               }}
             />
           </div>

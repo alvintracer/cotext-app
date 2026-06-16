@@ -88,11 +88,11 @@ export default function WorkspaceDetailPage() {
     if (!workspaceId || !user) return;
     setLoadingRooms(true);
     try {
+      // RLS: rooms are visible to any member of the workspace.
       const { data, error } = await supabase
         .from('rooms')
         .select('*')
         .eq('workspace_id', workspaceId)
-        .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;

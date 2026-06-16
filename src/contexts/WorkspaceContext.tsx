@@ -61,10 +61,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       setError(null);
+      // RLS scopes to workspaces where the user is a member (owner or invited).
       const { data, error: queryError } = await supabase
         .from('workspaces')
         .select('*')
-        .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
 
       if (queryError) throw queryError;
@@ -124,11 +124,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
       try {
         setError(null);
+        // RLS allows any member to update; if you weren't a member you wouldn't see it.
         const { data, error: updateError } = await supabase
           .from('workspaces')
           .update(input)
           .eq('id', id)
-          .eq('user_id', user.id)
           .select()
           .single();
 

@@ -955,6 +955,16 @@ button:focus-visible {
   background: var(--accent);
   border-radius: var(--radius-full);
 }
+.badge-owner {
+  gap: 3px;
+  background: #f59e0b;
+  color: #fff;
+}
+.badge-invited {
+  gap: 3px;
+  background: #3b82f6;
+  color: #fff;
+}
 
 /* ── Utility — Dividers ───────────────────────────────────── */
 .divider {

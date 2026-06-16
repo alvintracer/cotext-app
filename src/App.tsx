@@ -65,7 +65,13 @@ function AppRoutes() {
       <Route path="/" element={isNative ? (user && !loading ? <Navigate to="/workspaces" replace /> : <LoginPage />) : <LandingPage />} />
       <Route
         path="/login"
-        element={user && !loading ? <Navigate to="/workspaces" replace /> : <LoginPage />}
+        element={user && !loading ? <Navigate to={(() => {
+          try {
+            const r = localStorage.getItem('cotext-invite-redirect');
+            if (r && r.startsWith('/')) { localStorage.removeItem('cotext-invite-redirect'); return r; }
+          } catch {}
+          return '/workspaces';
+        })()} replace /> : <LoginPage />}
       />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route path="/invite/:code" element={<InvitePage />} />

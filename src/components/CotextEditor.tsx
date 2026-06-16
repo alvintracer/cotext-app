@@ -17,8 +17,11 @@ interface CotextEditorProps {
   content: string;
   onChange: (content: string) => void;
   readOnly?: boolean;
-  /** Neural Link selection hook — fires when a text range is selected inside a dated block. */
-  onSelectionForNode?: (blockTs: string, label: string, anchor: { x: number; y: number } | null) => void;
+  /** Neural Link selection hook — fires when a text range is selected inside a dated block.
+   *  anchor = { x: viewport-x at selection horizontal midpoint,
+   *             y: viewport-y at selection TOP,
+   *             height: line height in px (so the parent can flip below if needed) } */
+  onSelectionForNode?: (blockTs: string, label: string, anchor: { x: number; y: number; height: number } | null) => void;
 }
 
 interface ToolbarAction {
@@ -231,8 +234,17 @@ export default function CotextEditor({ content, onChange, readOnly = false, onSe
             if (m) { blockTs = m[1]; break; }
           }
           if (blockTs) {
-            const coords = update.view.coordsAtPos(sel.to);
-            const anchor = coords ? { x: coords.right, y: coords.bottom } : null;
+            // Anchor on top-center of the selection so the parent can place the
+            // floating button above (matches the chat view's anchor convention).
+            const fromCoords = update.view.coordsAtPos(sel.from);
+            const toCoords = update.view.coordsAtPos(sel.to);
+            const anchor = (fromCoords && toCoords)
+              ? {
+                  x: (fromCoords.left + toCoords.right) / 2,
+                  y: Math.min(fromCoords.top, toCoords.top),
+                  height: Math.max(fromCoords.bottom - fromCoords.top, toCoords.bottom - toCoords.top),
+                }
+              : null;
             selectionCbRef.current(blockTs, text, anchor);
           }
         }

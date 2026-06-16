@@ -120,32 +120,17 @@ export default function InvitePage() {
 
     setState('accepting');
     try {
-      // Create workspace
-      const workspaceName = invite.suggested_name || `${invite.github_owner}/${invite.github_repo}`;
-      const { data, error } = await supabase
-        .from('workspaces')
-        .insert({
-          user_id: user.id,
-          name: workspaceName,
-          github_owner: invite.github_owner,
-          github_repo: invite.github_repo,
-          default_branch: invite.default_branch || 'main',
-          cotext_folder_name: '.cotext',
-        })
-        .select()
-        .single();
-
+      // Use security-definer RPC so we can join the inviter's workspace even if
+      // RLS would otherwise hide it from us. The RPC is idempotent (no-op if
+      // we're already a member) and increments use_count atomically.
+      const { data, error } = await supabase.rpc('accept_workspace_invite', {
+        p_invite_code: invite.invite_code,
+      });
       if (error) throw error;
-
-      // Increment use count (best-effort)
-      await supabase
-        .from('workspace_invites')
-        .update({ use_count: (invite.use_count || 0) + 1 })
-        .eq('id', invite.id);
+      if (!data?.ok) throw new Error(data?.error || 'Failed to accept invite');
 
       setState('accepted');
-      // Redirect after a brief moment
-      setTimeout(() => navigate(`/workspace/${data.id}`), 1200);
+      setTimeout(() => navigate(`/workspace/${data.workspace_id}`), 1200);
     } catch (err) {
       console.error('Failed to accept invite:', err);
       setState('ready');

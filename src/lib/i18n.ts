@@ -10,6 +10,8 @@ type TranslationKey =
   | 'workspaces.empty.title'
   | 'workspaces.empty.desc'
   | 'workspaces.loading'
+  | 'workspaces.tag.owner'
+  | 'workspaces.tag.invited'
   | 'modal.title.choose'
   | 'modal.desc.choose'
   | 'modal.mode.connect'
@@ -106,6 +108,8 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'workspaces.empty.title': 'No workspaces yet',
     'workspaces.empty.desc': 'Create your first workspace to connect a GitHub repository.',
     'workspaces.loading': 'Loading workspaces...',
+    'workspaces.tag.owner': 'Owner',
+    'workspaces.tag.invited': 'Invited',
     'modal.title.choose': 'New Workspace',
     'modal.desc.choose': 'Connect an existing repository or create a new one.',
     'modal.mode.connect': 'Connect Repository',

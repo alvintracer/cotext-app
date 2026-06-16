@@ -405,7 +405,18 @@ export default function WorkspacesPage() {
                   <FolderGit2 size={20} />
                 </div>
                 <div className="workspace-card-info">
-                  <h3>{ws.name}</h3>
+                  <h3>
+                    {ws.name}
+                    {ws.user_id === user?.id ? (
+                      <span className="badge badge-owner">
+                        <Crown size={10} weight="fill" /> {t('workspaces.tag.owner')}
+                      </span>
+                    ) : (
+                      <span className="badge badge-invited">
+                        <UserPlus size={10} weight="fill" /> {t('workspaces.tag.invited')}
+                      </span>
+                    )}
+                  </h3>
                   <p className="text-muted text-sm">
                     <GitBranch size={12} />
                     {ws.github_owner}/{ws.github_repo}
@@ -417,15 +428,6 @@ export default function WorkspacesPage() {
                 <span className="badge">
                   {ws.default_branch}
                 </span>
-                {ws.user_id === user?.id ? (
-                  <span className="badge badge-owner">
-                    <Crown size={10} weight="fill" /> {t('workspaces.tag.owner')}
-                  </span>
-                ) : (
-                  <span className="badge badge-invited">
-                    <UserPlus size={10} weight="fill" /> {t('workspaces.tag.invited')}
-                  </span>
-                )}
                 <span className="text-muted text-xs">
                   {new Date(ws.created_at).toLocaleDateString()}
                 </span>

@@ -1,5 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts'
-import { getGitHubToken, ensureRepoExists } from '../_shared/github.ts'
+import { getGitHubToken } from '../_shared/github.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -24,8 +24,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Ensure repo exists
-    await ensureRepoExists(token, owner, repo)
+    // Read-only: skip repo creation for invited users
 
     const treePath = path ? `/${path}` : ''
     const res = await fetch(

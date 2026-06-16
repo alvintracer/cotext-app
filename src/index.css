@@ -966,6 +966,19 @@ button:focus-visible {
   color: #fff;
 }
 
+/* Inline badge next to workspace name */
+.workspace-card-info h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.workspace-card-info h3 .badge {
+  vertical-align: middle;
+  font-size: 0.6rem;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
 /* ── Utility — Dividers ───────────────────────────────────── */
 .divider {
   height: 1px;

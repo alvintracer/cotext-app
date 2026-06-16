@@ -1,5 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts'
-import { getGitHubToken, ensureRepoExists } from '../_shared/github.ts'
+import { getGitHubToken } from '../_shared/github.ts'
 
 // This function returns raw binary content (images, etc.) from GitHub
 // Called via GET with query params so <img src="..."> can use it directly
@@ -38,7 +38,6 @@ Deno.serve(async (req) => {
     }
 
     const { token } = await getGitHubToken(authHeader)
-    await ensureRepoExists(token, owner, repo)
 
     // Fetch raw content from GitHub using the raw media type
     const res = await fetch(

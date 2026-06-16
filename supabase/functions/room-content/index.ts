@@ -1,5 +1,5 @@
 import { corsHeaders } from '../_shared/cors.ts'
-import { getGitHubToken, ensureRepoExists } from '../_shared/github.ts'
+import { getGitHubToken } from '../_shared/github.ts'
 
 // Decode base64 to UTF-8 string (handles Korean/Unicode properly)
 function base64ToUtf8(base64: string): string {
@@ -31,8 +31,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Ensure repo exists
-    await ensureRepoExists(token, owner, repo)
+    // Read-only: no need to ensure repo exists (invited users may not have create permission)
 
     const res = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`,

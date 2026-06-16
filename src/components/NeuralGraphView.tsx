@@ -127,6 +127,10 @@ export default function NeuralGraphView({
   const [selectedEdge, setSelectedEdge] = useState<{ from: string; to: string; type?: string } | null>(null);
   // Edge being drafted via drag from a ring-menu segment.
   const [draftEdge, setDraftEdge] = useState<{ from: string; type: string; toX: number; toY: number; hoverNode?: string } | null>(null);
+  // Mobile support
+  const [legendOpen, setLegendOpen] = useState(false);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  const lastTouchDist = useRef(0);
 
   // Resize observer
   useEffect(() => {
@@ -384,6 +388,27 @@ export default function NeuralGraphView({
     setView({ k, x: cx - px * k, y: cy - py * k });
   }
 
+  // Touch pinch-to-zoom for mobile
+  function onTouchStart(e: React.TouchEvent<SVGSVGElement>) {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastTouchDist.current = Math.hypot(dx, dy);
+    }
+  }
+  function onTouchMove(e: React.TouchEvent<SVGSVGElement>) {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const delta = dist - lastTouchDist.current;
+      const newK = Math.max(0.3, Math.min(3, view.k + delta * 0.005));
+      setView(v => ({ ...v, k: newK }));
+      lastTouchDist.current = dist;
+    }
+  }
+
   // Search highlight
   const q = query.trim().toLowerCase();
   const isHit = (n: GNode) =>
@@ -469,7 +494,7 @@ export default function NeuralGraphView({
         </div>
 
         <div className="neural-graph-body">
-          <aside className="neural-graph-legend">
+          <aside className={`neural-graph-legend ${isMobile && legendOpen ? 'mobile-open' : ''}`}>
             <p className="neural-graph-stat">
               {ko
                 ? `노드 ${nodes.length} · 클러스터 ${clusterList.length} · 엣지 ${links.length}`
@@ -512,6 +537,8 @@ export default function NeuralGraphView({
               onPointerUp={onBgUp}
               onPointerLeave={onBgUp}
               onWheel={onWheel}
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
               style={{ display: 'block', cursor: panning ? 'grabbing' : 'grab' }}
             >
               <defs>
@@ -659,8 +686,8 @@ export default function NeuralGraphView({
                   );
                 })()}
 
-                {/* Ring menu around selected real node (delete + 3 edge types, draggable) */}
-                {selected && !selected.isCluster && selected.x != null && (
+                {/* Ring menu around selected real node (delete + 3 edge types, draggable) — hidden on mobile */}
+                {!isMobile && selected && !selected.isCluster && selected.x != null && (
                   <RingMenu
                     cx={selected.x}
                     cy={selected.y!}
@@ -673,8 +700,8 @@ export default function NeuralGraphView({
                   />
                 )}
 
-                {/* Edge edit menu (delete + change type) — only outside collapsed mode */}
-                {selectedEdge && !collapsed && (() => {
+                {/* Edge edit menu (delete + change type) — only outside collapsed mode, hidden on mobile */}
+                {!isMobile && selectedEdge && !collapsed && (() => {
                   const s = nodes.find((n) => n.id === selectedEdge.from);
                   const t = nodes.find((n) => n.id === selectedEdge.to);
                   if (!s || !t || s.x == null || t.x == null) return null;
@@ -716,6 +743,14 @@ export default function NeuralGraphView({
                 <p>{ko ? '아직 노드가 없습니다. 블록을 노드로 만들면 여기 나타납니다.' : 'No nodes yet. Make a block into a node to see it here.'}</p>
               </div>
             )}
+            {/* Mobile legend FAB */}
+            <button
+              className="neural-graph-legend-fab"
+              onClick={() => setLegendOpen(o => !o)}
+            >
+              <Tag size={14} />
+              {clusterList.length} {ko ? '클러스터' : 'clusters'}
+            </button>
           </div>
 
           {/* Right detail panel */}

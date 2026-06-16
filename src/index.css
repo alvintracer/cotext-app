@@ -1505,10 +1505,321 @@ button:focus-visible {
   color: var(--text);
 }
 
+.app-header-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--surface), var(--surface-2));
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, background 0.15s;
+}
+
+.app-header-link:hover {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--surface-2), var(--surface));
+  transform: translateY(-1px);
+}
+
 .app-header-right {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.knowledge-studio-page {
+  min-height: 100%;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 12%, transparent), transparent 32%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 70%, transparent), transparent 24%),
+    var(--bg);
+}
+
+.knowledge-studio-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: linear-gradient(145deg, var(--surface), color-mix(in srgb, var(--surface-2) 74%, white 2%));
+  box-shadow: var(--shadow-sm);
+}
+
+.knowledge-studio-hero h1 {
+  margin: 8px 0 10px;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.05;
+}
+
+.knowledge-studio-hero p {
+  max-width: 780px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.knowledge-studio-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.knowledge-studio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 280px;
+}
+
+.knowledge-studio-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.knowledge-stat-card {
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.knowledge-stat-card span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.knowledge-stat-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.knowledge-dropzone {
+  margin-top: 16px;
+  padding: 28px;
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, var(--surface)) 0%, var(--surface) 100%);
+  text-align: center;
+  transition: border-color 0.15s, transform 0.15s, background 0.15s;
+}
+
+.knowledge-dropzone.dragging {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--surface)) 0%, var(--surface) 100%);
+}
+
+.knowledge-dropzone h2 {
+  margin: 10px 0 6px;
+  font-size: 20px;
+}
+
+.knowledge-dropzone p {
+  color: var(--text-muted);
+}
+
+.knowledge-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.knowledge-panel {
+  min-height: 320px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.knowledge-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.knowledge-panel-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.knowledge-panel-header span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.knowledge-source-list,
+.knowledge-summary {
+  padding: 16px;
+}
+
+.knowledge-source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.knowledge-source-card {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
+}
+
+.knowledge-source-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.knowledge-source-top strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.knowledge-source-meta {
+  display: flex;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.knowledge-source-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.knowledge-error-text {
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.knowledge-progress {
+  height: 6px;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.knowledge-progress > div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 60%, white 25%));
+}
+
+.knowledge-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 240px;
+  padding: 24px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.knowledge-summary-copy p {
+  margin: 0 0 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.knowledge-cluster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.knowledge-cluster-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-2) 50%, var(--surface));
+}
+
+.knowledge-cluster-row strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.knowledge-cluster-row p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.knowledge-cluster-swatch {
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 960px) {
+  .knowledge-studio-hero {
+    flex-direction: column;
+  }
+
+  .knowledge-studio-actions {
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  .knowledge-studio-stats,
+  .knowledge-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .knowledge-studio-page {
+    padding: 14px;
+  }
+
+  .knowledge-studio-stats,
+  .knowledge-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app-header-link span {
+    display: none;
+  }
 }
 
 .icon-button {

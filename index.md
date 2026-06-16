@@ -42,6 +42,7 @@
 - [[AI-Sessions/wiki/concepts/neural-link-mcp-grounding]] — §32 Neural Link 그래프를 MCP에 이해시키는 옵션(A 정본 파싱·B Supabase API·C NEURAL_INDEX.md·D 도구 함수), 추천 조합
 - [[AI-Sessions/wiki/concepts/cotext-neural-link-second-brain]] ??Cotext 援ъ“/Neural Link 援ъ“? ?먮━, Obsidian怨쇱쓽 李⑥씠, second brain/knowledge graph ?뺤옣 諛⑸향
 
+- [[AI-Sessions/wiki/concepts/cotext-neural-link-second-brain-ko]] ??Cotext/Neural Link 구조와 원리 한국어 정리, Obsidian 비교, second brain/인공 지식망 방향성
 ## Design
 
 - [[AI-Sessions/wiki/design/cotext-brand-and-landing]]

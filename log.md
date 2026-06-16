@@ -11,6 +11,8 @@ YYYY-MM-DD HH:mm | command | summary | linked files
 ```
 
 ## Log
+2026-06-16 19:12 | save | 영문/국문 second-brain 개념 문서에 LLM 블랙박스 컨텍스트를 외부 공동 지식망으로 전환하는 의미와 사람·에이전트 공동 편집/증강 관점을 보강 | [[AI-Sessions/wiki/concepts/cotext-neural-link-second-brain]], [[AI-Sessions/wiki/concepts/cotext-neural-link-second-brain-ko]]
+2026-06-16 19:05 | save | Cotext/Neural Link 구조와 second brain 방향성 문서의 한국어 버전을 추가해 팀 AI 개발자용 개념 문서로 연결 | [[AI-Sessions/wiki/concepts/cotext-neural-link-second-brain-ko]]
 2026-06-16 18:45 | save | Cotext structure, Neural Link structure/principles, Obsidian differences, and second-brain/knowledge-network direction documented as a standalone concept note | [[AI-Sessions/wiki/concepts/cotext-neural-link-second-brain]]
 
 2026-06-16 18:10 | deploy | 공유 workspace 초대 멤버도 owner GitHub token으로 같은 private repo 내용을 읽고 쓰도록 room-content/github-tree/room-push server 함수 토큰 해석 수정, Supabase functions 배포 반영 | [[AI-Sessions/wiki/projects/cotext_mvp]]

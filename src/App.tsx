@@ -13,6 +13,7 @@ import WorkspaceDetailPage from './pages/WorkspaceDetailPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import InvitePage from './pages/InvitePage';
 import SharePage from './pages/SharePage';
+import KnowledgeStudioPage from './pages/KnowledgeStudioPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,7 +70,9 @@ function AppRoutes() {
           try {
             const r = localStorage.getItem('cotext-invite-redirect');
             if (r && r.startsWith('/')) { localStorage.removeItem('cotext-invite-redirect'); return r; }
-          } catch {}
+          } catch {
+            // Ignore invalid local redirect state and fall back to the default route.
+          }
           return '/workspaces';
         })()} replace /> : <LoginPage />}
       />
@@ -86,6 +89,7 @@ function AppRoutes() {
         }
       >
         <Route path="/workspaces" element={<WorkspacesPage />} />
+        <Route path="/knowledge-studio" element={<KnowledgeStudioPage />} />
         <Route path="/workspace/:workspaceId" element={<WorkspaceDetailPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/workspaces" replace />} />

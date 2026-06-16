@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { Sun, Moon, Monitor, SignOut as LogOut, User, ArrowsClockwise } from '@phosphor-icons/react';
+import { Sun, Moon, Monitor, SignOut as LogOut, User, ArrowsClockwise, Brain } from '@phosphor-icons/react';
 import { supabase } from '../../lib/supabase/client';
 import { Capacitor } from '@capacitor/core';
 
@@ -68,6 +68,10 @@ export default function AppLayout() {
           <button className="app-logo" onClick={() => navigate('/workspaces')}>
             <span className="app-logo-mark">:&gt;</span>
             <span className="app-logo-text">Cotext</span>
+          </button>
+          <button className="app-header-link" onClick={() => navigate('/knowledge-studio')}>
+            <Brain size={14} weight="fill" />
+            <span>{language === 'ko' ? '지식망' : 'Studio'}</span>
           </button>
         </div>
 

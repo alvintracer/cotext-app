@@ -4,7 +4,7 @@
 
 import TurndownService from 'turndown';
 
-const EXTRACTABLE_EXT = ['pdf', 'docx', 'hwpx', 'txt', 'md', 'markdown', 'csv', 'json', 'log'];
+const EXTRACTABLE_EXT = ['pdf', 'docx', 'hwpx', 'pptx', 'txt', 'md', 'markdown', 'csv', 'json', 'log'];
 
 export function extractKind(file: File): string {
   return file.name.split('.').pop()?.toLowerCase() || '';
@@ -22,6 +22,7 @@ export async function extractText(
   if (ext === 'pdf') return extractPdf(file, onProgress);
   if (ext === 'docx') return extractDocx(file);
   if (ext === 'hwpx') return extractHwpx(file);
+  if (ext === 'pptx') return extractPptx(file);
   if (['txt', 'md', 'markdown', 'csv', 'json', 'log'].includes(ext)) return (await file.text()).trim();
   throw new Error(`Unsupported file type: .${ext}`);
 }
@@ -89,4 +90,33 @@ async function extractHwpx(file: File): Promise<string> {
     }
   }
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// Basic PPTX extractor: reads slide XML text runs in order. Layout fidelity is low,
+// but this is enough for "text only" knowledge ingestion without shipping binaries.
+async function extractPptx(file: File): Promise<string> {
+  const JSZip = (await import('jszip')).default;
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const slidePaths = Object.keys(zip.files)
+    .filter((p) => /^ppt\/slides\/slide\d+\.xml$/i.test(p))
+    .sort((a, b) => {
+      const ai = Number(a.match(/slide(\d+)\.xml/i)?.[1] || '0');
+      const bi = Number(b.match(/slide(\d+)\.xml/i)?.[1] || '0');
+      return ai - bi;
+    });
+  if (slidePaths.length === 0) throw new Error('Not a valid pptx (no slide XML found)');
+
+  const slides: string[] = [];
+  for (const path of slidePaths) {
+    const xml = await zip.files[path].async('text');
+    const doc = new DOMParser().parseFromString(xml, 'application/xml');
+    const texts = Array.from(doc.getElementsByTagName('*'))
+      .filter((el) => el.localName === 't')
+      .map((el) => (el.textContent || '').trim())
+      .filter(Boolean);
+    if (!texts.length) continue;
+    const slideNo = Number(path.match(/slide(\d+)\.xml/i)?.[1] || '0');
+    slides.push(`## Slide ${slideNo}\n\n${texts.join('\n')}`);
+  }
+  return slides.join('\n\n').trim();
 }

@@ -189,6 +189,39 @@ That network can support:
 - decision impact tracing
 - context handoff between people and agents
 
+## 8.5 Why Externalized Knowledge Matters
+
+One of the biggest limitations of current LLM systems is that most useful context remains trapped inside model sessions as a black box.
+
+That creates several problems:
+
+- humans cannot easily inspect what the model is relying on
+- teams cannot reliably reuse or refine the model's working context
+- context disappears across sessions, tools, and agents
+- important relationships stay implicit instead of becoming shared knowledge
+
+An external second brain / knowledge network changes that.
+
+Instead of leaving context hidden inside a single model run, Cotext and Neural Link move it outward into a shared, inspectable structure:
+
+- humans can read it
+- humans can edit it
+- humans can connect it
+- teams can treat it as a common knowledge asset
+- agents can also read it
+- agents can also edit it
+- agents can also connect and expand it
+
+This is the deeper value of the system:
+
+- the context is no longer trapped inside one LLM
+- the knowledge becomes understandable outside the model
+- the graph becomes collaborative memory for both humans and agents
+- the team builds a shared external intelligence layer over time
+
+In that sense, the goal is not just better note-taking.
+The goal is to turn black-box context into an open, editable, durable, team-scale knowledge network.
+
 ## 9. Long-Term Vision
 
 The long-term vision is not "Obsidian for teams."

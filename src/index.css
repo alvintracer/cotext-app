@@ -4149,6 +4149,11 @@ button:focus-visible {
     order: 2;
   }
 
+  /* Graph view is desktop-only */
+  .graph-btn {
+    display: none !important;
+  }
+
   .view-mode-tabs {
     flex: 1;
     min-width: 0;

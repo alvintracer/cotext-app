@@ -856,7 +856,7 @@ ${filteredContent}
             <Graph size={14} /> {language === 'ko' ? '뉴럴 검색' : 'Neural'}
           </button>
           <button
-            className="btn btn-ghost btn-sm context-pack-btn"
+            className="btn btn-ghost btn-sm context-pack-btn graph-btn"
             onClick={() => setGraphOpen(true)}
             title={language === 'ko' ? '뉴럴 링크 그래프' : 'Neural Link graph'}
           >

@@ -419,11 +419,11 @@ export default function WorkspacesPage() {
                 </span>
                 {ws.user_id === user?.id ? (
                   <span className="badge badge-owner">
-                    <Crown size={10} weight="fill" /> Owner
+                    <Crown size={10} weight="fill" /> {t('workspaces.tag.owner')}
                   </span>
                 ) : (
                   <span className="badge badge-invited">
-                    <UserPlus size={10} weight="fill" /> Invited
+                    <UserPlus size={10} weight="fill" /> {t('workspaces.tag.invited')}
                   </span>
                 )}
                 <span className="text-muted text-xs">

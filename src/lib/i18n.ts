@@ -287,6 +287,8 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'apiKey.labelPlaceholder': '키 라벨 (예: chatgpt, claude)',
     'apiKey.empty': 'API 키가 없습니다',
     'apiKey.usage': '사용법',
+    'workspaces.tag.owner': '소유자',
+    'workspaces.tag.invited': '초대됨',
   }
 };
 

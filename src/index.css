@@ -4741,14 +4741,3 @@ button:focus-visible {
     font-size: 1.25rem;
   }
 }
-
-/* ── Native App (Capacitor) overrides ────────────────────── */
-/* Bottom padding to clear Android navigation bar */
-html.native-app .morphing-composer {
-  padding-bottom: 16px;
-}
-
-html.native-app .agent-toggle {
-  bottom: 60px;
-}
-

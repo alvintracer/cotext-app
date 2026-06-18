@@ -15,13 +15,14 @@ public class MainActivity extends BridgeActivity {
         // Apply system bar insets as padding to the root content view.
         // This guarantees the WebView never renders behind the status bar
         // or navigation bar, even on Android 15+ where edge-to-edge is enforced.
+        // NOTE: We intentionally exclude IME (keyboard) insets here because
+        // android:windowSoftInputMode="adjustResize" already resizes the WebView
+        // when the keyboard appears. Including IME insets would double the offset.
         View contentView = findViewById(android.R.id.content);
         if (contentView != null) {
             ViewCompat.setOnApplyWindowInsetsListener(contentView, (v, windowInsets) -> {
                 Insets systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-                Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
-                int bottomInset = Math.max(systemBars.bottom, ime.bottom);
-                v.setPadding(systemBars.left, systemBars.top, systemBars.right, bottomInset);
+                v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
                 return windowInsets;
             });
         }

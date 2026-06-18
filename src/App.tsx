@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -25,14 +26,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-const isNative = Capacitor.isNativePlatform();
-const Router = isNative ? HashRouter : BrowserRouter;
-
-// Mark native platform for any CSS that needs it
-if (isNative) {
-  document.documentElement.classList.add('native-app');
-}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -62,6 +55,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { user, loading } = useAuth();
+  const isNative = Capacitor.isNativePlatform();
 
   return (
     <Routes>
@@ -106,6 +100,15 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const isNative = Capacitor.isNativePlatform();
+  const Router = isNative ? HashRouter : BrowserRouter;
+
+  useEffect(() => {
+    if (isNative) {
+      document.documentElement.classList.add('native-app');
+    }
+  }, [isNative]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>

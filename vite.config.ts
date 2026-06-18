@@ -13,6 +13,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // We register the SW manually from main.tsx so we can opt OUT on Capacitor
+      // native — past white-screen incidents (v1.0.25 included) were caused by an
+      // old SW serving stale chunk hashes inside the WebView after an APK update.
+      // The `vite-plugin-pwa` default auto-inject ran unconditionally and won.
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Cotext',

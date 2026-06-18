@@ -15,6 +15,7 @@ import InvitePage from './pages/InvitePage';
 import SharePage from './pages/SharePage';
 import KnowledgeStudioPage from './pages/KnowledgeStudioPage';
 import KnowledgeThinkPage from './pages/KnowledgeThinkPage';
+import MindSyncLandingPage from './pages/MindSyncLandingPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +82,7 @@ function AppRoutes() {
           return '/workspaces';
         })()} replace /> : <LoginPage />}
       />
+      <Route path="/mindsync" element={<MindSyncLandingPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route path="/invite/:code" element={<InvitePage />} />
       <Route path="/share/:token" element={<SharePage />} />
@@ -94,8 +96,8 @@ function AppRoutes() {
         }
       >
         <Route path="/workspaces" element={<WorkspacesPage />} />
-        <Route path="/knowledge-studio" element={<KnowledgeStudioPage />} />
-        <Route path="/knowledge-think" element={<KnowledgeThinkPage />} />
+        <Route path="/mindsync/studio" element={<KnowledgeStudioPage />} />
+        <Route path="/mindsync/think" element={<KnowledgeThinkPage />} />
         <Route path="/workspace/:workspaceId" element={<WorkspaceDetailPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/workspaces" replace />} />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Bank, ClockCounterClockwise, Coins } from '@phosphor-icons/react';
 import { supabase } from '../lib/supabase/client';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -6,6 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 interface Props {
   workspaceId: string;
   compact?: boolean;
+  refreshKey?: number;
 }
 
 interface ManagedCreditBalance {
@@ -30,7 +31,7 @@ function fmtCredits(value: number | null | undefined): string {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value || 0);
 }
 
-export default function ManagedCreditsPanel({ workspaceId, compact = false }: Props) {
+export default function ManagedCreditsPanel({ workspaceId, compact = false, refreshKey = 0 }: Props) {
   const { language } = useLanguage();
   const ko = language === 'ko';
   const [loading, setLoading] = useState(true);
@@ -38,44 +39,57 @@ export default function ManagedCreditsPanel({ workspaceId, compact = false }: Pr
   const [transactions, setTransactions] = useState<ManagedCreditTransaction[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const load = useCallback(async (cancelledRef?: { current: boolean }) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [{ data: balanceData, error: balanceError }, { data: txData, error: txError }] = await Promise.all([
+        supabase
+          .from('managed_credit_balances')
+          .select('*')
+          .eq('workspace_id', workspaceId)
+          .maybeSingle(),
+        supabase
+          .from('managed_credit_transactions')
+          .select('id, delta_credits, kind, note, created_at')
+          .eq('workspace_id', workspaceId)
+          .order('created_at', { ascending: false })
+          .limit(6),
+      ]);
+      if (balanceError) throw balanceError;
+      if (txError) throw txError;
+      if (!cancelledRef?.current) {
+        setBalance((balanceData as ManagedCreditBalance | null) ?? null);
+        setTransactions((txData as ManagedCreditTransaction[] | null) ?? []);
+      }
+    } catch (e) {
+      if (!cancelledRef?.current) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    } finally {
+      if (!cancelledRef?.current) setLoading(false);
+    }
+  }, [workspaceId]);
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [{ data: balanceData, error: balanceError }, { data: txData, error: txError }] = await Promise.all([
-          supabase
-            .from('managed_credit_balances')
-            .select('*')
-            .eq('workspace_id', workspaceId)
-            .maybeSingle(),
-          supabase
-            .from('managed_credit_transactions')
-            .select('id, delta_credits, kind, note, created_at')
-            .eq('workspace_id', workspaceId)
-            .order('created_at', { ascending: false })
-            .limit(6),
-        ]);
-        if (balanceError) throw balanceError;
-        if (txError) throw txError;
-        if (!cancelled) {
-          setBalance((balanceData as ManagedCreditBalance | null) ?? null);
-          setTransactions((txData as ManagedCreditTransaction[] | null) ?? []);
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : String(e));
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+    const cancelled = { current: false };
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load() synchronizes panel state from Supabase
+    void load(cancelled);
+    return () => {
+      cancelled.current = true;
+    };
+  }, [load, refreshKey]);
+
+  useEffect(() => {
+    const onRefresh = (event: Event) => {
+      const detail = (event as CustomEvent<{ workspaceId?: string }>).detail;
+      if (!detail?.workspaceId || detail.workspaceId === workspaceId) {
+        void load();
       }
     };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [workspaceId]);
+    window.addEventListener('mindsync:managed-credits-updated', onRefresh as EventListener);
+    return () => window.removeEventListener('mindsync:managed-credits-updated', onRefresh as EventListener);
+  }, [load, workspaceId]);
 
   return (
     <section className={`managed-credits-panel ${compact ? 'compact' : ''}`}>
@@ -84,8 +98,8 @@ export default function ManagedCreditsPanel({ workspaceId, compact = false }: Pr
           <h3><Coins size={18} /> {ko ? 'Managed Credits' : 'Managed Credits'}</h3>
           <p>
             {ko
-              ? 'Track B 잔액과 최근 사용 내역입니다. 현재는 beta-unmetered 상태라 자동 차감은 아직 없습니다.'
-              : 'Track B balance and recent usage. Current state is beta-unmetered, so no automatic deduction happens yet.'}
+              ? 'Track B managed 추출의 잔액과 최근 사용 내역입니다. 서버 추출 성공 시 workspace 기준으로 크레딧이 차감됩니다.'
+              : 'Balance and recent usage for Track B managed extraction. Successful server-side runs deduct credits per workspace.'}
           </p>
         </div>
       </div>
@@ -94,7 +108,7 @@ export default function ManagedCreditsPanel({ workspaceId, compact = false }: Pr
         <div className="managed-credits-empty">{ko ? '불러오는 중...' : 'Loading...'}</div>
       ) : error ? (
         <div className="managed-credits-empty">
-          {ko ? '크레딧 테이블이 아직 배포되지 않았거나 접근할 수 없습니다.' : 'Credit tables are not deployed yet or could not be read.'}
+          {ko ? '크레딧 테이블을 읽지 못했습니다.' : 'Credit tables could not be read.'}
           <small>{error}</small>
         </div>
       ) : (
@@ -105,7 +119,7 @@ export default function ManagedCreditsPanel({ workspaceId, compact = false }: Pr
               <strong>{fmtCredits(balance?.balance_credits)}</strong>
             </article>
             <article className="managed-credit-card">
-              <span>{ko ? '예약됨' : 'Reserved'}</span>
+              <span>{ko ? '예약' : 'Reserved'}</span>
               <strong>{fmtCredits(balance?.reserved_credits)}</strong>
             </article>
             <article className="managed-credit-card">
@@ -114,7 +128,7 @@ export default function ManagedCreditsPanel({ workspaceId, compact = false }: Pr
             </article>
             <article className="managed-credit-card">
               <span>{ko ? '상태' : 'State'}</span>
-              <strong>{balance?.billing_state || 'beta-unmetered'}</strong>
+              <strong>{balance?.billing_state || 'beta'}</strong>
             </article>
           </div>
 

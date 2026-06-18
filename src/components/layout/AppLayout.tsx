@@ -69,7 +69,7 @@ export default function AppLayout() {
             <span className="app-logo-mark">:&gt;</span>
             <span className="app-logo-text">Cotext</span>
           </button>
-          <button className="app-header-link" onClick={() => navigate('/knowledge-studio')}>
+          <button className="app-header-link" onClick={() => navigate('/mindsync')}>
             <Brain size={14} weight="fill" />
             <span>MindSync</span>
           </button>

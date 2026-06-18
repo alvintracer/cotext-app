@@ -1,6 +1,6 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Brain, Check, FileArrowUp, Files, FileText, GitMerge, Graph, Key, Lightning, Link as LinkIcon, Spinner as Loader2, Trash, UploadSimple, Warning, X,
+  Brain, Check, GitMerge, Graph, Lightning, Link as LinkIcon, Spinner as Loader2, UploadSimple, Warning, X,
 } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../contexts/WorkspaceContext';
@@ -17,8 +17,17 @@ import { generateKnowledgeGraph, type KnowledgeGraphResult } from '../lib/knowle
 import { generateKnowledgeGraphLLM, type LlmExtractResult } from '../lib/knowledge/llmExtract';
 import { saveKnowledgeSnapshot } from '../lib/knowledge/session';
 import { useLanguage } from '../contexts/LanguageContext';
-import { PROVIDERS, getProvider, type ProviderId } from '../lib/agent/models';
+import { getProvider, type ProviderId } from '../lib/agent/models';
 import { getKey, setKey, getPref, setPref } from '../lib/agent/keys';
+
+// New MindSync sub-components
+import MindSyncDropzone from '../components/mindsync/MindSyncDropzone';
+import InferenceSettings from '../components/mindsync/InferenceSettings';
+import StatsBar from '../components/mindsync/StatsBar';
+import SourceFileList from '../components/mindsync/SourceFileList';
+import AnchorWorkspacePanel from '../components/mindsync/AnchorWorkspacePanel';
+
+import '../styles/mindsync-studio.css';
 
 interface SourceItem {
   id: string;
@@ -90,7 +99,7 @@ export default function KnowledgeStudioPage() {
   const [result, setResult] = useState<KnowledgeGraphResult | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   // Phase 3: LLM extraction progress + abort + failures + gaps
-  const [llmProgress, setLlmProgress] = useState<{ phase: string; current: number; total: number; message?: string } | null>(null);
+  const [_llmProgress, setLlmProgress] = useState<{ phase: string; current: number; total: number; message?: string } | null>(null);
   const [llmFailures, setLlmFailures] = useState<LlmExtractResult['failures']>([]);
   const [llmGaps, setLlmGaps] = useState<string[]>([]);
   const [genError, setGenError] = useState<string | null>(null);
@@ -133,18 +142,22 @@ export default function KnowledgeStudioPage() {
   // "How to connect" modal — shows MCP install commands per agent
   const [connectOpen, setConnectOpen] = useState(false);
   const [anchorApiKey, setAnchorApiKey] = useState<string>('');
-  const [anchorApiKeyLoading, setAnchorApiKeyLoading] = useState(false);
   // Track B (managed): platform handles LLM inference + billing.
-  // For this turn we render the toggle and the schema/edge function ship
-  // separately; the toggle defaults to OFF and only flips intent.
   const [trackMode, setTrackMode] = useState<'byok' | 'managed'>('byok');
-  const [managedInfo, setManagedInfo] = useState<{ providerId: string; model: string; billingMode: string } | null>(null);
+  const [managedInfo, setManagedInfo] = useState<{
+    providerId: string;
+    model: string;
+    billingMode: string;
+    chargedCredits: number;
+    requestChars: number;
+    chargeSkipped?: boolean;
+    chargeError?: string | null;
+  } | null>(null);
+  const [managedCreditsRefresh, setManagedCreditsRefresh] = useState(0);
   // Phase 1: BYOK LLM provider. Persists in localStorage (same store as AgentPanel).
-  // Wired but not yet consumed by graph generation — Phase 3 will plug it in.
   const [providerId, setProviderId] = useState<ProviderId>(() => getPref()?.provider ?? 'gemini');
   const [model, setModel] = useState<string>(() => getPref()?.model ?? getProvider('gemini').defaultModel);
   const [apiKey, setApiKey] = useState<string>(() => getKey(getPref()?.provider ?? 'gemini'));
-  const [showKey, setShowKey] = useState(false);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- re-read saved key when provider changes
     setApiKey(getKey(providerId));
@@ -155,7 +168,6 @@ export default function KnowledgeStudioPage() {
   const saveProviderPrefs = useCallback(() => {
     setKey(providerId, apiKey.trim());
     setPref({ provider: providerId, model });
-    setShowKey(false);
   }, [providerId, apiKey, model]);
 
   useEffect(() => {
@@ -163,10 +175,8 @@ export default function KnowledgeStudioPage() {
     const loadAnchorApiKey = async () => {
       if (!anchorWs) {
         setAnchorApiKey('');
-        setAnchorApiKeyLoading(false);
         return;
       }
-      setAnchorApiKeyLoading(true);
       try {
         const { data, error } = await supabase
           .from('api_keys')
@@ -180,8 +190,6 @@ export default function KnowledgeStudioPage() {
         if (!cancelled) setAnchorApiKey(data?.key || '');
       } catch {
         if (!cancelled) setAnchorApiKey('');
-      } finally {
-        if (!cancelled) setAnchorApiKeyLoading(false);
       }
     };
     void loadAnchorApiKey();
@@ -279,20 +287,20 @@ export default function KnowledgeStudioPage() {
   // Declared BEFORE handleGenerate so handleGenerate can close over it.
   const autoMergeIntoAnchor = useCallback(async (graphResult: KnowledgeGraphResult) => {
     if (!anchorWs || !autoMerge) return;
-    setAutoStatus(ko ? `워크스페이스에 머지 중...` : `Merging into workspace...`);
+    setAutoStatus(ko ? `워크스페이스에 저장 중...` : `Saving to workspace...`);
     try {
       const preview = await previewWorkspaceMerge(anchorWs, graphResult.graph);
       const merged = await executeWorkspaceMerge(anchorWs, preview,
         mode === 'generate' ? 'cotext: MindSync seed generated' : 'cotext: MindSync augment');
       setAutoStatus(
         ko
-          ? `머지됨 → ${anchorWs.name} (+${merged.stats.newClusters}/${merged.stats.newNodes}/${merged.stats.newEdges})`
-          : `Merged into ${anchorWs.name} (+${merged.stats.newClusters}/${merged.stats.newNodes}/${merged.stats.newEdges})`,
+          ? `저장 완료 → ${anchorWs.name} (+${merged.stats.newClusters}/${merged.stats.newNodes}/${merged.stats.newEdges})`
+          : `Saved to ${anchorWs.name} (+${merged.stats.newClusters}/${merged.stats.newNodes}/${merged.stats.newEdges})`,
       );
     } catch (e) {
       setAutoStatus(ko
-        ? `머지 실패: ${e instanceof Error ? e.message : String(e)}`
-        : `Merge failed: ${e instanceof Error ? e.message : String(e)}`);
+        ? `저장 실패: ${e instanceof Error ? e.message : String(e)}`
+        : `Save failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }, [anchorWs, autoMerge, mode, ko]);
 
@@ -311,14 +319,19 @@ export default function KnowledgeStudioPage() {
     // Phase 3: if user has a BYOK key and LLM toggle is on → LLM extraction.
     // Otherwise fall back to the heuristic generator.
     if (useLlm && trackMode === 'managed') {
+      if (!anchorWs) {
+        setGenError(ko ? 'Cotext 모델을 사용하려면 대상 워크스페이스를 선택하세요.' : 'Select a target workspace to use Cotext Model.');
+        setGenerating(false);
+        return;
+      }
       try {
         setLlmProgress({
           phase: 'extracting',
           current: 1,
           total: 1,
-          message: ko ? '서버에서 MindSync 그래프를 추출하는 중...' : 'Extracting MindSync graph on the server...',
+          message: ko ? '서버에서 지식망을 추출하는 중...' : 'Building knowledge graph on the server...',
         });
-        const managed = await managedKnowledgeApi.extract(deduped);
+        const managed = await managedKnowledgeApi.extract(anchorWs.id, deduped);
         const final: KnowledgeGraphResult = {
           graph: managed.result.graph as KnowledgeGraphResult['graph'],
           nodeTextById: managed.result.nodeTextById,
@@ -331,10 +344,20 @@ export default function KnowledgeStudioPage() {
           setResult(final);
           setLlmFailures(managed.result.failures);
           setLlmGaps(managed.result.gaps ?? []);
-          setManagedInfo(managed.managed);
+          setManagedInfo({
+            providerId: managed.managed.providerId,
+            model: managed.managed.model,
+            billingMode: managed.managed.billingMode,
+            chargedCredits: managed.managed.chargedCredits,
+            requestChars: managed.managed.requestChars,
+            chargeSkipped: managed.managed.chargeSkipped,
+            chargeError: managed.managed.chargeError,
+          });
+          setManagedCreditsRefresh((n) => n + 1);
           setGenerating(false);
           setLlmProgress(null);
         });
+        window.dispatchEvent(new CustomEvent('mindsync:managed-credits-updated', { detail: { workspaceId: anchorWs.id } }));
         autoMergeIntoAnchor(final);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -393,7 +416,7 @@ export default function KnowledgeStudioPage() {
       });
       autoMergeIntoAnchor(next);
     }, 0);
-  }, [generating, readySources, useLlm, hasKey, trackMode, providerId, model, provider.defaultModel, apiKey, ko, autoMergeIntoAnchor]);
+  }, [generating, readySources, useLlm, hasKey, trackMode, providerId, model, provider.defaultModel, apiKey, ko, autoMergeIntoAnchor, anchorWs]);
 
   const handleAbortGenerate = useCallback(() => {
     abortRef.current?.abort();
@@ -491,22 +514,24 @@ export default function KnowledgeStudioPage() {
     [result],
   );
 
+
   return (
-    <div className="knowledge-studio-page">
-      <section className="knowledge-studio-hero">
-        <div>
-          <div className="knowledge-studio-eyebrow">
+    <div className="ms-page">
+      {/* ── Hero ─────────────────────────────────────────────────── */}
+      <section className="ms-hero ms-glass-card">
+        <div className="ms-hero-content">
+          <div className="ms-eyebrow">
             <Brain size={14} weight="fill" />
-            {ko ? '마인드싱크 (MindSync)' : 'MindSync'}
+            MindSync
           </div>
-          <h1>{ko ? '문서를 올리고 지식망을 만들어 워크스페이스에 심다' : 'Upload docs, build the brain, anchor it into a workspace'}</h1>
+          <h1>{ko ? '데이터를 두뇌로, 두뇌를 워크스페이스로' : 'Docs into a brain, brain into your workspace'}</h1>
           <p>
             {ko
-              ? '워드·한글·PPT·PDF에서 텍스트를 뽑고 BYOK LLM으로 노드·관계·클러스터를 추출합니다. 대상 워크스페이스를 고르면 결과가 그곳의 .cotext/neural.json에 시드되거나 증강됩니다.'
-              : 'Extract text from Word, HWPX, PPT, PDF; let your BYOK LLM produce nodes, relations, and clusters. Pick a target workspace and the result is seeded (or augmented) into its .cotext/neural.json.'}
+              ? '파일을 업로드하면 AI가 자동으로 지식망(노드·관계·클러스터)을 추출합니다. 대상 워크스페이스를 선택하면 결과가 자동 저장됩니다.'
+              : 'Upload files and AI will automatically extract a knowledge graph — nodes, relations, and clusters. Select a target workspace and results are saved automatically.'}
           </p>
         </div>
-        <div className="knowledge-studio-actions">
+        <div className="ms-hero-actions">
           <button className="btn btn-primary" onClick={() => inputRef.current?.click()}>
             <UploadSimple size={16} />
             {ko ? '문서 추가' : 'Add documents'}
@@ -519,14 +544,14 @@ export default function KnowledgeStudioPage() {
           ) : (
             <button className="btn btn-secondary" onClick={handleGenerate} disabled={!readySources.length}>
               <Lightning size={16} />
-              {ko ? '지식망 생성' : 'Generate graph'}
+              {ko ? '지식망 생성' : 'Build graph'}
             </button>
           )}
           <button className="btn btn-ghost" onClick={() => setGraphOpen(true)} disabled={!result?.graph.nodes.length}>
             <Graph size={16} />
             {ko ? '그래프 보기' : 'Open graph'}
           </button>
-          <button className="btn btn-ghost" onClick={() => navigate('/knowledge-think')} disabled={!result?.graph.nodes.length}>
+          <button className="btn btn-ghost" onClick={() => navigate('/mindsync/think')} disabled={!result?.graph.nodes.length}>
             <Brain size={16} />
             {ko ? '질문하기' : 'Ask the brain'}
           </button>
@@ -541,7 +566,7 @@ export default function KnowledgeStudioPage() {
             title={workspaces.length === 0 ? (ko ? '워크스페이스 없음' : 'No workspace') : undefined}
           >
             <GitMerge size={16} />
-            {ko ? '워크스페이스에 머지' : 'Merge into workspace'}
+            {ko ? '워크스페이스에 저장' : 'Save to workspace'}
           </button>
           <input
             ref={inputRef}
@@ -557,395 +582,38 @@ export default function KnowledgeStudioPage() {
         </div>
       </section>
 
-      {/* Phase 1: BYOK LLM picker — required for Phase 3 (LLM-based extraction).
-          Stored in localStorage; same store as AgentPanel so users only enter keys once. */}
-      <section className="knowledge-studio-byok">
-        <div className="knowledge-byok-row">
-          <Key size={14} />
-          <span className="knowledge-byok-label">{ko ? 'AI 모델' : 'AI model'}</span>
-          <select
-            className="knowledge-byok-select"
-            value={providerId}
-            onChange={(e) => {
-              const id = e.target.value as ProviderId;
-              setProviderId(id);
-              setModel(getProvider(id).defaultModel);
-            }}
-          >
-            {PROVIDERS.map((p) => (
-              <option key={p.id} value={p.id}>{p.label}{p.id === 'gemini' ? ' · free tier' : ''}</option>
-            ))}
-          </select>
-          <input
-            className="knowledge-byok-model"
-            list={`models-${providerId}`}
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            placeholder={provider.defaultModel}
-          />
-          <datalist id={`models-${providerId}`}>
-            {provider.models?.map((m) => <option key={m} value={m} />)}
-          </datalist>
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowKey((v) => !v)}>
-            {hasKey ? (ko ? '키 변경' : 'Change key') : (ko ? '키 입력' : 'Add key')}
-          </button>
-          <span className={`knowledge-byok-status ${hasKey ? 'ok' : 'missing'}`}>
-            {hasKey ? (ko ? '키 저장됨' : 'Key saved') : (ko ? '키 필요' : 'No key')}
-          </span>
-        </div>
-        {showKey && (
-          <div className="knowledge-byok-row">
-            <input
-              type="password"
-              className="knowledge-byok-key"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={provider.keyLabel || (ko ? 'API 키를 붙여넣으세요' : 'Paste API key')}
-              autoFocus
-            />
-            <button className="btn btn-primary btn-sm" onClick={saveProviderPrefs} disabled={!apiKey.trim()}>
-              {ko ? '저장' : 'Save'}
-            </button>
-            {provider.keyUrl && (
-              <a className="knowledge-byok-link" href={provider.keyUrl} target="_blank" rel="noreferrer">
-                {ko ? '키 발급' : 'Get a key'}
-              </a>
-            )}
-          </div>
-        )}
-        <div className="knowledge-byok-row">
-          <label className="knowledge-llm-toggle">
-            <input
-              type="checkbox"
-              checked={useLlm}
-              onChange={(e) => setUseLlm(e.target.checked)}
-              disabled={!llmReady}
-            />
-            <span>
-              {ko ? 'LLM ?? ??' : 'Use LLM extraction'}
-              {!llmReady && <em className="knowledge-byok-hint"> ? {ko ? '? ??' : 'key required'}</em>}
-            </span>
-          </label>
-          <span className="knowledge-byok-note knowledge-byok-inline">
-            {useLlm && trackMode === 'managed'
-              ? (ko ? '??? ?? ?? ?????. ????? ?? LLM ?? ??? ???.' : 'Uses the platform-managed server key. No browser-side LLM key is required.')
-              : useLlm && hasKey
-                ? (ko ? 'LLM? entity?relation? ????? (BYOK ?? ??).' : 'LLM extracts entities and relations (BYOK costs apply).')
-                : (ko ? '??? ?? ?? ?????? ????? (??, ?? ?? ??).' : 'Falls back to keyword-frequency heuristic (free, weak semantics).')}
-          </span>
-        </div>
-        <p className="knowledge-byok-note">
-          {trackMode === 'managed'
-            ? (ko
-              ? 'Managed Track B ??: ?? ?? ???? ??? ????? ?????. ??? ??? ??? ?? ???? ????.'
-              : 'Managed Track B beta: extraction runs on a server-held key and only the result returns to the browser. Credit metering comes next.')
-            : (ko
-              ? 'BYOK ?? ? ?????? ?????. ?? ??? + JSON ?? + ??? ?? + ? ?? ??.'
-              : 'BYOK key stays in this browser only. Uses chunked relay + JSON repair + incremental merge + gap analysis.')}
-        </p>
-        <div className="knowledge-byok-row knowledge-track-row" role="group" aria-label="track">
-          <span className="knowledge-byok-label">{ko ? '?? ??' : 'Inference track'}</span>
-          <div className="knowledge-track-segmented">
-            <button
-              className={`knowledge-track-btn ${trackMode === 'byok' ? 'active' : ''}`}
-              onClick={() => setTrackMode('byok')}
-            >
-              BYOK
-              <em>{ko ? '? ?' : 'your key'}</em>
-            </button>
-            <button
-              className={`knowledge-track-btn ${trackMode === 'managed' ? 'active' : ''}`}
-              onClick={() => setTrackMode('managed')}
-              title={ko ? '??? ???? (??)' : 'Platform-managed (beta)'}
-            >
-              MANAGED
-              <em>{ko ? '???' : 'credits'}</em>
-            </button>
-          </div>
-          {trackMode === 'managed' && (
-            <span className="knowledge-byok-note knowledge-byok-inline">
-              {ko
-                ? 'Managed beta? ?? ?? ??? ?????. ??? ??? ?? ?? ?? ?? ????, ?? ???? ??/?? UI? ????.'
-                : 'Managed beta is now a real extraction path. It currently runs on a server-managed key without credit deduction; billing and balance UI come next.'}
-            </span>
-          )}
-        </div>
-        {managedInfo && trackMode === 'managed' && (
-          <p className="knowledge-byok-note">
-            {ko
-              ? `?? managed ??: ${managedInfo.providerId} / ${managedInfo.model} / ${managedInfo.billingMode}`
-              : `Latest managed extract: ${managedInfo.providerId} / ${managedInfo.model} / ${managedInfo.billingMode}`}
-          </p>
-        )}
-        {trackMode === 'managed' && anchorWs && (
-          <ManagedCreditsPanel workspaceId={anchorWs.id} compact />
-        )}
-      </section>
+      {/* ── Source Files & Results ─────────────────────────────── */}
+      <section className="ms-content-grid">
+        <SourceFileList
+          ko={ko}
+          sources={sources}
+          onRemove={removeSource}
+          formatSize={formatSize}
+          formatCount={formatCount}
+        />
 
-      {/* MindSync anchor — picks the workspace this session feeds into.
-          Generate seeds it once; Augment keeps adding. Without an anchor the
-          result stays ephemeral (snapshot only) and the user must merge manually. */}
-      <section className="knowledge-studio-anchor">
-        <div className="knowledge-anchor-row">
-          <strong className="knowledge-anchor-title">
-            <GitMerge size={14} /> {ko ? '마인드싱크 대상 워크스페이스' : 'MindSync target workspace'}
-          </strong>
-          <select
-            className="knowledge-byok-select"
-            value={anchorWorkspaceId}
-            onChange={(e) => setAnchorWorkspaceId(e.target.value)}
-          >
-            <option value="">{ko ? '— 선택 안 함 (휘발성) —' : '— Not anchored (ephemeral) —'}</option>
-            {workspaces.map((w) => (
-              <option key={w.id} value={w.id}>{w.name} ({w.github_owner}/{w.github_repo})</option>
-            ))}
-          </select>
-          <div className="knowledge-anchor-mode" role="group" aria-label="mode">
-            <button
-              className={`knowledge-mode-btn ${mode === 'generate' ? 'active' : ''}`}
-              onClick={() => setMode('generate')}
-              disabled={!anchorWorkspaceId}
-              title={ko ? '워크스페이스의 첫 지식 시드' : 'Seed the workspace brain'}
-            >GENERATE</button>
-            <button
-              className={`knowledge-mode-btn ${mode === 'augment' ? 'active' : ''}`}
-              onClick={() => setMode('augment')}
-              disabled={!anchorWorkspaceId}
-              title={ko ? '기존 지식망에 증강' : 'Augment the existing brain'}
-            >AUGMENT</button>
-          </div>
-          <label className="knowledge-anchor-toggle">
-            <input
-              type="checkbox"
-              checked={autoMerge}
-              onChange={(e) => setAutoMerge(e.target.checked)}
-              disabled={!anchorWorkspaceId}
-            />
-            <span>{ko ? '생성 후 자동 머지' : 'Auto-merge on generate'}</span>
-          </label>
-        </div>
-        <p className="knowledge-byok-note">
-          {anchorWs
-            ? (ko
-                ? `결과는 '${anchorWs.name}'의 .cotext/neural.json·NEURAL_INDEX.md·Supabase 인덱스에 ${mode === 'generate' ? '시드로' : '증강으로'} 저장됩니다. 텍스트는 별도로 mindsync-imports/ 룸에 MD로 저장할 수 있습니다.`
-                : `Results will be ${mode === 'generate' ? 'seeded into' : 'augmented onto'} ${anchorWs.name}'s .cotext/neural.json, NEURAL_INDEX.md and Supabase index. Extracted text can be saved separately as MD into the mindsync-imports/ room.`)
-            : (ko
-                ? '워크스페이스를 선택하지 않으면 결과는 브라우저에만 남아 새로고침 시 사라집니다.'
-                : 'Without a workspace, the result stays in this browser only and is lost on refresh.')}
-        </p>
-        {anchorWs && readySources.length > 0 && (
-          <div className="knowledge-anchor-row">
-            <button
-              className="btn btn-secondary"
-              onClick={saveExtractedTextToWorkspace}
-              disabled={!!textSavingState && textSavingState.done < textSavingState.total}
-            >
-              <FileText size={14} />
-              {textSavingState && textSavingState.done < textSavingState.total
-                ? (ko ? `저장 중 ${textSavingState.done}/${textSavingState.total}…` : `Saving ${textSavingState.done}/${textSavingState.total}…`)
-                : (ko ? `추출 텍스트를 ${anchorWs.name}/mindsync-imports/ 에 MD로 저장` : `Save extracted text as MD into ${anchorWs.name}/mindsync-imports/`)}
-            </button>
-            {textSavingState && textSavingState.done === textSavingState.total && (
-              <span className="knowledge-byok-note">
-                <Check size={12} /> {ko ? `${textSavingState.done}개 저장됨` : `${textSavingState.done} saved`}
-                {textSavingState.error ? ` · ${textSavingState.error}` : ''}
-              </span>
-            )}
-          </div>
-        )}
-        {autoStatus && (
-          <p className={`knowledge-anchor-status ${autoStatus.includes(ko ? '실패' : 'failed') ? 'error' : ''}`}>
-            <GitMerge size={12} /> {autoStatus}
-          </p>
-        )}
-      </section>
-
-      {anchorWs && (
-        <p className="knowledge-byok-note" style={{ marginTop: '10px' }}>
-          {anchorApiKeyLoading
-            ? (ko ? 'MindSync API ?ㅻ? ?뺤씤 以?..' : 'Checking MindSync API key...')
-            : anchorApiKey
-              ? (ko ? 'Connect agents ?⑤떖???ㅼ젣 ctx_ API ???먮룞 二쇱엯?⑸땲??' : 'Connect agents will auto-fill a live ctx_ API key for remote snippets.')
-              : (ko ? '?꾨쭩 remote snippet? placeholder API ???대낫?듬땲??. ?뚰겕?ㅽ럹?댁뒪 ?ъ씠?쒕컮??API Keys?먯꽌 諛쒓툒 ?꾩슂.' : 'Remote snippets will show a placeholder API key until you create one in the workspace sidebar API Keys panel.')}
-        </p>
-      )}
-
-      {uploadError && (
-        <div className="knowledge-upload-error">
-          <Warning size={14} weight="fill" />
-          <span>{uploadError}</span>
-          <button className="icon-button" onClick={() => setUploadError(null)} aria-label="dismiss">×</button>
-        </div>
-      )}
-
-      {/* Phase 3: live LLM extraction progress */}
-      {generating && llmProgress && (
-        <div className="knowledge-llm-progress">
-          <Loader2 size={14} className="spin" />
-          <div className="knowledge-llm-progress-info">
-            <strong>
-              {llmProgress.phase === 'extracting'
-                ? (ko ? `청크 ${llmProgress.current}/${llmProgress.total} 추출 중` : `Extracting chunk ${llmProgress.current}/${llmProgress.total}`)
-                : llmProgress.phase === 'chunking'
-                  ? (ko ? `청크 분할 (${llmProgress.total}개)` : `Chunking (${llmProgress.total})`)
-                  : llmProgress.phase}
-            </strong>
-            {llmProgress.message && <span className="knowledge-llm-progress-msg">{llmProgress.message}</span>}
-          </div>
-          <div className="knowledge-llm-progress-bar">
-            <div style={{ width: `${llmProgress.total ? (llmProgress.current / llmProgress.total) * 100 : 0}%` }} />
-          </div>
-        </div>
-      )}
-
-      {/* Phase 3: per-chunk failures (non-blocking, partial graph still usable) */}
-      {!generating && llmFailures.length > 0 && (
-        <div className="knowledge-llm-failures">
-          <Warning size={14} weight="fill" />
-          <div>
-            <strong>{ko ? `${llmFailures.length}개 청크 추출 실패` : `${llmFailures.length} chunk(s) failed`}</strong>
-            <ul>
-              {llmFailures.slice(0, 4).map((f, i) => (
-                <li key={i}>{f.source} #{f.chunkIndex + 1}: {f.error.slice(0, 100)}</li>
-              ))}
-              {llmFailures.length > 4 && <li>… +{llmFailures.length - 4}</li>}
-            </ul>
-          </div>
-        </div>
-      )}
-
-      {/* Phase 3-D: gap analysis (Anti-Blackbox signal) */}
-      {!generating && llmGaps.length > 0 && (
-        <div className="knowledge-llm-gaps">
-          <Brain size={14} weight="fill" />
-          <div>
-            <strong>{ko ? '추가 정보가 있으면 좋은 부분' : 'Gaps the LLM noticed'}</strong>
-            <ul>
-              {llmGaps.map((g, i) => <li key={i}>{g}</li>)}
-            </ul>
-          </div>
-        </div>
-      )}
-
-      {/* Phase 3: generation error (network, key, etc.) */}
-      {genError && (
-        <div className="knowledge-upload-error">
-          <Warning size={14} weight="fill" />
-          <span>{genError}</span>
-          <button className="icon-button" onClick={() => setGenError(null)} aria-label="dismiss">×</button>
-        </div>
-      )}
-
-      <section className="knowledge-studio-stats">
-        <article className="knowledge-stat-card">
-          <span>{ko ? '추출 완료 문서' : 'Extracted docs'}</span>
-          <strong>{formatCount(readySources.length)}</strong>
-        </article>
-        <article className="knowledge-stat-card">
-          <span>{ko ? '텍스트 총량' : 'Total text'}</span>
-          <strong>{formatCount(totalChars)}</strong>
-        </article>
-        <article className="knowledge-stat-card">
-          <span>{ko ? '생성 노드' : 'Generated nodes'}</span>
-          <strong>{formatCount(result?.graph.nodes.length || 0)}</strong>
-        </article>
-        <article className="knowledge-stat-card">
-          <span>{ko ? '클러스터' : 'Clusters'}</span>
-          <strong>{formatCount(result?.graph.clusters.length || 0)}</strong>
-        </article>
-      </section>
-
-      <section
-        className={`knowledge-dropzone ${dragging ? 'dragging' : ''}`}
-        onDragOver={(event) => {
-          event.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(event) => {
-          event.preventDefault();
-          setDragging(false);
-          if (event.dataTransfer.files?.length) handleFiles(event.dataTransfer.files);
-        }}
-      >
-        <FileArrowUp size={28} />
-        <h2>{ko ? '여기에 문서를 떨어뜨리세요' : 'Drop documents here'}</h2>
-        <p>
-          {ko
-            ? `지원 형식: DOCX · HWPX · PPTX · PDF · TXT · MD · CSV · JSON · LOG  ·  최대 파일당 ${formatSize(MAX_FILE_BYTES)} / 세션 합계 ${formatSize(MAX_TOTAL_BYTES)} / ${MAX_FILE_COUNT}개`
-            : `Supported: DOCX · HWPX · PPTX · PDF · TXT · MD · CSV · JSON · LOG  ·  Limits: ${formatSize(MAX_FILE_BYTES)}/file, ${formatSize(MAX_TOTAL_BYTES)}/session, ${MAX_FILE_COUNT} max`}
-        </p>
-      </section>
-
-      <section className="knowledge-grid">
-        <div className="knowledge-panel">
-          <div className="knowledge-panel-header">
-            <h3>{ko ? '소스 문서' : 'Source documents'}</h3>
-            <span>{formatCount(sources.length)}</span>
-          </div>
-          <div className="knowledge-source-list">
-            {sources.length === 0 && (
-              <div className="knowledge-empty">
-                <Files size={22} />
-                <p>{ko ? '아직 추가된 문서가 없습니다.' : 'No documents added yet.'}</p>
-              </div>
-            )}
-            {sources.map((item) => (
-              <article key={item.id} className="knowledge-source-card">
-                <div className="knowledge-source-top">
-                  <div>
-                    <strong>{item.name}</strong>
-                    <div className="knowledge-source-meta">
-                      <span>{item.ext.toUpperCase() || 'FILE'}</span>
-                      <span>{formatSize(item.size)}</span>
-                    </div>
-                  </div>
-                  <button className="icon-button" onClick={() => removeSource(item.id)} aria-label="remove">
-                    <Trash size={14} />
-                  </button>
-                </div>
-                <div className="knowledge-source-status">
-                  <span className={`chip ${item.status === 'done' ? 'chip-idea' : item.status === 'error' ? 'chip-question' : 'chip-source'}`}>
-                    {item.status === 'queued' && (ko ? '대기' : 'Queued')}
-                    {item.status === 'extracting' && (ko ? `추출 중 ${item.progress}%` : `Extracting ${item.progress}%`)}
-                    {item.status === 'done' && (ko ? `${formatCount(item.text.length)}자` : `${formatCount(item.text.length)} chars`)}
-                    {item.status === 'error' && (ko ? '오류' : 'Error')}
-                  </span>
-                  {item.error && <span className="knowledge-error-text">{item.error}</span>}
-                </div>
-                {item.status === 'extracting' && (
-                  <div className="knowledge-progress">
-                    <div style={{ width: `${item.progress}%` }} />
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
-        </div>
-
-        <div className="knowledge-panel">
-          <div className="knowledge-panel-header">
-            <h3>{ko ? '생성 결과' : 'Generated graph'}</h3>
+        {/* Result panel */}
+        <div className="ms-result ms-glass-card">
+          <div className="ms-panel-header">
+            <h3>{ko ? '생성 결과' : 'Results'}</h3>
             <span>{formatCount(result?.sectionCount || 0)}</span>
           </div>
           {!result ? (
-            <div className="knowledge-empty">
+            <div className="ms-empty">
               <Brain size={22} />
-              <p>{ko ? '문서를 추출한 뒤 지식망 생성을 실행하세요.' : 'Extract documents, then generate the graph.'}</p>
+              <p>{ko ? '파일을 추가한 뒤 지식망을 생성하세요.' : 'Add files, then build the graph.'}</p>
             </div>
           ) : (
-            <div className="knowledge-summary">
-              <div className="knowledge-summary-copy">
-                <p>
-                  {ko
-                    ? `${result.sourceCount}개 문서에서 ${formatCount(result.sectionCount)}개 섹션을 만들고, ${formatCount(result.graph.edges.length)}개 연결을 생성했습니다.`
-                    : `Built ${formatCount(result.sectionCount)} sections and ${formatCount(result.graph.edges.length)} links from ${result.sourceCount} documents.`}
-                </p>
-              </div>
-              <div className="knowledge-cluster-list">
+            <div className="ms-result-body">
+              <p className="ms-note">
+                {ko
+                  ? `${result.sourceCount}개 파일에서 ${formatCount(result.sectionCount)}개 섹션, ${formatCount(result.graph.edges.length)}개 연결을 생성했습니다.`
+                  : `Built ${formatCount(result.sectionCount)} sections and ${formatCount(result.graph.edges.length)} links from ${result.sourceCount} files.`}
+              </p>
+              <div className="ms-cluster-list">
                 {topClusters.map((cluster) => (
-                  <div key={cluster.id} className="knowledge-cluster-row">
-                    <span className="knowledge-cluster-swatch" style={{ background: cluster.color || 'var(--accent)' }} />
+                  <div key={cluster.id} className="ms-cluster-row">
+                    <span className="ms-cluster-swatch" style={{ background: cluster.color || 'var(--accent)' }} />
                     <div>
                       <strong>{cluster.name}</strong>
                       <p>{cluster.desc || (ko ? '자동 생성 클러스터' : 'Auto-generated cluster')}</p>
@@ -958,6 +626,123 @@ export default function KnowledgeStudioPage() {
         </div>
       </section>
 
+      {/* ── Upload Dropzone ──────────────────────────────────────── */}
+      <MindSyncDropzone
+        ko={ko}
+        dragging={dragging}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files);
+        }}
+        onClickUpload={() => inputRef.current?.click()}
+        maxFileSize={formatSize(MAX_FILE_BYTES)}
+        maxTotalSize={formatSize(MAX_TOTAL_BYTES)}
+        maxCount={MAX_FILE_COUNT}
+      />
+
+      {/* ── Alerts ───────────────────────────────────────────────── */}
+      {uploadError && (
+        <div className="ms-alert ms-alert--error">
+          <Warning size={14} weight="fill" />
+          <span>{uploadError}</span>
+          <button className="ms-alert-dismiss" onClick={() => setUploadError(null)} aria-label="dismiss">×</button>
+        </div>
+      )}
+
+      {genError && (
+        <div className="ms-alert ms-alert--error">
+          <Warning size={14} weight="fill" />
+          <span>{genError}</span>
+          <button className="ms-alert-dismiss" onClick={() => setGenError(null)} aria-label="dismiss">×</button>
+        </div>
+      )}
+
+      {!generating && llmFailures.length > 0 && (
+        <div className="ms-alert ms-alert--warning">
+          <Warning size={14} weight="fill" />
+          <div>
+            <strong>{ko ? `${llmFailures.length}개 블록 분석 실패` : `${llmFailures.length} block(s) failed`}</strong>
+            <ul>
+              {llmFailures.slice(0, 4).map((f, i) => (
+                <li key={i}>{f.source} #{f.chunkIndex + 1}: {f.error.slice(0, 100)}</li>
+              ))}
+              {llmFailures.length > 4 && <li>… +{llmFailures.length - 4}</li>}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {!generating && llmGaps.length > 0 && (
+        <div className="ms-alert ms-alert--info">
+          <Brain size={14} weight="fill" />
+          <div>
+            <strong>{ko ? '보완 가능한 영역' : 'Areas to improve'}</strong>
+            <ul>
+              {llmGaps.map((g, i) => <li key={i}>{g}</li>)}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* ── Stats Bar ────────────────────────────────────────────── */}
+      <StatsBar
+        ko={ko}
+        extractedDocs={readySources.length}
+        totalChars={totalChars}
+        generatedNodes={result?.graph.nodes.length || 0}
+        clusters={result?.graph.clusters.length || 0}
+      />
+
+      {/* ── Settings Row ─────────────────────────────────────────── */}
+      <div className="ms-settings-row">
+        <InferenceSettings
+          ko={ko}
+          trackMode={trackMode}
+          onTrackChange={setTrackMode}
+          providerId={providerId}
+          onProviderChange={(id) => {
+            setProviderId(id);
+            setModel(getProvider(id).defaultModel);
+          }}
+          model={model}
+          onModelChange={setModel}
+          apiKey={apiKey}
+          onApiKeyChange={setApiKey}
+          hasKey={hasKey}
+          onSaveKey={saveProviderPrefs}
+          provider={provider}
+          useLlm={useLlm}
+          onUseLlmChange={setUseLlm}
+          llmReady={llmReady}
+          managedInfo={managedInfo}
+          managedCreditsSlot={
+            trackMode === 'managed' && anchorWs ? (
+              <ManagedCreditsPanel workspaceId={anchorWs.id} compact refreshKey={managedCreditsRefresh} />
+            ) : undefined
+          }
+        />
+
+        <AnchorWorkspacePanel
+          ko={ko}
+          workspaces={workspaces}
+          anchorWorkspaceId={anchorWorkspaceId}
+          onAnchorChange={setAnchorWorkspaceId}
+          mode={mode}
+          onModeChange={setMode}
+          autoMerge={autoMerge}
+          onAutoMergeChange={setAutoMerge}
+          autoStatus={autoStatus}
+          anchorWs={anchorWs}
+          showSaveText={readySources.length > 0}
+          onSaveText={saveExtractedTextToWorkspace}
+          textSavingState={textSavingState}
+        />
+      </div>
+
+      {/* ── Graph View ───────────────────────────────────────────── */}
       {graphOpen && result && (
         <NeuralGraphBoundary
           surfaceLabel={ko ? '마인드싱크 그래프' : 'MindSync graph'}
@@ -992,12 +777,12 @@ export default function KnowledgeStudioPage() {
         language={ko ? 'ko' : 'en'}
       />
 
-      {/* Phase 4: workspace merge modal */}
+      {/* ── Merge Modal ──────────────────────────────────────────── */}
       {mergeModalOpen && (
         <div className="modal-overlay" onClick={() => !mergeExecuting && setMergeModalOpen(false)}>
           <div className="modal-content merge-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3><GitMerge size={18} /> {ko ? '워크스페이스에 머지' : 'Merge into workspace'}</h3>
+              <h3><GitMerge size={18} /> {ko ? '워크스페이스에 저장' : 'Save to workspace'}</h3>
               <button className="icon-button" onClick={() => setMergeModalOpen(false)} disabled={mergeExecuting} aria-label="close">
                 <X size={16} />
               </button>
@@ -1007,16 +792,16 @@ export default function KnowledgeStudioPage() {
               {mergeDone ? (
                 <div className="merge-success">
                   <Check size={28} weight="bold" />
-                  <h4>{ko ? '머지 완료' : 'Merged'}</h4>
+                  <h4>{ko ? '저장 완료' : 'Saved'}</h4>
                   <p>
                     {ko
-                      ? `워크스페이스에 +${mergeDone.stats.newClusters} 클러스터 / +${mergeDone.stats.newNodes} 노드 / +${mergeDone.stats.newEdges} 엣지 추가됨.`
+                      ? `워크스페이스에 +${mergeDone.stats.newClusters} 클러스터 / +${mergeDone.stats.newNodes} 노드 / +${mergeDone.stats.newEdges} 엣지가 추가되었습니다.`
                       : `Added +${mergeDone.stats.newClusters} clusters / +${mergeDone.stats.newNodes} nodes / +${mergeDone.stats.newEdges} edges to the workspace.`}
                   </p>
                   <ul className="merge-success-checks">
-                    <li>{mergeDone.pushed.neuralJson ? '✓' : '✗'} neural.json {ko ? '푸시' : 'pushed'}</li>
-                    <li>{mergeDone.pushed.neuralIndex ? '✓' : '✗'} NEURAL_INDEX.md {ko ? '갱신' : 'updated'}</li>
-                    <li>{mergeDone.pushed.supabaseSync ? '✓' : '✗'} {ko ? 'Supabase 인덱스 동기화' : 'Supabase index sync'}</li>
+                    <li>{mergeDone.pushed.neuralJson ? '✓' : '✗'} {ko ? '지식 데이터 저장' : 'Knowledge data saved'}</li>
+                    <li>{mergeDone.pushed.neuralIndex ? '✓' : '✗'} {ko ? '인덱스 갱신' : 'Index updated'}</li>
+                    <li>{mergeDone.pushed.supabaseSync ? '✓' : '✗'} {ko ? '검색 인덱스 동기화' : 'Search index synced'}</li>
                   </ul>
                   <div className="merge-success-actions">
                     <button className="btn btn-primary" onClick={() => navigate(`/workspace/${mergeDone.workspaceId}`)}>
@@ -1037,7 +822,7 @@ export default function KnowledgeStudioPage() {
                     disabled={mergeExecuting || mergePreviewing}
                   >
                     {workspaces.map((w) => (
-                      <option key={w.id} value={w.id}>{w.name} ({w.github_owner}/{w.github_repo})</option>
+                      <option key={w.id} value={w.id}>{w.name}</option>
                     ))}
                   </select>
 
@@ -1047,7 +832,7 @@ export default function KnowledgeStudioPage() {
                       onClick={runMergePreview}
                       disabled={!mergeTargetId || mergePreviewing}
                     >
-                      {mergePreviewing ? <><Loader2 size={14} className="spin" /> {ko ? '미리보기 계산 중...' : 'Computing preview...'}</> : (ko ? '머지 미리보기' : 'Preview merge')}
+                      {mergePreviewing ? <><Loader2 size={14} className="spin" /> {ko ? '미리보기 계산 중...' : 'Computing preview...'}</> : (ko ? '미리보기' : 'Preview')}
                     </button>
                   )}
 
@@ -1068,33 +853,33 @@ export default function KnowledgeStudioPage() {
                         </div>
                         <div className="merge-stat">
                           <strong>{mergePreview.stats.mergedClusters}</strong>
-                          <span>{ko ? '클러스터 머지' : 'clusters merged'}</span>
+                          <span>{ko ? '기존 병합' : 'clusters merged'}</span>
                         </div>
                         <div className="merge-stat">
                           <strong>{mergePreview.stats.mergedNodes}</strong>
-                          <span>{ko ? '노드 머지' : 'nodes merged'}</span>
+                          <span>{ko ? '노드 병합' : 'nodes merged'}</span>
                         </div>
                         <div className="merge-stat">
                           <strong>{mergePreview.stats.mergedEdges}</strong>
-                          <span>{ko ? '엣지 머지' : 'edges merged'}</span>
+                          <span>{ko ? '엣지 병합' : 'edges merged'}</span>
                         </div>
                       </div>
                       {mergePreview.stats.droppedEdges > 0 && (
                         <p className="merge-preview-warn">
-                          <Warning size={12} /> {ko ? `${mergePreview.stats.droppedEdges}개 엣지 폐기됨 (양 끝 노드 누락).` : `${mergePreview.stats.droppedEdges} edges dropped (endpoint missing).`}
+                          <Warning size={12} /> {ko ? `${mergePreview.stats.droppedEdges}개 연결이 제거되었습니다.` : `${mergePreview.stats.droppedEdges} edges dropped.`}
                         </p>
                       )}
                       <p className="merge-preview-note">
                         {ko
-                          ? '기존 클러스터·노드의 이름·색·설명은 보존되며, Studio 결과는 항상 "추가" 방향으로만 적용됩니다. 결과는 정본(.cotext/neural.json), NEURAL_INDEX.md, Supabase 인덱스에 동시 반영됩니다.'
-                          : 'Existing cluster/node names, colors, and descriptions are preserved — Studio merge only adds. The merged result is written to .cotext/neural.json, NEURAL_INDEX.md, and the Supabase index.'}
+                          ? '기존 데이터는 보존되며, 새로운 내용만 추가됩니다.'
+                          : 'Existing data is preserved — only new content is added.'}
                       </p>
                       <div className="merge-actions">
                         <button className="btn btn-ghost" onClick={() => setMergePreview(null)} disabled={mergeExecuting}>
                           {ko ? '뒤로' : 'Back'}
                         </button>
                         <button className="btn btn-primary" onClick={runMergeExecute} disabled={mergeExecuting}>
-                          {mergeExecuting ? <><Loader2 size={14} className="spin" /> {ko ? '머지 중...' : 'Merging...'}</> : (ko ? '머지 실행' : 'Execute merge')}
+                          {mergeExecuting ? <><Loader2 size={14} className="spin" /> {ko ? '저장 중...' : 'Saving...'}</> : (ko ? '저장 실행' : 'Save now')}
                         </button>
                       </div>
                     </div>

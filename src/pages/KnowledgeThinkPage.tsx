@@ -122,7 +122,7 @@ export default function KnowledgeThinkPage() {
             <Graph size={16} />
             {ko ? '그래프 보기' : 'Open graph'}
           </button>
-          <button className="btn btn-primary" onClick={() => navigate('/knowledge-studio')}>
+          <button className="btn btn-primary" onClick={() => navigate('/mindsync/studio')}>
             <Brain size={16} />
             {ko ? 'Studio 열기' : 'Open Studio'}
           </button>

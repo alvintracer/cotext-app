@@ -27,7 +27,7 @@ const CONTENT = {
     eyebrow: 'GitHub-native context capture',
     mindsync: {
       tag: '두뇌 레이어 · MindSync',
-      title: '문서를 두뇌로, 두뇌를 워크스페이스로',
+      title: '데이터를 두뇌로, 두뇌를 워크스페이스로',
       desc: '워드·한글·PPT·PDF를 한 번에 올리면 BYOK LLM이 의미 단위로 지식 그래프(노드·클러스터·엣지)를 뽑아 대상 워크스페이스의 두뇌에 시드하거나 증강합니다. 질문하면 출처 노드까지 클릭으로 추적.',
       cta: 'MindSync 열기',
       sub: 'Cotext 워크스페이스가 컨텍스트 풀이라면, MindSync는 그 위의 두뇌 레이어 — 어디서든 같은 두뇌에 접근합니다.',
@@ -36,7 +36,7 @@ const CONTENT = {
       title: '바로 써보기',
       desc: '로그인하면 5단계까지 만들어둔 기능을 곧바로 사용할 수 있어요.',
       workspaces: { label: '워크스페이스', desc: 'GitHub repo를 컨텍스트 풀로 연결하고 채팅하듯 메모', tag: 'Phase 1·2' },
-      studio: { label: 'Knowledge Studio', desc: '문서를 한 번에 업로드 → BYOK LLM이 의미 단위로 지식 그래프 추출 + 갭 분석', tag: 'Phase 3·4' },
+      studio: { label: 'Knowledge Studio', desc: '파일을 한 번에 업로드 → BYOK LLM이 의미 단위로 지식 그래프 추출 + 갭 분석', tag: 'Phase 3·4' },
       think: { label: 'Think 모드', desc: '생성된 지식망에 질문 → 출처(노드) 클릭으로 점프하는 근거 기반 답변', tag: 'Phase 5' },
     },
     heroH1a: '당신의 생각을 항상',
@@ -277,7 +277,7 @@ export default function LandingPage() {
           <span className="lp-mindsync-tag"><Brain size={12} weight="fill" /> {c.mindsync.tag}</span>
           <h2 className="lp-mindsync-title">{c.mindsync.title}</h2>
           <p className="lp-mindsync-desc">{c.mindsync.desc}</p>
-          <button className="lp-btn lp-btn-primary lp-btn-lg lp-mindsync-cta" onClick={() => launchTo('/knowledge-studio')}>
+          <button className="lp-btn lp-btn-primary lp-btn-lg lp-mindsync-cta" onClick={() => navigate('/mindsync')}>
             <Brain size={18} weight="fill" /> {c.mindsync.cta} <ArrowRight size={16} />
           </button>
           <p className="lp-mindsync-sub">{c.mindsync.sub}</p>
@@ -452,10 +452,10 @@ export default function LandingPage() {
               </button>
               {latestVersion && <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{latestVersion}</span>}
             </div>
-            <button className="lp-btn lp-btn-ghost" onClick={() => launchTo('/knowledge-studio')}>
-              <Brain size={18} /> Knowledge Studio
+            <button className="lp-btn lp-btn-ghost" onClick={() => navigate('/mindsync')}>
+              <Brain size={18} /> MindSync
             </button>
-            <button className="lp-btn lp-btn-ghost" onClick={() => launchTo('/knowledge-think')}>
+            <button className="lp-btn lp-btn-ghost" onClick={() => launchTo('/mindsync/think')}>
               <Bot size={18} /> Think Mode
             </button>
           </div>

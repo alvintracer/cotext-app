@@ -109,3 +109,27 @@ A는 "있으면 좋은" 것, B·C는 "비즈니스 임팩트가 큰" 것. 사용
   - payment integration
   - retry / fallback policy by price tier
 - Operational note: first managed credits schema is live in the hosted project; payment/credit deduction logic is still pending.
+
+## 2026-06-18 PM — Track B audit + lockdown
+
+Codex가 배포한 Track B 베타를 다른 세션에서 감사했고, 작동은 정상이지만 한 가지 **권한 부여 실수**를 발견·수정함.
+
+### 감사 결과 (정상)
+- Edge Function `neural-extract-managed` 라이브, auth gate 401 정상
+- 테이블 2개 + 트리거 2개 + RLS 2개 정상
+- 기존 워크스페이스 3개 모두 잔액 100 크레딧 backfill 완료
+- 트랜잭션 0건(아직 사용 전, 정상)
+- `apply_managed_credit_usage` RPC는 `security definer` + 워크스페이스 access check
+- Edge Function `MANAGED_LLM_API_KEY` 시크릿 설정 확인
+
+### 보안 픽스 (적용 완료)
+**문제**: `apply_managed_credit_usage`가 PUBLIC + anon + authenticated에 EXECUTE 부여돼 있었음. `security definer`라 우회 가능 — 인증된 사용자가 PostgREST로 직접 호출하면 `p_user_id` 파라미터를 임의 팀원으로 바꿔 그 사람 명의로 ledger를 쓸 수 있음 (금전 손실은 아니지만 audit 무결성 위반).
+
+**해결**: `20260618_managed_credits_lockdown.sql` — `PUBLIC/anon/authenticated`에서 EXECUTE 회수, `service_role`에만 부여. Edge Function이 admin 클라이언트로만 호출하니 정상 흐름 영향 없음. Management API로 적용·검증 완료 (`postgres + service_role`만 남음).
+
+### 알아두면 좋은 베타 한계 (다음 라운드 작업)
+- **충전 흐름 없음**: 100 크레딧 소진 후 직접 top-up 경로(Stripe/Toss) 미구현
+- **충전 단가는 입력 문자수 기반(12000자=1크레딧)**: 실제 LLM in/out 토큰 사용량으로 보정 필요(향후 `result.usage`가 들어오면 자동 보정 가능)
+- **추출 후 차감**: 추출은 성공했는데 RPC 차감이 실패하는 케이스는 `chargeSkipped: true`로 보고만 — 베타 한정 허용
+- **Cross-module Deno import**: Edge Function이 `../../../src/lib/...` 프론트엔드 lib을 import. 현재는 browser-only API 미사용이라 동작하지만 향후 추가 시 서버 깨질 위험. 안정화 단계에선 lib을 functions/_shared로 옮기는 것 고려
+- **모델 fallback / 재시도 정책**: 아직 없음 (LLM 호출 실패 시 부분 결과만 반환)

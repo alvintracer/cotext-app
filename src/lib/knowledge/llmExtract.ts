@@ -8,13 +8,17 @@
 //   2. JSON Repair    — 코드펜스/잡담 stripping → 정규식 보정 → 형태 검증
 //   3. Active Capture — 사용자 의도적 캡처(파일 업로드) 위에서만 동작 (ambient 없음)
 //
-// 트랙 A (BYOK)만 구현. 트랙 B(매니지드)는 같은 lib를 서버에서 호출하는 형태로 후속.
+// 트랙 A (BYOK)와 트랙 B(매니지드 서버 호출) 모두 이 lib을 공유한다.
+//
+// ⚠️ 이 파일은 Deno Edge Function에서도 import한다 (supabase/functions/neural-extract-managed).
+// 새 import를 추가할 때 브라우저 전용 API(localStorage / window / document / Vite import.meta.env)
+// 를 끌어오지 말 것 — 서버가 즉시 깨진다. id.ts / types.ts / providers.ts / models.ts 까지 같은 제약.
 // ============================================================
 
 import { slugifyClusterId } from '../neural/id.ts';
 import type { Cluster, Edge, NeuralGraph, NeuralNode } from '../neural/types.ts';
 import { runChat } from '../agent/providers.ts';
-import { getProvider, type ProviderId } from '../agent/models.ts';
+import { getProvider, estimateCost, type ProviderId, type TokenUsage } from '../agent/models.ts';
 
 const MAX_CHUNK_CHARS = 3000;
 const MAX_CHUNK_OVERLAP = 200; // last paragraph repeated into next chunk for continuity
@@ -50,6 +54,16 @@ export interface LlmExtractResult {
   failures: Array<{ source: string; chunkIndex: number; error: string }>;
   /** Optional gap analysis from final LLM pass (v3 "Anti-Blackbox"). */
   gaps?: string[];
+  /** Aggregate token usage across all LLM calls — fed to Track B for actual-cost
+   *  billing. `costUsd` is the platform's wholesale cost (not user charge). */
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    /** Wholesale provider cost in USD if the model has a known price table. */
+    costUsd: number | null;
+    /** Per-model breakdown (primary vs fallback usage gets aggregated separately). */
+    breakdown: Array<{ model: string; inputTokens: number; outputTokens: number; costUsd: number | null }>;
+  };
 }
 
 /**
@@ -80,6 +94,15 @@ export async function generateKnowledgeGraphLLM(
   const blockTextByKey: Record<string, string> = {};
   const failures: LlmExtractResult['failures'] = [];
   let chunksProcessed = 0;
+  // Track B billing input: total token usage + per-model breakdown.
+  // The Edge Function turns this into a precise credit charge after the run.
+  const usageByModel = new Map<string, { inputTokens: number; outputTokens: number }>();
+  const addUsage = (model: string, u: TokenUsage) => {
+    const acc = usageByModel.get(model) ?? { inputTokens: 0, outputTokens: 0 };
+    acc.inputTokens += u.inputTokens || 0;
+    acc.outputTokens += u.outputTokens || 0;
+    usageByModel.set(model, acc);
+  };
 
   for (let i = 0; i < jobs.length; i++) {
     if (signal?.aborted) break;
@@ -94,7 +117,9 @@ export async function generateKnowledgeGraphLLM(
     let payload: ExtractionPayload | null = null;
     let error: string | undefined;
     try {
-      payload = await extractFromChunk(job, graph, llm, signal);
+      const outcome = await extractFromChunk(job, graph, llm, signal);
+      payload = outcome.payload;
+      addUsage(outcome.modelUsed, outcome.usage);
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }
@@ -120,11 +145,26 @@ export async function generateKnowledgeGraphLLM(
   let gaps: string[] | undefined;
   if (graph.nodes.length > 0 && !signal?.aborted) {
     try {
-      gaps = await runGapAnalysis(graph, llm, signal);
+      const gapModel = llm.model || getProvider(llm.providerId).defaultModel;
+      gaps = await runGapAnalysis(graph, llm, signal, (u) => addUsage(gapModel, u));
     } catch { /* gap analysis is nice-to-have, not required */ }
   }
 
   onProgress?.({ phase: 'done', current: jobs.length, total: jobs.length });
+
+  // ── Roll up token usage + wholesale cost ────────────────────────────────
+  const breakdown = [...usageByModel.entries()].map(([model, u]) => ({
+    model,
+    inputTokens: u.inputTokens,
+    outputTokens: u.outputTokens,
+    costUsd: estimateCost(model, u),
+  }));
+  const totalInput = breakdown.reduce((s, b) => s + b.inputTokens, 0);
+  const totalOutput = breakdown.reduce((s, b) => s + b.outputTokens, 0);
+  const knownCosts = breakdown.filter((b) => b.costUsd != null);
+  const totalCostUsd = knownCosts.length === breakdown.length
+    ? knownCosts.reduce((s, b) => s + (b.costUsd as number), 0)
+    : null; // null = at least one model lacks a price entry
 
   return {
     graph,
@@ -136,6 +176,12 @@ export async function generateKnowledgeGraphLLM(
     chunksFailed: failures.length,
     failures,
     gaps,
+    usage: {
+      inputTokens: totalInput,
+      outputTokens: totalOutput,
+      costUsd: totalCostUsd,
+      breakdown,
+    },
   };
 }
 
@@ -253,25 +299,61 @@ ${job.text}
 Emit the JSON object now.`;
 }
 
-// ─── LLM call ───────────────────────────────────────────────────────────────
+// ─── LLM call (with usage tracking + fallback model retry) ────────────────
+
+interface ChunkOutcome {
+  payload: ExtractionPayload | null;
+  /** model that actually produced this chunk (primary or fallback) */
+  modelUsed: string;
+  /** raw token usage from runChat */
+  usage: TokenUsage;
+}
 
 async function extractFromChunk(
   job: { source: string; chunkIndex: number; totalChunks: number; text: string },
   graph: NeuralGraph,
   llm: LlmConfig,
   signal?: AbortSignal,
-): Promise<ExtractionPayload | null> {
+): Promise<ChunkOutcome> {
   const provider = getProvider(llm.providerId);
-  const raw = await runChat({
-    shape: provider.shape,
-    baseURL: provider.baseURL,
-    apiKey: llm.apiKey,
-    model: llm.model || provider.defaultModel,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: buildUserPrompt(job, graph) }],
-    signal,
-  });
-  return repairAndParseJson(raw);
+  const primary = llm.model || provider.defaultModel;
+  const fallback = provider.fallbackModel && provider.fallbackModel !== primary ? provider.fallbackModel : null;
+  const system = SYSTEM_PROMPT;
+  const userMsg = { role: 'user' as const, content: buildUserPrompt(job, graph) };
+  let lastError: unknown;
+
+  for (const model of [primary, fallback].filter(Boolean) as string[]) {
+    if (signal?.aborted) throw new Error('aborted');
+    let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
+    try {
+      const raw = await runChat({
+        shape: provider.shape,
+        baseURL: provider.baseURL,
+        apiKey: llm.apiKey,
+        model,
+        system,
+        messages: [userMsg],
+        signal,
+        onUsage: (u) => { usage = u; },
+      });
+      const payload = repairAndParseJson(raw);
+      // Two retry paths:
+      //  (a) network/provider error → caught below, try fallback
+      //  (b) JSON could not be repaired → also try fallback (model may have been off-format)
+      if (!payload && fallback && model === primary) {
+        lastError = new Error('JSON repair failed; trying fallback model');
+        continue;
+      }
+      return { payload, modelUsed: model, usage };
+    } catch (err) {
+      lastError = err;
+      // Only retry if a fallback exists and we haven't tried it yet
+      if (model === primary && fallback) continue;
+      throw err;
+    }
+  }
+  // exhausted attempts
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 // ─── JSON repair engine (fail-safe #2 output side) ──────────────────────────
@@ -445,7 +527,7 @@ function idForNode(raw: string): string {
 
 const GAP_SYSTEM = `You audit a knowledge graph for missing or weak coverage. Look at the cluster and node list, then list up to 5 gaps the user would benefit from filling. Each gap must be one short Korean or English sentence (match the language of the labels). Output as a JSON array of strings only.`;
 
-async function runGapAnalysis(graph: NeuralGraph, llm: LlmConfig, signal?: AbortSignal): Promise<string[]> {
+async function runGapAnalysis(graph: NeuralGraph, llm: LlmConfig, signal?: AbortSignal, onUsage?: (u: TokenUsage) => void): Promise<string[]> {
   const provider = getProvider(llm.providerId);
   const summary = [
     `Clusters (${graph.clusters.length}): ${graph.clusters.map((c) => c.name).join(', ')}`,
@@ -460,6 +542,7 @@ async function runGapAnalysis(graph: NeuralGraph, llm: LlmConfig, signal?: Abort
     system: GAP_SYSTEM,
     messages: [{ role: 'user', content: summary }],
     signal,
+    onUsage,
   });
   const cleaned = raw.trim()
     .replace(/^```(?:json)?\s*/i, '')

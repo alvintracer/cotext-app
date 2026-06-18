@@ -100,6 +100,19 @@ export interface ManagedKnowledgeExtractResponse {
     providerId: string;
     model: string;
     billingMode: string;
+    requestChars: number;
+    chargedCredits: number;
+    chargeSkipped?: boolean;
+    chargeError?: string | null;
+    balance?: {
+      balanceCredits: number;
+      reservedCredits: number;
+      lifetimeUsedCredits: number;
+      monthlyGrantCredits: number;
+      billingState: string;
+      updatedAt: string;
+      transactionId?: string | null;
+    } | null;
   };
   result: {
     graph: unknown;
@@ -115,8 +128,8 @@ export interface ManagedKnowledgeExtractResponse {
 }
 
 export const managedKnowledgeApi = {
-  extract(sources: Array<{ name: string; text: string }>) {
-    return invokeFunction<ManagedKnowledgeExtractResponse>('neural-extract-managed', { sources });
+  extract(workspaceId: string, sources: Array<{ name: string; text: string }>) {
+    return invokeFunction<ManagedKnowledgeExtractResponse>('neural-extract-managed', { workspace_id: workspaceId, sources });
   },
 };
 

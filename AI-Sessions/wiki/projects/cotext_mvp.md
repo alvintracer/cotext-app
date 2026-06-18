@@ -211,9 +211,14 @@ MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context
   - `trackMode=managed` is now a real extraction path, not just a UI placeholder
   - New Edge Function: `neural-extract-managed`
   - Flow: browser sends extracted text chunks -> server-held LLM key runs Phase 3 extraction -> graph result returns to the browser -> existing auto-merge / Think flow stays unchanged
-  - Current billing state: `beta-unmetered` metadata only, no credit deduction UI yet
+  - Initial billing state shipped as metadata first, then upgraded the same day to real workspace credit deduction
   - BYOK path remains unchanged and still uses browser-local provider keys
 - 2026-06-18 deployment note
   - `neural-extract-managed` Edge Function deployed to project `qyyqsuzqstkhnrmyqskn`
   - managed credits tables were applied directly through Supabase Management API because `supabase db push` is still blocked by the long-standing `20260614` migration history mismatch
   - verification: `managed_credit_balances` backfilled 3 rows, `managed_credit_transactions` starts at 0 rows
+- 2026-06-18 Track B crediting update
+  - Added SQL RPC `apply_managed_credit_usage(workspace_id, user_id, delta, kind, note, metadata)` for atomic balance update + transaction ledger insert
+  - Existing workspaces were normalized to `billing_state='beta'`, `monthly_grant_credits=100`, `balance_credits=100`
+  - Managed extraction now requires a workspace anchor, estimates credits from extracted text volume, and records a `managed_extract` ledger row after successful server extraction
+  - Studio and workspace agent surfaces now show the live balance panel and refresh after a managed extraction finishes

@@ -36,7 +36,7 @@ const CONTENT = {
       title: '바로 써보기',
       desc: '로그인하면 5단계까지 만들어둔 기능을 곧바로 사용할 수 있어요.',
       workspaces: { label: '워크스페이스', desc: 'GitHub repo를 컨텍스트 풀로 연결하고 채팅하듯 메모', tag: 'Phase 1·2' },
-      studio: { label: 'Knowledge Studio', desc: '파일을 한 번에 업로드 → BYOK LLM이 의미 단위로 지식 그래프 추출 + 갭 분석', tag: 'Phase 3·4' },
+      studio: { label: 'MindSync', desc: '파일을 한 번에 업로드 → BYOK LLM이 의미 단위로 지식 그래프 추출 + 갭 분석', tag: 'Phase 3·4' },
       think: { label: 'Think 모드', desc: '생성된 지식망에 질문 → 출처(노드) 클릭으로 점프하는 근거 기반 답변', tag: 'Phase 5' },
     },
     heroH1a: '당신의 생각을 항상',
@@ -111,7 +111,7 @@ const CONTENT = {
       title: 'Try it now',
       desc: 'After login, every feature we shipped through Phase 5 is one click away.',
       workspaces: { label: 'Workspaces', desc: 'Connect a GitHub repo as your context pool and capture notes like chat', tag: 'Phase 1·2' },
-      studio: { label: 'Knowledge Studio', desc: 'Upload docs at once → BYOK LLM extracts a semantic knowledge graph with gap analysis', tag: 'Phase 3·4' },
+      studio: { label: 'MindSync', desc: 'Upload docs at once → BYOK LLM extracts a semantic knowledge graph with gap analysis', tag: 'Phase 3·4' },
       think: { label: 'Think mode', desc: 'Ask the graph and get grounded answers — click [S#] refs to jump to source nodes', tag: 'Phase 5' },
     },
     heroH1a: 'Sync your idea with',
@@ -454,9 +454,6 @@ export default function LandingPage() {
             </div>
             <button className="lp-btn lp-btn-ghost" onClick={() => navigate('/mindsync')}>
               <Brain size={18} /> MindSync
-            </button>
-            <button className="lp-btn lp-btn-ghost" onClick={() => launchTo('/mindsync/think')}>
-              <Bot size={18} /> Think Mode
             </button>
           </div>
         </div>

@@ -55,6 +55,7 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('chat');
+  const [keyboardUp, setKeyboardUp] = useState(false);
   const [commitMessage, setCommitMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [copiedPack, setCopiedPack] = useState(false);
@@ -79,6 +80,19 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
   const [searchOpen, setSearchOpen] = useState(false);
   // Neural Link (P4): graph view
   const [graphOpen, setGraphOpen] = useState(false);
+
+  // Detect keyboard open/close via visualViewport to hide toolbars on mobile
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const threshold = 150; // keyboard is at least 150px
+    const handler = () => {
+      const diff = window.innerHeight - vv.height;
+      setKeyboardUp(diff > threshold);
+    };
+    vv.addEventListener('resize', handler);
+    return () => vv.removeEventListener('resize', handler);
+  }, []);
   // Async block text fetcher for the graph view's detail panel (current room = local content,
   // other rooms in the same repo = fetch via GitHub). Cache to avoid repeat fetches.
   const blockTextCacheRef = useRef(new Map<string, string>());
@@ -868,8 +882,21 @@ ${filteredContent}
             {syncStatus === 'error' && <><AlertTriangle size={12} /> Error</>}
           </span>
         </div>
-        <div className="room-header-actions">
+        <div className={`room-header-actions ${keyboardUp ? 'keyboard-up' : ''}`}>
           <div className="room-action-rail">
+            {/* Mobile-only: Chat/Editor mode buttons merged into action rail */}
+            <button
+              className={`btn btn-ghost btn-sm context-pack-btn mobile-mode-btn ${viewMode === 'chat' ? 'active' : ''}`}
+              onClick={() => setViewMode('chat')}
+            >
+              <MessageSquare size={14} /> Chat
+            </button>
+            <button
+              className={`btn btn-ghost btn-sm context-pack-btn mobile-mode-btn ${viewMode === 'editor' ? 'active' : ''}`}
+              onClick={() => setViewMode('editor')}
+            >
+              <Code size={14} /> Editor
+            </button>
             <button
               className={`btn btn-ghost btn-sm context-pack-btn ${copiedPack ? 'copied' : ''}`}
               onClick={handleCopyContextPack}

@@ -3003,6 +3003,11 @@ button:focus-visible {
   min-width: 0;
 }
 
+/* Mobile-only mode buttons are hidden on desktop */
+.mobile-mode-btn {
+  display: none !important;
+}
+
 .room-mode-rail {
   display: flex;
   align-items: center;
@@ -4853,16 +4858,44 @@ button:focus-visible {
     display: none;
   }
 
+  /* On mobile, hide the separate mode-rail — Chat/Editor are in the action rail */
+  .room-mode-rail {
+    display: none !important;
+  }
+
+  /* Show the mobile-only Chat/Editor buttons */
+  .mobile-mode-btn {
+    display: inline-flex !important;
+  }
+  .mobile-mode-btn.active {
+    background: var(--accent) !important;
+    color: #fff !important;
+    border-color: var(--accent) !important;
+  }
+
+  /* When keyboard is up, hide header actions to maximize chat area */
+  .room-header-actions.keyboard-up {
+    display: none !important;
+  }
+
   .commit-bar {
     flex-wrap: wrap;
-    gap: 6px;
-    padding: 8px 10px;
+    gap: 4px;
+    padding: 6px 10px;
   }
 
   .commit-input-wrapper {
     order: 3;
     width: 100%;
     flex-basis: 100%;
+  }
+
+  .commit-input {
+    padding: 5px 10px;
+  }
+
+  .commit-status {
+    font-size: 11px;
   }
 
   /* Composer tweaks for mobile */

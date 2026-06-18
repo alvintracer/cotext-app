@@ -1,6 +1,6 @@
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, startTransition, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Brain, Check, GitMerge, Graph, Lightning, Link as LinkIcon, Spinner as Loader2, UploadSimple, Warning, X,
+  Brain, Check, GitMerge, Globe, Graph, Lightning, Link as LinkIcon, Spinner as Loader2, UploadSimple, Warning, X,
 } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../contexts/WorkspaceContext';
@@ -28,6 +28,9 @@ import SourceFileList from '../components/mindsync/SourceFileList';
 import AnchorWorkspacePanel from '../components/mindsync/AnchorWorkspacePanel';
 
 import '../styles/mindsync-studio.css';
+
+// Lazy-load 3D globe — keeps three.js out of the main bundle
+const NeuralGlobe = lazy(() => import('../components/NeuralGlobe'));
 
 interface SourceItem {
   id: string;
@@ -96,6 +99,7 @@ export default function KnowledgeStudioPage() {
   const [dragging, setDragging] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
+  const [globeOpen, setGlobeOpen] = useState(false);
   const [result, setResult] = useState<KnowledgeGraphResult | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   // Phase 3: LLM extraction progress + abort + failures + gaps
@@ -342,6 +346,7 @@ export default function KnowledgeStudioPage() {
         startTransition(() => {
           saveKnowledgeSnapshot(final);
           setResult(final);
+          setGlobeOpen(true); // Auto-open 3D globe after extraction
           setLlmFailures(managed.result.failures);
           setLlmGaps(managed.result.gaps ?? []);
           setManagedInfo({
@@ -390,6 +395,7 @@ export default function KnowledgeStudioPage() {
         startTransition(() => {
           saveKnowledgeSnapshot(final);
           setResult(final);
+          setGlobeOpen(true); // Auto-open 3D globe after LLM extraction
           setLlmFailures(llmResult.failures);
           setLlmGaps(llmResult.gaps ?? []);
           setGenerating(false);
@@ -412,6 +418,7 @@ export default function KnowledgeStudioPage() {
       startTransition(() => {
         saveKnowledgeSnapshot(next);
         setResult(next);
+        setGlobeOpen(true); // Auto-open 3D globe after extraction
         setGenerating(false);
       });
       autoMergeIntoAnchor(next);
@@ -550,6 +557,10 @@ export default function KnowledgeStudioPage() {
           <button className="btn btn-ghost" onClick={() => setGraphOpen(true)} disabled={!result?.graph.nodes.length}>
             <Graph size={16} />
             {ko ? '그래프 보기' : 'Open graph'}
+          </button>
+          <button className="btn btn-ghost" onClick={() => setGlobeOpen(true)} disabled={!result?.graph.nodes.length}>
+            <Globe size={16} />
+            {ko ? '3D 글로브' : '3D Globe'}
           </button>
           <button className="btn btn-ghost" onClick={() => navigate('/mindsync/think')} disabled={!result?.graph.nodes.length}>
             <Brain size={16} />
@@ -757,6 +768,21 @@ export default function KnowledgeStudioPage() {
             onJump={() => {}}
           />
         </NeuralGraphBoundary>
+      )}
+
+      {/* ── 3D Neural Globe ────────────────────────────────────── */}
+      {globeOpen && result && (
+        <Suspense fallback={
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4ecafc' }}>
+            <Loader2 size={32} className="spin" />
+          </div>
+        }>
+          <NeuralGlobe
+            graph={result.graph}
+            onClose={() => setGlobeOpen(false)}
+            language={language}
+          />
+        </Suspense>
       )}
 
       <ConnectMindSyncModal

@@ -140,10 +140,95 @@ export function searchClusters(g: NeuralGraph, query: string): Cluster[] {
   );
 }
 
+// ---- 그래프↔그래프 머지 (Phase 4: Studio → Workspace) ------------------
+
+export interface MergeStats {
+  newClusters: number;
+  mergedClusters: number;
+  newNodes: number;
+  mergedNodes: number;
+  newEdges: number;
+  mergedEdges: number;
+  /** Edges dropped because at least one endpoint isn't in the merged node set. */
+  droppedEdges: number;
+}
+
 /**
- * 한 노드의 연관 노드: 같은 클러스터(sameCluster) + 명시적 엣지(linked).
- * 자기 자신은 제외. P2 백링크 패널의 코어.
+ * Pure 2-graph union with conservative conflict resolution:
+ *   - cluster id collision   → keep existing name/color/desc, only fill blanks
+ *   - node id collision      → keep existing label, union clusters[]
+ *   - edge (from,to) collision → linkEdge dedupes + updates type if provided
+ *   - dangling edge (endpoint missing) → dropped (counted)
+ * Returns merged graph + stats for preview UI.
  */
+export function mergeGraphs(base: NeuralGraph, incoming: NeuralGraph): { graph: NeuralGraph; stats: MergeStats } {
+  let g: NeuralGraph = base;
+  const stats: MergeStats = {
+    newClusters: 0, mergedClusters: 0,
+    newNodes: 0, mergedNodes: 0,
+    newEdges: 0, mergedEdges: 0,
+    droppedEdges: 0,
+  };
+
+  // Clusters
+  for (const c of incoming.clusters) {
+    const existing = g.clusters.find((x) => x.id === c.id);
+    if (existing) {
+      stats.mergedClusters += 1;
+      const updated: Cluster = {
+        ...existing,
+        name: existing.name || c.name,
+        color: existing.color || c.color,
+        desc: existing.desc || c.desc,
+      };
+      g = { ...g, clusters: g.clusters.map((x) => (x.id === c.id ? updated : x)) };
+    } else {
+      stats.newClusters += 1;
+      g = { ...g, clusters: [...g.clusters, c] };
+    }
+  }
+
+  // Nodes
+  for (const n of incoming.nodes) {
+    const existing = g.nodes.find((x) => x.id === n.id);
+    if (existing) {
+      stats.mergedNodes += 1;
+      const clusters = [...new Set([...existing.clusters, ...n.clusters])];
+      const updated: NeuralNode = {
+        ...existing,
+        clusters,
+        // Keep existing room/blockTs (they anchor to real cotext.md blocks if any);
+        // only adopt incoming label when existing label is empty or equals the id.
+        label: existing.label && existing.label !== existing.id ? existing.label : (n.label || existing.label),
+      };
+      g = { ...g, nodes: g.nodes.map((x) => (x.id === n.id ? updated : x)) };
+    } else {
+      stats.newNodes += 1;
+      g = { ...g, nodes: [...g.nodes, n] };
+    }
+  }
+
+  // Edges — drop dangling, dedupe via linkEdge
+  const validIds = new Set(g.nodes.map((n) => n.id));
+  const edgeKey = (a: string, b: string) => [a, b].sort().join('::');
+  const before = new Set(g.edges.map((e) => edgeKey(e.from, e.to)));
+  for (const e of incoming.edges) {
+    if (!validIds.has(e.from) || !validIds.has(e.to)) {
+      stats.droppedEdges += 1;
+      continue;
+    }
+    const key = edgeKey(e.from, e.to);
+    if (before.has(key)) {
+      stats.mergedEdges += 1;
+    } else {
+      stats.newEdges += 1;
+    }
+    g = linkEdge(g, e.from, e.to, e.type);
+  }
+
+  g = { ...g, updatedAt: new Date().toISOString() };
+  return { graph: g, stats };
+}
 export function relatedNodes(
   g: NeuralGraph,
   nodeId: string,

@@ -12,6 +12,7 @@ import MorphingComposer from './MorphingComposer';
 import CommitBar from './CommitBar';
 import CotextEditor from './CotextEditor';
 import NeuralGraphView from './NeuralGraphView';
+import NeuralGraphBoundary from './NeuralGraphBoundary';
 import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X, PencilSimple, CodepenLogo, ArrowDown, Graph, Tag, Plus, MagnifyingGlass, LinkSimple, ArrowSquareOut } from '@phosphor-icons/react';
 import { generateCotextGuide, generateCotextIndex, generateAgentsPointerBlock, upsertPointerBlock } from '../lib/contextGuide';
 import {
@@ -1001,20 +1002,25 @@ ${filteredContent}
         />
       )}
 
-      {/* Graph view (Neural Link P4) */}
+      {/* Graph view (MindSync inside workspace) */}
       {graphOpen && (
-        <NeuralGraphView
-          graph={graph}
-          currentRoom={room.path}
-          language={language}
-          getBlockText={getBlockText}
+        <NeuralGraphBoundary
+          surfaceLabel={language === 'ko' ? '마인드싱크 그래프' : 'MindSync graph'}
           onClose={() => setGraphOpen(false)}
-          onJump={(ts) => { setGraphOpen(false); jumpToBlock(ts); }}
-          onNavigateRoom={(path, ts) => { setGraphOpen(false); onNavigateRoom?.(path, ts); }}
-          onDeleteNode={(n) => { if (n.room === room.path) handleRemoveNode(n.blockTs); }}
-          onLinkEdge={handleLinkEdge}
-          onUnlinkEdge={handleUnlinkEdge}
-        />
+        >
+          <NeuralGraphView
+            graph={graph}
+            currentRoom={room.path}
+            language={language}
+            getBlockText={getBlockText}
+            onClose={() => setGraphOpen(false)}
+            onJump={(ts) => { setGraphOpen(false); jumpToBlock(ts); }}
+            onNavigateRoom={(path, ts) => { setGraphOpen(false); onNavigateRoom?.(path, ts); }}
+            onDeleteNode={(n) => { if (n.room === room.path) handleRemoveNode(n.blockTs); }}
+            onLinkEdge={handleLinkEdge}
+            onUnlinkEdge={handleUnlinkEdge}
+          />
+        </NeuralGraphBoundary>
       )}
 
       {/* Cross-repo neural search modal (Neural Link P3) */}

@@ -3,8 +3,8 @@
 // Supports streaming via SSE when `onToken` is provided.
 // Agent tool loop supports ALL shapes (openai, anthropic, gemini).
 
-import type { ApiShape, TokenUsage } from './models';
-import { TOOL_DEFS, TOOL_DEFS_GEMINI, TOOL_DEFS_ANTHROPIC } from './tools';
+import type { ApiShape, TokenUsage } from './models.ts';
+import { TOOL_DEFS, TOOL_DEFS_GEMINI, TOOL_DEFS_ANTHROPIC } from './tools.ts';
 
 export interface ChatMsg {
   role: 'user' | 'assistant';

@@ -3,17 +3,42 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight, Sun, Moon, Monitor, PaperPlaneRight as Send,
   Image as ImageIcon, DeviceMobile as Smartphone, Robot as Bot, Check, Stack as Layers,
-  ChatText as MessageSquare, GitBranch, GithubLogo, Package, ShareNetwork, AndroidLogo
+  ChatText as MessageSquare, GitBranch, GithubLogo, Package, ShareNetwork, AndroidLogo, Brain,
 } from '@phosphor-icons/react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../styles/landing.css';
 
+interface GithubReleaseAsset {
+  name: string;
+  browser_download_url: string;
+}
+
+interface GithubRelease {
+  tag_name?: string;
+  assets: GithubReleaseAsset[];
+}
+
 const CONTENT = {
   ko: {
     nav: { capture: '캡처', github: 'GitHub', context: '컨텍스트', how: '작동 방식' },
     launch: 'Launch',
+    open: '열기',
     eyebrow: 'GitHub-native context capture',
+    mindsync: {
+      tag: '두뇌 레이어 · MindSync',
+      title: '문서를 두뇌로, 두뇌를 워크스페이스로',
+      desc: '워드·한글·PPT·PDF를 한 번에 올리면 BYOK LLM이 의미 단위로 지식 그래프(노드·클러스터·엣지)를 뽑아 대상 워크스페이스의 두뇌에 시드하거나 증강합니다. 질문하면 출처 노드까지 클릭으로 추적.',
+      cta: 'MindSync 열기',
+      sub: 'Cotext 워크스페이스가 컨텍스트 풀이라면, MindSync는 그 위의 두뇌 레이어 — 어디서든 같은 두뇌에 접근합니다.',
+    },
+    tools: {
+      title: '바로 써보기',
+      desc: '로그인하면 5단계까지 만들어둔 기능을 곧바로 사용할 수 있어요.',
+      workspaces: { label: '워크스페이스', desc: 'GitHub repo를 컨텍스트 풀로 연결하고 채팅하듯 메모', tag: 'Phase 1·2' },
+      studio: { label: 'Knowledge Studio', desc: '문서를 한 번에 업로드 → BYOK LLM이 의미 단위로 지식 그래프 추출 + 갭 분석', tag: 'Phase 3·4' },
+      think: { label: 'Think 모드', desc: '생성된 지식망에 질문 → 출처(노드) 클릭으로 점프하는 근거 기반 답변', tag: 'Phase 5' },
+    },
     heroH1a: '당신의 생각을 항상',
     heroH1b: '팀과 에이전트와 연결하세요',
     heroSub:
@@ -74,6 +99,21 @@ const CONTENT = {
     nav: { capture: 'Capture', github: 'GitHub', context: 'Context', how: 'How it works' },
     launch: 'Launch',
     eyebrow: 'GitHub-native context capture',
+    open: 'Open',
+    mindsync: {
+      tag: 'Brain layer · MindSync',
+      title: 'Docs into a brain, brain into your workspace',
+      desc: 'Drop Word, HWPX, PPT, PDF; BYOK LLM extracts a semantic graph (nodes / clusters / edges) and seeds (or augments) your target workspace brain. Ask the brain — click any [S#] to jump to its source node.',
+      cta: 'Open MindSync',
+      sub: 'If a Cotext workspace is the context pool, MindSync is the brain layer above — the same brain, reachable from anywhere.',
+    },
+    tools: {
+      title: 'Try it now',
+      desc: 'After login, every feature we shipped through Phase 5 is one click away.',
+      workspaces: { label: 'Workspaces', desc: 'Connect a GitHub repo as your context pool and capture notes like chat', tag: 'Phase 1·2' },
+      studio: { label: 'Knowledge Studio', desc: 'Upload docs at once → BYOK LLM extracts a semantic knowledge graph with gap analysis', tag: 'Phase 3·4' },
+      think: { label: 'Think mode', desc: 'Ask the graph and get grounded answers — click [S#] refs to jump to source nodes', tag: 'Phase 5' },
+    },
     heroH1a: 'Sync your idea with',
     heroH1b: 'your team and agents',
     heroSub:
@@ -140,27 +180,35 @@ export default function LandingPage() {
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
 
   const launch = () => navigate('/login');
+  const launchTo = (path: string) => {
+    try {
+      localStorage.setItem('cotext-post-login-redirect', path);
+    } catch {
+      // Ignore storage write failures and continue to login.
+    }
+    navigate('/login');
+  };
 
   // Fetch latest release version on mount
   useEffect(() => {
     fetch('https://api.github.com/repos/alvintracer/cotext-app/releases/latest')
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data?.tag_name) setLatestVersion(data.tag_name); })
-      .catch(() => {});
+      .catch(() => undefined);
   }, []);
   
   const downloadAndroidApp = async () => {
     try {
       const res = await fetch('https://api.github.com/repos/alvintracer/cotext-app/releases/latest');
       if (!res.ok) throw new Error('No release found');
-      const data = await res.json();
-      const apkAsset = data.assets.find((a: any) => a.name.endsWith('.apk'));
+      const data = await res.json() as GithubRelease;
+      const apkAsset = data.assets.find((asset) => asset.name.endsWith('.apk'));
       if (apkAsset) {
         window.open(apkAsset.browser_download_url, '_blank');
       } else {
         alert(language === 'ko' ? '아직 배포된 APK 파일이 없습니다.' : 'APK release not found yet.');
       }
-    } catch (e) {
+    } catch {
       alert(language === 'ko' ? '최신 릴리즈 정보를 가져오지 못했습니다.' : 'Failed to fetch release info.');
     }
   };
@@ -224,6 +272,16 @@ export default function LandingPage() {
             <GithubLogo size={18} /> {c.githubStart}
           </button>
         </div>
+        {/* MindSync panel — single-CTA brain-layer surface (replaces 3 separate tool cards) */}
+        <section className="lp-mindsync" aria-label={c.mindsync.title}>
+          <span className="lp-mindsync-tag"><Brain size={12} weight="fill" /> {c.mindsync.tag}</span>
+          <h2 className="lp-mindsync-title">{c.mindsync.title}</h2>
+          <p className="lp-mindsync-desc">{c.mindsync.desc}</p>
+          <button className="lp-btn lp-btn-primary lp-btn-lg lp-mindsync-cta" onClick={() => launchTo('/knowledge-studio')}>
+            <Brain size={18} weight="fill" /> {c.mindsync.cta} <ArrowRight size={16} />
+          </button>
+          <p className="lp-mindsync-sub">{c.mindsync.sub}</p>
+        </section>
         <p className="lp-hero-note">{c.heroNote}</p>
 
         <AppMockup c={c} />
@@ -394,6 +452,12 @@ export default function LandingPage() {
               </button>
               {latestVersion && <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{latestVersion}</span>}
             </div>
+            <button className="lp-btn lp-btn-ghost" onClick={() => launchTo('/knowledge-studio')}>
+              <Brain size={18} /> Knowledge Studio
+            </button>
+            <button className="lp-btn lp-btn-ghost" onClick={() => launchTo('/knowledge-think')}>
+              <Bot size={18} /> Think Mode
+            </button>
           </div>
         </div>
       </section>

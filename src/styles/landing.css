@@ -199,9 +199,161 @@
   flex-wrap: wrap;
   margin-bottom: 16px;
 }
+.lp-hero-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
 .lp-hero-note {
   font-size: var(--text-xs);
   color: var(--text-dim);
+}
+
+/* MindSync panel — single hero CTA under the launch row, replaces 3 tool cards */
+.lp-mindsync {
+  max-width: 760px;
+  margin: 32px auto 14px;
+  padding: 28px 32px 26px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%),
+    color-mix(in srgb, var(--surface-2) 78%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  border-radius: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 14px 30px -22px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.lp-mindsync-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-muted);
+  border-radius: var(--radius-full);
+}
+.lp-mindsync-title {
+  font-size: clamp(20px, 3vw, 28px);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+  margin: 4px 0 2px;
+  color: var(--text);
+}
+.lp-mindsync-desc {
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  color: var(--text-muted);
+  margin: 0 0 6px;
+  max-width: 620px;
+}
+.lp-mindsync-cta { margin-top: 6px; }
+.lp-mindsync-sub {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  margin: 4px 0 0;
+  max-width: 600px;
+}
+@media (max-width: 640px) {
+  .lp-mindsync { padding: 22px 18px 20px; margin-top: 24px; }
+}
+
+/* "Try it now" — Phase 1~5 quick access cards under the hero */
+.lp-tools {
+  max-width: 980px;
+  margin: 28px auto 14px;
+  text-align: left;
+}
+.lp-tools-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+.lp-tools-head strong {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.lp-tools-head span {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  text-align: right;
+}
+.lp-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.lp-tool-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px 18px 14px;
+  text-align: left;
+  background: color-mix(in srgb, var(--surface-2) 80%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: border-color 0.18s, transform 0.18s, background 0.18s;
+}
+.lp-tool-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.lp-tool-tag {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: var(--accent-muted);
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+}
+.lp-tool-icon { color: var(--accent); }
+.lp-tool-label {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+.lp-tool-desc {
+  font-size: var(--text-xs);
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.lp-tool-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--accent);
+  margin-top: 4px;
+}
+@media (max-width: 720px) {
+  .lp-tools-grid { grid-template-columns: 1fr; }
+  .lp-tools-head { flex-direction: column; align-items: stretch; }
+  .lp-tools-head span { text-align: left; }
 }
 
 /* ── App mockup window ────────────────────────────────────── */

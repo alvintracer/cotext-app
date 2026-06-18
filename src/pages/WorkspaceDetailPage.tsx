@@ -9,6 +9,7 @@ import type { Room } from '../types/room';
 import RoomView from '../components/RoomView';
 import ApiKeyManager from '../components/ApiKeyManager';
 import AgentPanel from '../components/AgentPanel';
+import ManagedCreditsPanel from '../components/ManagedCreditsPanel';
 import {
   FolderOpen, Plus, CaretLeft as ChevronLeft, MagnifyingGlass as Search, ChatText as MessageSquare,
   TreeStructure as FolderTree, CaretRight as ChevronRight, List as Menu, X,
@@ -126,6 +127,7 @@ export default function WorkspaceDetailPage() {
   }, [workspaceId, user]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadRooms synchronizes external data for the selected workspace
     loadRooms();
   }, [loadRooms]);
 
@@ -582,7 +584,7 @@ export default function WorkspaceDetailPage() {
                     )
                   );
 
-                  const renderItems = (items: TreeItem[], depth: number = 0, _parentPath: string = '') =>
+                  const renderItems = (items: TreeItem[], depth: number = 0) =>
                     items
                       .filter((item) => item.type === 'dir')
                       .map((item) => {
@@ -609,7 +611,7 @@ export default function WorkspaceDetailPage() {
                                 <span>{baseName}</span>
                               </button>
                             </div>
-                            {isExpanded && children && children.length > 0 && renderItems(children, depth + 1, item.path)}
+                            {isExpanded && children && children.length > 0 && renderItems(children, depth + 1)}
                             {isExpanded && children && renderNewFolderInput(item.path, depth + 1)}
                             {isExpanded && !children && (
                               <div className="tree-empty" style={{ paddingLeft: `${26 + depth * 16}px` }}>
@@ -621,7 +623,7 @@ export default function WorkspaceDetailPage() {
                       });
                   return (
                     <>
-                      {renderItems(tree, 0, '')}
+                      {renderItems(tree, 0)}
                       {renderNewFolderInput('', 0)}
                     </>
                   );
@@ -746,7 +748,10 @@ export default function WorkspaceDetailPage() {
               </>
             ) : (
               /* Agent tab */
-              <ApiKeyManager workspaceId={workspace.id} repoOwner={workspace.github_owner} repoName={workspace.github_repo} />
+              <>
+                <ManagedCreditsPanel workspaceId={workspace.id} compact />
+                <ApiKeyManager workspaceId={workspace.id} repoOwner={workspace.github_owner} repoName={workspace.github_repo} />
+              </>
             )}
           </div>
         </div>

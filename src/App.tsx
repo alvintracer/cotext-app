@@ -14,6 +14,7 @@ import AuthCallbackPage from './pages/AuthCallbackPage';
 import InvitePage from './pages/InvitePage';
 import SharePage from './pages/SharePage';
 import KnowledgeStudioPage from './pages/KnowledgeStudioPage';
+import KnowledgeThinkPage from './pages/KnowledgeThinkPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,8 +69,12 @@ function AppRoutes() {
         path="/login"
         element={user && !loading ? <Navigate to={(() => {
           try {
-            const r = localStorage.getItem('cotext-invite-redirect');
-            if (r && r.startsWith('/')) { localStorage.removeItem('cotext-invite-redirect'); return r; }
+            const r = localStorage.getItem('cotext-post-login-redirect') || localStorage.getItem('cotext-invite-redirect');
+            if (r && r.startsWith('/')) {
+              localStorage.removeItem('cotext-post-login-redirect');
+              localStorage.removeItem('cotext-invite-redirect');
+              return r;
+            }
           } catch {
             // Ignore invalid local redirect state and fall back to the default route.
           }
@@ -90,6 +95,7 @@ function AppRoutes() {
       >
         <Route path="/workspaces" element={<WorkspacesPage />} />
         <Route path="/knowledge-studio" element={<KnowledgeStudioPage />} />
+        <Route path="/knowledge-think" element={<KnowledgeThinkPage />} />
         <Route path="/workspace/:workspaceId" element={<WorkspaceDetailPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/workspaces" replace />} />

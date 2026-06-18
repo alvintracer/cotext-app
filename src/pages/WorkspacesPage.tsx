@@ -3,20 +3,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useNavigate } from 'react-router-dom';
 import { Plus, GitBranch, FolderSimple as FolderGit2, CaretRight as ChevronRight, Link, FilePlus, Spinner as Loader2, MagnifyingGlass as Search, Crown, UserPlus } from '@phosphor-icons/react';
-import { githubApi } from '../lib/supabase/functions';
+import { githubApi, type GithubRepo } from '../lib/supabase/functions';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Workspace } from '../types/workspace';
 import { useLanguage } from '../contexts/LanguageContext';
 
 type ModalMode = 'choose' | 'create' | 'connect';
-
-interface GithubRepo {
-  name: string;
-  full_name: string;
-  owner: { login: string };
-  private: boolean;
-  description: string | null;
-}
 
 export default function WorkspacesPage() {
   const { user } = useAuth();
@@ -63,6 +55,7 @@ export default function WorkspacesPage() {
   // Load repos when connect mode is selected
   useEffect(() => {
     if (mode === 'connect' && repos.length === 0 && !loadingRepos) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time repo fetch when switching into connect mode
       setLoadingRepos(true);
       githubApi.listRepos()
         .then((data) => {
@@ -79,7 +72,7 @@ export default function WorkspacesPage() {
 
   const handleSelectRepo = useCallback((repo: GithubRepo) => {
     setRepoName(repo.name);
-    setOwnerName(repo.owner.login);
+    setOwnerName(repo.owner?.login || '');
     setWorkspaceName(repo.name);
     setStep(3); // Jump to workspace name step
   }, []);

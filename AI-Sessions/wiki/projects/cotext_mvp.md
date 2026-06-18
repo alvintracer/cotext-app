@@ -195,3 +195,25 @@ MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context
   - chat timeline에 작은 GitHub avatar + username pill을 추가해 블록 단위 작성자를 바로 식별 가능하게 함
   - 정렬 범위: `src/lib/markdown`, `RoomView`, `AgentPanel`, `context-api`, `context-share`, Neural parser/guide
   - 검증: `npm run build` 통과
+
+## 2026-06-17 Addendum
+
+- Knowledge Studio 분리 페이지 추가
+  - 대용량 개인 문서(DOCX/HWPX/PPTX/PDF 등)를 업로드해 텍스트만 추출하고, 그 결과로 1회성 개인 지식망(노드/관계/클러스터)을 생성하는 별도 페이지 추가
+  - 기존 workspace/room 기반 Neural Link와 섞지 않도록 `/knowledge-studio` 라우트와 헤더 진입점을 분리
+  - shared graph 오염 방지를 위해 workspace `.cotext/neural.json`에는 쓰지 않고, 전용 워크벤치에서 in-memory 그래프만 생성
+  - 추출기 확장: `pptx` 지원 추가
+  - 상세 설계/구현/검증/후속 포인트는 [[AI-Sessions/wiki/projects/cotext-knowledge-studio]] 참고
+
+## 2026-06-18 Addendum
+
+- MindSync Track B beta started
+  - `trackMode=managed` is now a real extraction path, not just a UI placeholder
+  - New Edge Function: `neural-extract-managed`
+  - Flow: browser sends extracted text chunks -> server-held LLM key runs Phase 3 extraction -> graph result returns to the browser -> existing auto-merge / Think flow stays unchanged
+  - Current billing state: `beta-unmetered` metadata only, no credit deduction UI yet
+  - BYOK path remains unchanged and still uses browser-local provider keys
+- 2026-06-18 deployment note
+  - `neural-extract-managed` Edge Function deployed to project `qyyqsuzqstkhnrmyqskn`
+  - managed credits tables were applied directly through Supabase Management API because `supabase db push` is still blocked by the long-standing `20260614` migration history mismatch
+  - verification: `managed_credit_balances` backfilled 3 rows, `managed_credit_transactions` starts at 0 rows

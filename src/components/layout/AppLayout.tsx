@@ -71,7 +71,7 @@ export default function AppLayout() {
           </button>
           <button className="app-header-link" onClick={() => navigate('/knowledge-studio')}>
             <Brain size={14} weight="fill" />
-            <span>{language === 'ko' ? '지식망' : 'Studio'}</span>
+            <span>MindSync</span>
           </button>
         </div>
 

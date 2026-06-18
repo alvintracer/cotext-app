@@ -31,6 +31,8 @@
 - [[AI-Sessions/wiki/projects/chatgpt-share-02-structure]]
 - [[AI-Sessions/wiki/projects/chatgpt-share-03-rules-and-prompts]]
 - [[AI-Sessions/wiki/projects/cotext_mvp]]
+- [[AI-Sessions/wiki/projects/cotext-knowledge-studio]] — Studio 현재 상태(scaffolding)
+- [[AI-Sessions/wiki/projects/cotext-knowledge-studio-plan]] — Studio → GBrain 수준 진화 수행 계획 (Phase 1~5)
 
 ## Decisions
 
@@ -43,6 +45,7 @@
 - [[AI-Sessions/wiki/concepts/cotext-neural-link-second-brain]] ??Cotext 援ъ“/Neural Link 援ъ“? ?먮━, Obsidian怨쇱쓽 李⑥씠, second brain/knowledge graph ?뺤옣 諛⑸향
 
 - [[AI-Sessions/wiki/concepts/cotext-neural-link-second-brain-ko]] ??Cotext/Neural Link 구조와 원리 한국어 정리, Obsidian 비교, second brain/인공 지식망 방향성
+ - [[AI-Sessions/wiki/concepts/neural-link-vs-gbrain]]
 ## Design
 
 - [[AI-Sessions/wiki/design/cotext-brand-and-landing]]

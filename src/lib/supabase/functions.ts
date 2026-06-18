@@ -1,6 +1,6 @@
 import { supabase } from './client';
 
-export async function invokeFunction<T = any>(name: string, body?: Record<string, any>): Promise<T> {
+export async function invokeFunction<T = unknown>(name: string, body?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke(name, {
     body: body || {},
   });
@@ -8,10 +8,29 @@ export async function invokeFunction<T = any>(name: string, body?: Record<string
   return data as T;
 }
 
+export interface GithubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  private: boolean;
+  description?: string | null;
+  default_branch?: string;
+  owner?: {
+    login: string;
+  };
+}
+
+export interface GithubTreeItem {
+  name: string;
+  path: string;
+  type: 'file' | 'dir';
+  children?: GithubTreeItem[];
+}
+
 // GitHub API wrappers via Edge Functions
 export const githubApi = {
   async listRepos() {
-    return invokeFunction<{ repos: any[] }>('github-repos');
+    return invokeFunction<{ repos: GithubRepo[] }>('github-repos');
   },
 
   async createRepo(name: string, isPrivate: boolean = true, description?: string) {
@@ -19,7 +38,7 @@ export const githubApi = {
   },
 
   async getTree(owner: string, repo: string, branch: string, path?: string) {
-    return invokeFunction('github-tree', { owner, repo, branch, path });
+    return invokeFunction<{ tree: GithubTreeItem[] }>('github-tree', { owner, repo, branch, path });
   },
 
   async getRoomContent(owner: string, repo: string, branch: string, path: string) {
@@ -72,6 +91,32 @@ export const neuralApi = {
     return invokeFunction<{ ok: boolean; results: Array<Record<string, unknown>> }>(
       'neural-index', { action: 'reindex' },
     );
+  },
+};
+
+export interface ManagedKnowledgeExtractResponse {
+  ok: boolean;
+  managed: {
+    providerId: string;
+    model: string;
+    billingMode: string;
+  };
+  result: {
+    graph: unknown;
+    nodeTextById: Record<string, string>;
+    blockTextByKey: Record<string, string>;
+    sourceCount: number;
+    sectionCount: number;
+    chunksProcessed: number;
+    chunksFailed: number;
+    failures: Array<{ source: string; chunkIndex: number; error: string }>;
+    gaps?: string[];
+  };
+}
+
+export const managedKnowledgeApi = {
+  extract(sources: Array<{ name: string; text: string }>) {
+    return invokeFunction<ManagedKnowledgeExtractResponse>('neural-extract-managed', { sources });
   },
 };
 

@@ -180,15 +180,6 @@ export default function LandingPage() {
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
 
   const launch = () => navigate('/login');
-  const launchTo = (path: string) => {
-    try {
-      localStorage.setItem('cotext-post-login-redirect', path);
-    } catch {
-      // Ignore storage write failures and continue to login.
-    }
-    navigate('/login');
-  };
-
   // Fetch latest release version on mount
   useEffect(() => {
     fetch('https://api.github.com/repos/alvintracer/cotext-app/releases/latest')

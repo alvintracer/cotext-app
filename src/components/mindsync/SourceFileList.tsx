@@ -53,7 +53,7 @@ export default function SourceFileList({
   return (
     <div className="ms-source-panel ms-glass-card">
       <div className="ms-panel-header">
-        <h3>{ko ? '업로드된 문서' : 'Uploaded documents'}</h3>
+        <h3>{ko ? '업로드된 파일' : 'Uploaded files'}</h3>
         <span className="ms-panel-count">
           {formatCount(sources.length)}
         </span>
@@ -64,7 +64,7 @@ export default function SourceFileList({
         {sources.length === 0 && (
           <div className="ms-empty">
             <Files size={24} />
-            <p>{ko ? '아직 추가된 문서가 없습니다.' : 'No documents yet.'}</p>
+            <p>{ko ? '아직 추가된 파일이 없습니다.' : 'No files yet.'}</p>
           </div>
         )}
 

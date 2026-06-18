@@ -534,7 +534,7 @@ export default function KnowledgeStudioPage() {
         <div className="ms-hero-actions">
           <button className="btn btn-primary" onClick={() => inputRef.current?.click()}>
             <UploadSimple size={16} />
-            {ko ? '문서 추가' : 'Add documents'}
+            {ko ? '파일 추가' : 'Add files'}
           </button>
           {generating ? (
             <button className="btn btn-secondary" onClick={handleAbortGenerate}>

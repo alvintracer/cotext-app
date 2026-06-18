@@ -94,15 +94,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('[Auth] appUrlOpen:', event.url);
         try {
           const url = event.url;
-          // Extract hash fragment: ...#access_token=...&refresh_token=...
+          // Extract hash fragment: ...#access_token=...&refresh_token=...&provider_token=...
           const hashIndex = url.indexOf('#');
           if (hashIndex === -1) return;
           const hashParams = new URLSearchParams(url.substring(hashIndex + 1));
           const accessToken = hashParams.get('access_token');
           const refreshToken = hashParams.get('refresh_token');
+          const providerToken = hashParams.get('provider_token');
 
           if (accessToken && refreshToken) {
-            const { error: sessionError } = await supabase.auth.setSession({
+            const { data, error: sessionError } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,
             });
@@ -110,6 +111,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.error('[Auth] setSession error:', sessionError);
             } else {
               console.log('[Auth] Native OAuth session set successfully');
+              // Store GitHub token — the SIGNED_IN event won't have provider_token
+              // when session is set manually, so we must do it here explicitly.
+              if (providerToken && data?.user?.id) {
+                storeGitHubToken(data.user.id, providerToken);
+              }
             }
           }
         } catch (err) {

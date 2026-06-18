@@ -4879,22 +4879,32 @@ button:focus-visible {
   }
 
   .commit-bar {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 4px;
-    padding: 6px 10px;
+    padding: 4px 8px;
   }
 
   .commit-input-wrapper {
-    order: 3;
-    width: 100%;
-    flex-basis: 100%;
+    flex: 1;
+    min-width: 0;
   }
 
   .commit-input {
-    padding: 5px 10px;
+    padding: 4px 8px;
+    font-size: 11px;
   }
 
   .commit-status {
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .commit-actions {
+    gap: 2px;
+  }
+
+  .commit-actions .btn {
+    padding: 4px 8px;
     font-size: 11px;
   }
 

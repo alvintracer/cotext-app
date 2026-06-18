@@ -59,16 +59,13 @@ export default function LoginPage() {
             <span className="login-logo-mark">:&gt;</span>
           </div>
           <h1 className="login-title">Cotext</h1>
-          <p className="login-subtitle">GitHub-native context capture</p>
+          <p className="login-subtitle">Sync your context anywhere</p>
         </div>
 
         <div className="login-description">
           <p>{language === 'ko'
-            ? '채팅하듯 메모하고, GitHub에 Markdown으로 저장하세요.'
-            : 'Capture notes like chat, stored as Markdown on GitHub.'}</p>
-          <p className="login-description-sub">{language === 'ko'
-            ? '어디서든 접속 · 버전관리 · AI-ready context pool'
-            : 'Access anywhere · Version control · AI-ready context pool'}</p>
+            ? '당신과, 팀과, 에이전트를 위한 단 하나의 공유 지식풀'
+            : 'One shared knowledge pool for you, your team, and your agents'}</p>
         </div>
 
         <button

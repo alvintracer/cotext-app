@@ -26,11 +26,11 @@ const CONTENT = {
     open: '열기',
     eyebrow: 'GitHub-native context capture',
     mindsync: {
-      tag: '두뇌 레이어 · MindSync',
-      title: '데이터를 두뇌로, 두뇌를 워크스페이스로',
-      desc: '워드·한글·PPT·PDF를 한 번에 올리면 BYOK LLM이 의미 단위로 지식 그래프(노드·클러스터·엣지)를 뽑아 대상 워크스페이스의 두뇌에 시드하거나 증강합니다. 질문하면 출처 노드까지 클릭으로 추적.',
+      tag: '뇌 레이어 · MindSync',
+      title: '데이터를 두번째 뇌로, 두번째 뇌를 워크스페이스로',
+      desc: '워드·한글·PPT·PDF 등 다양한 파일을 한 번에 올리면 BYOK LLM이 의미 단위로 지식 그래프(노드·클러스터·엣지)를 뽑아 대상 워크스페이스의 두번째 뇌에 시드하거나 증강합니다. 질문하면 출처 노드까지 클릭으로 추적.',
       cta: 'MindSync 열기',
-      sub: 'Cotext 워크스페이스가 컨텍스트 풀이라면, MindSync는 그 위의 두뇌 레이어 — 어디서든 같은 두뇌에 접근합니다.',
+      sub: 'Cotext 워크스페이스가 컨텍스트 풀이라면, MindSync는 그 위의 두번째 뇌 레이어 — 어디서든 같은 뇌에 접근합니다.',
     },
     tools: {
       title: '바로 써보기',
@@ -102,10 +102,10 @@ const CONTENT = {
     open: 'Open',
     mindsync: {
       tag: 'Brain layer · MindSync',
-      title: 'Docs into a brain, brain into your workspace',
-      desc: 'Drop Word, HWPX, PPT, PDF; BYOK LLM extracts a semantic graph (nodes / clusters / edges) and seeds (or augments) your target workspace brain. Ask the brain — click any [S#] to jump to its source node.',
+      title: 'Data into a brain, brain into your workspace',
+      desc: 'Drop Word, HWPX, PPT, PDF files; BYOK LLM extracts a semantic graph (nodes / clusters / edges) and seeds (or augments) your target workspace second brain. Ask the brain — click any [S#] to jump to its source node.',
       cta: 'Open MindSync',
-      sub: 'If a Cotext workspace is the context pool, MindSync is the brain layer above — the same brain, reachable from anywhere.',
+      sub: 'If a Cotext workspace is the context pool, MindSync is the second brain layer above — the same brain, reachable from anywhere.',
     },
     tools: {
       title: 'Try it now',

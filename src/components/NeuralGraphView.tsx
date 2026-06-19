@@ -316,7 +316,10 @@ export default function NeuralGraphView({
     if (!panRef.current) return;
     const dx = e.clientX - panRef.current.x, dy = e.clientY - panRef.current.y;
     if (Math.hypot(dx, dy) > DRAG_THRESHOLD) panRef.current.moved = true;
-    setView((v) => ({ ...v, x: panRef.current!.vx + dx, y: panRef.current!.vy + dy }));
+    setView((v) => {
+      if (!panRef.current) return v;
+      return { ...v, x: panRef.current.vx + dx, y: panRef.current.vy + dy };
+    });
   }
   function onBgUp() {
     const had = panRef.current;

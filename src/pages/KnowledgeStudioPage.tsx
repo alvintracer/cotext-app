@@ -182,8 +182,9 @@ export default function KnowledgeStudioPage() {
   });
 
   // Load workspace graph when anchor changes or when switching to editor
+  // Load workspace graph whenever a workspace is selected (both globe & editor use it)
   useEffect(() => {
-    if (!anchorWs || viewMode !== 'graph') {
+    if (!anchorWs) {
       setWsGraph(null);
       setWsGraphSha(null);
       return;
@@ -206,7 +207,7 @@ export default function KnowledgeStudioPage() {
       if (!cancelled) setWsGraphLoading(false);
     });
     return () => { cancelled = true; };
-  }, [anchorWs, viewMode]);
+  }, [anchorWs]);
 
   // Graph that the editor shows: ws graph (if workspace selected), fallback to extraction result
   const editorGraph = useMemo(() => {
@@ -952,8 +953,8 @@ export default function KnowledgeStudioPage() {
             </button>
           </div>
 
-          {/* Workspace selector — visible in editor mode */}
-          {viewMode === 'graph' && workspaces.length > 0 && (
+          {/* Workspace selector — shared between globe & editor */}
+          {workspaces.length > 0 && (
             <select
               className="ms-ws-select"
               value={anchorWorkspaceId}
@@ -970,17 +971,21 @@ export default function KnowledgeStudioPage() {
         <div className="ms-stage-canvas">
           {viewMode === 'globe' ? (
             <Suspense fallback={<div className="ms-stage-loading"><Loader2 size={28} className="spin" /></div>}>
-              <NeuralGlobe
-                key={result ? 'data' : 'idle'}
-                graph={result?.graph ?? { version: 1, updatedAt: '', clusters: [], nodes: [], edges: [] }}
-                idle={!result?.graph.nodes.length}
-                onIdleClick={() => setPanelState('panel')}
-                embedded
-                theme={resolvedTheme}
-                language={language}
-                nodeTextById={result?.nodeTextById}
-                onClose={() => {}}
-              />
+              {wsGraphLoading ? (
+                <div className="ms-stage-loading"><Loader2 size={28} className="spin" /></div>
+              ) : (
+                <NeuralGlobe
+                  key={editorGraph ? `ws-${anchorWorkspaceId || 'extract'}` : 'idle'}
+                  graph={editorGraph ?? { version: 1, updatedAt: '', clusters: [], nodes: [], edges: [] }}
+                  idle={!editorGraph?.nodes.length}
+                  onIdleClick={() => setPanelState('panel')}
+                  embedded
+                  theme={resolvedTheme}
+                  language={language}
+                  nodeTextById={result?.nodeTextById}
+                  onClose={() => {}}
+                />
+              )}
             </Suspense>
           ) : wsGraphLoading ? (
             <div className="ms-stage-loading"><Loader2 size={28} className="spin" /></div>

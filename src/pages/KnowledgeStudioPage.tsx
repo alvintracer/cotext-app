@@ -820,6 +820,7 @@ export default function KnowledgeStudioPage() {
             graph={result.graph}
             onClose={() => setGlobeOpen(false)}
             language={language}
+            nodeTextById={result.nodeTextById}
           />
         </Suspense>
       )}

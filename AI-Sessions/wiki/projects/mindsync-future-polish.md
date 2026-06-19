@@ -133,3 +133,27 @@ Codex가 배포한 Track B 베타를 다른 세션에서 감사했고, 작동은
 - **추출 후 차감**: 추출은 성공했는데 RPC 차감이 실패하는 케이스는 `chargeSkipped: true`로 보고만 — 베타 한정 허용
 - **Cross-module Deno import**: Edge Function이 `../../../src/lib/...` 프론트엔드 lib을 import. 현재는 browser-only API 미사용이라 동작하지만 향후 추가 시 서버 깨질 위험. 안정화 단계에선 lib을 functions/_shared로 옮기는 것 고려
 - **모델 fallback / 재시도 정책**: 아직 없음 (LLM 호출 실패 시 부분 결과만 반환)
+
+## 2026-06-19 — 3D Globe + SSE 스트리밍 완료 (v1.0.33)
+
+### A. 시각 폴리시 진행
+
+| 영역 | 상태 | 비고 |
+|------|------|------|
+| 3D 그래프 뷰 (Neural Globe) | ✅ 완료 | three.js + react-three-fiber, InstancedMesh 최적화, React.lazy 코드 스플릿 |
+| 3D 그래프 context loss | ✅ 해결 | 단일 draw call + edge cap 200 + DPR 1.5 + context loss 핸들링 |
+| LLM 진행 프로그레스 바 | ✅ 완료 | shimmer 애니메이션, SSE 실시간 진행률 |
+| Build Graph 버튼 유도 | ✅ 완료 | btn-pulse accent 애니메이션 |
+| 업로드 영역 홀로그래픽 | ⬜ 미착수 | |
+| 노드 디테일 미니 3D | ⬜ 미착수 | |
+| 갭 분석 ghost 노드 | ⬜ 미착수 | |
+
+### C. Track B 매니지드 모델 진행
+
+| 영역 | 상태 | 비고 |
+|------|------|------|
+| Edge Function SSE 스트리밍 | ✅ 완료 | 타임아웃 방지, onProgress/onChunkResult 콜백 활용, 실시간 진행률 |
+| 클라이언트 SSE 파서 | ✅ 완료 | `managedKnowledgeApi.extract()` fetch + ReadableStream |
+| 크레딧 top-up (Stripe/Toss) | ⬜ 미구현 | |
+| 토큰 단가 보정 | ⬜ 미구현 | |
+| 모델 fallback/재시도 | ⬜ 미구현 | |

@@ -1820,4 +1820,19 @@
   .ms-left-rail { display: none; }
   .ms-left-body { display: flex !important; max-height: none; }
   .ms-panel-collapsed .ms-left-body { display: flex !important; }
+
+  /* Compact toolbar: icon-only toggle buttons */
+  .ms-stage-toolbar { gap: 6px; }
+  .ms-view-toggle { padding: 3px; gap: 2px; }
+  .ms-view-btn {
+    padding: 6px 10px;
+    font-size: 0;    /* hide text */
+    gap: 0;
+  }
+  .ms-view-btn svg { font-size: 14px; }
+  .ms-ws-select {
+    font-size: 11px;
+    padding: 5px 22px 5px 8px;
+    max-width: 140px;
+  }
 }

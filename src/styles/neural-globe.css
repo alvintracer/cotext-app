@@ -74,16 +74,56 @@
   cursor: grabbing;
 }
 
-/* Cluster legend */
+/* Cluster legend — collapsible dropdown */
 .neural-globe-legend {
   position: absolute;
   bottom: 24px;
   left: 24px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
   z-index: 10;
-  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.neural-globe-legend-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(8px);
+  color: rgba(255,255,255,0.7);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all 0.18s;
+}
+.neural-globe-legend-toggle:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+
+.neural-globe-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(10,14,26,0.88);
+  border: 1px solid rgba(255,255,255,0.1);
+  backdrop-filter: blur(16px);
+  pointer-events: auto;
+  animation: globeLegendFadeIn 0.2s ease-out;
+}
+@keyframes globeLegendFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .neural-globe-legend-item {
@@ -91,13 +131,14 @@
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(8px);
+  border-radius: 8px;
   color: rgba(255, 255, 255, 0.75);
   font-size: 11px;
   font-weight: 500;
+  white-space: nowrap;
+}
+.neural-globe-legend-item:hover {
+  background: rgba(255,255,255,0.06);
 }
 
 .neural-globe-legend-dot {
@@ -322,9 +363,8 @@
   }
 
   .neural-globe-legend {
-    bottom: 16px;
-    left: 16px;
-    right: 80px;
+    bottom: 12px;
+    left: 12px;
   }
 
   .neural-globe-stats {
@@ -419,3 +459,15 @@
 .neural-globe-overlay.is-light, .neural-globe-embed.is-light { color: #0f172a; }
 .neural-globe-embed.is-light .neural-globe-stats div,
 .neural-globe-embed.is-light .neural-globe-legend-item { color: #1e293b; }
+.neural-globe-embed.is-light .neural-globe-legend-toggle {
+  border-color: rgba(0,0,0,0.12);
+  background: rgba(255,255,255,0.7);
+  color: #334155;
+}
+.neural-globe-embed.is-light .neural-globe-legend-list {
+  background: rgba(255,255,255,0.92);
+  border-color: rgba(0,0,0,0.1);
+}
+.neural-globe-embed.is-light .neural-globe-legend-item:hover {
+  background: rgba(0,0,0,0.05);
+}

@@ -133,6 +133,9 @@ export default function NeuralGraphView({
   const [legendOpen, setLegendOpen] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const lastTouchDist = useRef(0);
+  // Keep view in a ref so native (non-passive) wheel/touch handlers never read stale state.
+  const viewRef = useRef(view);
+  useEffect(() => { viewRef.current = view; }, [view]);
 
   // Resize observer
   useEffect(() => {
@@ -383,36 +386,49 @@ export default function NeuralGraphView({
     }
     setSelectedEdge(null);
   }
-  function onWheel(e: React.WheelEvent<SVGSVGElement>) {
-    e.preventDefault();
-    const delta = -e.deltaY * 0.0015;
-    const k = Math.max(0.3, Math.min(3, view.k * (1 + delta)));
-    const rect = svgRef.current!.getBoundingClientRect();
-    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
-    const px = (cx - view.x) / view.k, py = (cy - view.y) / view.k;
-    setView({ k, x: cx - px * k, y: cy - py * k });
-  }
-
-  // Touch pinch-to-zoom for mobile
-  function onTouchStart(e: React.TouchEvent<SVGSVGElement>) {
-    if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      lastTouchDist.current = Math.hypot(dx, dy);
-    }
-  }
-  function onTouchMove(e: React.TouchEvent<SVGSVGElement>) {
-    if (e.touches.length === 2) {
+  // Attach wheel/touch handlers as native events (non-passive) to allow preventDefault.
+  // React synthetic events are passive by default, causing console warnings.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    function handleWheel(e: WheelEvent) {
       e.preventDefault();
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const dist = Math.hypot(dx, dy);
-      const delta = dist - lastTouchDist.current;
-      const newK = Math.max(0.3, Math.min(3, view.k + delta * 0.005));
-      setView(v => ({ ...v, k: newK }));
-      lastTouchDist.current = dist;
+      const delta = -e.deltaY * 0.0015;
+      const k = Math.max(0.3, Math.min(3, viewRef.current.k * (1 + delta)));
+      const rect = svg!.getBoundingClientRect();
+      const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+      const px = (cx - viewRef.current.x) / viewRef.current.k;
+      const py = (cy - viewRef.current.y) / viewRef.current.k;
+      setView({ k, x: cx - px * k, y: cy - py * k });
     }
-  }
+    function handleTouchStart(e: TouchEvent) {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastTouchDist.current = Math.hypot(dx, dy);
+      }
+    }
+    function handleTouchMove(e: TouchEvent) {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const delta = dist - lastTouchDist.current;
+        const newK = Math.max(0.3, Math.min(3, viewRef.current.k + delta * 0.005));
+        setView(v => ({ ...v, k: newK }));
+        lastTouchDist.current = dist;
+      }
+    }
+    svg.addEventListener('wheel', handleWheel, { passive: false });
+    svg.addEventListener('touchstart', handleTouchStart, { passive: true });
+    svg.addEventListener('touchmove', handleTouchMove, { passive: false });
+    return () => {
+      svg.removeEventListener('wheel', handleWheel);
+      svg.removeEventListener('touchstart', handleTouchStart);
+      svg.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Search highlight
   const q = query.trim().toLowerCase();
@@ -544,9 +560,6 @@ export default function NeuralGraphView({
               onPointerMove={onBgMove}
               onPointerUp={onBgUp}
               onPointerLeave={onBgUp}
-              onWheel={onWheel}
-              onTouchStart={onTouchStart}
-              onTouchMove={onTouchMove}
               style={{ display: 'block', cursor: panning ? 'grabbing' : 'grab' }}
             >
               <defs>

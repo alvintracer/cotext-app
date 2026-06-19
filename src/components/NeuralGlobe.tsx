@@ -800,6 +800,7 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
   const [contextLost, setContextLost] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [legendOpen, setLegendOpen] = useState(false);
 
   const clusterMap = useMemo(() => {
     const m = new Map<string, number>();
@@ -915,13 +916,26 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
                 onClose={() => setSelectedIdx(null)}
               />
             )}
-            <div className="neural-globe-legend">
-              {clusterLegend.map((c) => (
-                <div key={c.id} className="neural-globe-legend-item">
-                  <div className="neural-globe-legend-dot" style={{ background: c.color, boxShadow: `0 0 6px ${c.color}` }} />
-                  {c.name}
+            {/* Collapsible cluster legend */}
+            <div className={`neural-globe-legend ${legendOpen ? 'is-open' : ''}`}>
+              <button
+                className="neural-globe-legend-toggle"
+                onClick={() => setLegendOpen(!legendOpen)}
+                title={ko ? '클러스터 범례' : 'Cluster legend'}
+              >
+                <CirclesFour size={14} weight="fill" />
+                <span>{clusterLegend.length}</span>
+              </button>
+              {legendOpen && (
+                <div className="neural-globe-legend-list">
+                  {clusterLegend.map((c) => (
+                    <div key={c.id} className="neural-globe-legend-item">
+                      <div className="neural-globe-legend-dot" style={{ background: c.color, boxShadow: `0 0 6px ${c.color}` }} />
+                      {c.name}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
             <div className="neural-globe-stats">
               <div><span>{graph.nodes.length}</span> {ko ? '노드' : 'nodes'}</div>
@@ -960,13 +974,25 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
         />
       )}
 
-      <div className="neural-globe-legend">
-        {clusterLegend.map((c) => (
-          <div key={c.id} className="neural-globe-legend-item">
-            <div className="neural-globe-legend-dot" style={{ background: c.color, boxShadow: `0 0 6px ${c.color}` }} />
-            {c.name}
+      <div className={`neural-globe-legend ${legendOpen ? 'is-open' : ''}`}>
+        <button
+          className="neural-globe-legend-toggle"
+          onClick={() => setLegendOpen(!legendOpen)}
+          title={ko ? '클러스터 범례' : 'Cluster legend'}
+        >
+          <CirclesFour size={14} weight="fill" />
+          <span>{clusterLegend.length}</span>
+        </button>
+        {legendOpen && (
+          <div className="neural-globe-legend-list">
+            {clusterLegend.map((c) => (
+              <div key={c.id} className="neural-globe-legend-item">
+                <div className="neural-globe-legend-dot" style={{ background: c.color, boxShadow: `0 0 6px ${c.color}` }} />
+                {c.name}
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
 
       <div className="neural-globe-stats">

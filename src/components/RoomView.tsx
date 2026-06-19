@@ -11,12 +11,10 @@ import type { Workspace } from '../types/workspace';
 import MorphingComposer from './MorphingComposer';
 import CommitBar from './CommitBar';
 import CotextEditor from './CotextEditor';
-import NeuralGraphView from './NeuralGraphView';
-import NeuralGraphBoundary from './NeuralGraphBoundary';
-import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X, PencilSimple, CodepenLogo, ArrowDown, Graph, Tag, Plus, MagnifyingGlass, LinkSimple, ArrowSquareOut } from '@phosphor-icons/react';
+import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X, PencilSimple, CodepenLogo, ArrowDown, Graph, Tag, Plus, MagnifyingGlass, LinkSimple, ArrowSquareOut, Brain } from '@phosphor-icons/react';
 import { generateCotextGuide, generateCotextIndex, generateAgentsPointerBlock, upsertPointerBlock } from '../lib/contextGuide';
 import {
-  nodifyBlock, removeNodeFromBlock, parseNodeComment, extractBlockText,
+  nodifyBlock, removeNodeFromBlock, parseNodeComment,
   emptyGraph, parseGraph, serializeGraph, upsertCluster, linkEdge, unlinkEdge, syncNodesFromContent, neuralFilePath,
   relatedNodes, clusterMembers, generateNeuralIndex, neuralIndexFilePath,
   type Cluster, type InlineNodeMeta, type NeuralGraph, type NeuralNode,
@@ -41,7 +39,7 @@ interface RoomViewProps {
 
 type ViewMode = 'chat' | 'editor' | 'split' | 'preview';
 
-export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent, apply, onNavigateRoom, focusBlockTs, rooms }: RoomViewProps) {
+export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent, apply, onNavigateRoom, focusBlockTs, rooms: _rooms }: RoomViewProps) {
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const navigate = useNavigate();
@@ -78,8 +76,6 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
   const [linkEditor, setLinkEditor] = useState<{ id: string; label: string } | null>(null);
   // Neural Link (P3): cross-repo search modal
   const [searchOpen, setSearchOpen] = useState(false);
-  // Neural Link (P4): graph view
-  const [graphOpen, setGraphOpen] = useState(false);
 
   // Detect keyboard open/close via visualViewport to hide toolbars on mobile
   useEffect(() => {
@@ -93,25 +89,6 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
     vv.addEventListener('resize', handler);
     return () => vv.removeEventListener('resize', handler);
   }, []);
-  // Async block text fetcher for the graph view's detail panel (current room = local content,
-  // other rooms in the same repo = fetch via GitHub). Cache to avoid repeat fetches.
-  const blockTextCacheRef = useRef(new Map<string, string>());
-  const getBlockText = useCallback(async (roomPath: string, blockTs: string): Promise<string | null> => {
-    if (roomPath === room.path) return extractBlockText(content, blockTs);
-    const cacheKey = `${roomPath}::${blockTs}`;
-    const cached = blockTextCacheRef.current.get(cacheKey);
-    if (cached !== undefined) return cached;
-    const target = rooms?.find((r) => r.path === roomPath);
-    if (!target) return null;
-    try {
-      const res = await githubApi.getRoomContent(
-        workspace.github_owner, workspace.github_repo, workspace.default_branch, target.cotext_file_path,
-      );
-      const text = extractBlockText(res.content, blockTs);
-      blockTextCacheRef.current.set(cacheKey, text);
-      return text;
-    } catch { return null; }
-  }, [content, room.path, rooms, workspace]);
   const focusedRef = useRef<string | null>(null);
   // Latest graph/content for ref-based persistence (edges persist without a content push)
   const graphRef = useRef(graph);
@@ -914,16 +891,9 @@ ${filteredContent}
             <button
               className="btn btn-ghost btn-sm context-pack-btn"
               onClick={() => setSearchOpen(true)}
-              title={language === 'ko' ? '뉴럴 검색 (레포 전체)' : 'Neural search (across repos)'}
+              title={language === 'ko' ? '뉴런 검색 (레포 전체)' : 'Neuron search (across repos)'}
             >
-              <Graph size={14} /> {language === 'ko' ? '뉴럴 검색' : 'Neural'}
-            </button>
-            <button
-              className="btn btn-ghost btn-sm context-pack-btn graph-btn"
-              onClick={() => setGraphOpen(true)}
-              title={language === 'ko' ? '뉴럴 링크 그래프' : 'Neural Link graph'}
-            >
-              <Graph size={14} weight="duotone" /> {language === 'ko' ? '그래프' : 'Graph'}
+              <Graph size={14} /> {language === 'ko' ? '뉴런 검색' : 'Neural'}
             </button>
           </div>
           <div className="room-mode-rail">
@@ -1029,26 +999,6 @@ ${filteredContent}
         />
       )}
 
-      {/* Graph view (MindSync inside workspace) */}
-      {graphOpen && (
-        <NeuralGraphBoundary
-          surfaceLabel={language === 'ko' ? '마인드싱크 그래프' : 'MindSync graph'}
-          onClose={() => setGraphOpen(false)}
-        >
-          <NeuralGraphView
-            graph={graph}
-            currentRoom={room.path}
-            language={language}
-            getBlockText={getBlockText}
-            onClose={() => setGraphOpen(false)}
-            onJump={(ts) => { setGraphOpen(false); jumpToBlock(ts); }}
-            onNavigateRoom={(path, ts) => { setGraphOpen(false); onNavigateRoom?.(path, ts); }}
-            onDeleteNode={(n) => { if (n.room === room.path) handleRemoveNode(n.blockTs); }}
-            onLinkEdge={handleLinkEdge}
-            onUnlinkEdge={handleUnlinkEdge}
-          />
-        </NeuralGraphBoundary>
-      )}
 
       {/* Cross-repo neural search modal (Neural Link P3) */}
       {searchOpen && (
@@ -1389,6 +1339,18 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
                         >
                           <X size={13} />
                           <span>{ko ? '노드 해제' : 'Remove node'}</span>
+                        </button>
+                      )}
+                      {block.node && (
+                        <button
+                          className="draft-menu-item draft-menu-node"
+                          onClick={() => {
+                            setOpenMenu(null);
+                            window.location.href = `/mindsync/studio?ws=${encodeURIComponent(workspace?.id || '')}&node=${encodeURIComponent(block.node!.id)}&view=editor`;
+                          }}
+                        >
+                          <Brain size={13} weight="fill" />
+                          <span>{ko ? '마인드싱크로' : 'To MindSync'}</span>
                         </button>
                       )}
                       {onFixWithAgent && (

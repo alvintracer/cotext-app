@@ -9,6 +9,8 @@ import { supabase } from '../lib/supabase/client';
 import { githubApi, managedKnowledgeApi } from '../lib/supabase/functions';
 import { appendMessage, createInitialContent } from '../lib/markdown';
 import { previewWorkspaceMerge, executeWorkspaceMerge, type MergePreview, type MergeResult } from '../lib/knowledge/merge';
+import { parseGraph, emptyGraph, serializeGraph } from '../lib/neural/graph';
+import type { NeuralGraph } from '../lib/neural/types';
 import NeuralGraphView from '../components/NeuralGraphView';
 import NeuralGraphBoundary from '../components/NeuralGraphBoundary';
 import ConnectMindSyncModal from '../components/ConnectMindSyncModal';
@@ -26,7 +28,7 @@ import { getKey, setKey, getPref, setPref } from '../lib/agent/keys';
 import MindSyncDropzone from '../components/mindsync/MindSyncDropzone';
 import InferenceSettings from '../components/mindsync/InferenceSettings';
 import StatsBar from '../components/mindsync/StatsBar';
-import SourceFileList from '../components/mindsync/SourceFileList';
+// SourceFileList merged into MindSyncDropzone
 import AnchorWorkspacePanel from '../components/mindsync/AnchorWorkspacePanel';
 
 import '../styles/mindsync-studio.css';
@@ -145,6 +147,127 @@ export default function KnowledgeStudioPage() {
   // GENERATE = fresh seed (auto-merge after generate)
   // AUGMENT  = same, but UX framing is "add to existing brain"
   const [mode, setMode] = useState<'generate' | 'augment'>('generate');
+
+  // ── URL search-params: ?ws=<id>&node=<id>&view=editor ──────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const wsParam = params.get('ws');
+    const viewParam = params.get('view');
+    if (wsParam && workspaces.some((w) => w.id === wsParam)) {
+      setAnchorWorkspaceId(wsParam);
+    }
+    if (viewParam === 'editor') {
+      startTransition(() => setViewMode('graph'));
+    }
+    // clean params after consuming
+    if (wsParam || viewParam) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('ws');
+      url.searchParams.delete('view');
+      url.searchParams.delete('node');
+      window.history.replaceState({}, '', url.pathname);
+    }
+  }, [workspaces]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Workspace graph for editor mode ────────────────────────────
+  const [wsGraph, setWsGraph] = useState<NeuralGraph | null>(null);
+  const [wsGraphSha, setWsGraphSha] = useState<string | null>(null);
+  const [wsGraphLoading, setWsGraphLoading] = useState(false);
+  const [_selectedNodeId, _setSelectedNodeId] = useState<string | null>(() => {
+    try { return new URLSearchParams(window.location.search).get('node'); } catch { return null; }
+  });
+
+  // Load workspace graph when anchor changes or when switching to editor
+  useEffect(() => {
+    if (!anchorWs || viewMode !== 'graph') {
+      setWsGraph(null);
+      setWsGraphSha(null);
+      return;
+    }
+    let cancelled = false;
+    const folder = anchorWs.cotext_folder_name || '.cotext';
+    const path = `${folder.replace(/\/$/, '')}/neural.json`;
+    setWsGraphLoading(true);
+    githubApi.getRoomContent(
+      anchorWs.github_owner, anchorWs.github_repo, anchorWs.default_branch, path,
+    ).then((res) => {
+      if (cancelled) return;
+      setWsGraph(parseGraph(res.content));
+      setWsGraphSha(res.sha);
+    }).catch(() => {
+      if (cancelled) return;
+      setWsGraph(emptyGraph());
+      setWsGraphSha(null);
+    }).finally(() => {
+      if (!cancelled) setWsGraphLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [anchorWs, viewMode]);
+
+  // Graph that the editor shows: ws graph (if workspace selected), fallback to extraction result
+  const editorGraph = useMemo(() => {
+    if (anchorWs && wsGraph) return wsGraph;
+    return result?.graph ?? null;
+  }, [anchorWs, wsGraph, result]);
+
+  // ── Editor callbacks: write changes back to workspace ──────────
+  const saveGraphToWs = useCallback(async (updated: NeuralGraph) => {
+    if (!anchorWs) return;
+    const folder = anchorWs.cotext_folder_name || '.cotext';
+    const path = `${folder.replace(/\/$/, '')}/neural.json`;
+    const serialised = serializeGraph(updated);
+    try {
+      await githubApi.pushRoom(
+        anchorWs.github_owner, anchorWs.github_repo, anchorWs.default_branch,
+        path, serialised, wsGraphSha, `MindSync: graph edit`,
+      );
+      // Re-fetch to get updated sha
+      try {
+        const res = await githubApi.getRoomContent(
+          anchorWs.github_owner, anchorWs.github_repo, anchorWs.default_branch, path,
+        );
+        setWsGraphSha(res.sha);
+      } catch { /* sha refresh failed, will retry on next save */ }
+      setWsGraph(updated);
+    } catch (err) {
+      console.error('[MindSync] graph save error', err);
+    }
+  }, [anchorWs, wsGraphSha]);
+
+  const handleEditorLinkEdge = useCallback(async (fromId: string, toId: string, type: string) => {
+    const g = editorGraph;
+    if (!g) return;
+    const exists = g.edges.some(
+      (e) => e.from === fromId && e.to === toId && e.type === type,
+    );
+    if (exists) return;
+    const updated: NeuralGraph = {
+      ...g,
+      edges: [...g.edges, { from: fromId, to: toId, type }],
+    };
+    await saveGraphToWs(updated);
+  }, [editorGraph, saveGraphToWs]);
+
+  const handleEditorUnlinkEdge = useCallback(async (fromId: string, toId: string) => {
+    const g = editorGraph;
+    if (!g) return;
+    const updated: NeuralGraph = {
+      ...g,
+      edges: g.edges.filter((e) => !(e.from === fromId && e.to === toId)),
+    };
+    await saveGraphToWs(updated);
+  }, [editorGraph, saveGraphToWs]);
+
+  const handleEditorDeleteNode = useCallback(async (node: { id: string; blockTs: string; room: string }) => {
+    const g = editorGraph;
+    if (!g) return;
+    const updated: NeuralGraph = {
+      ...g,
+      nodes: g.nodes.filter((n) => n.id !== node.id),
+      edges: g.edges.filter((e) => e.from !== node.id && e.to !== node.id),
+    };
+    await saveGraphToWs(updated);
+  }, [editorGraph, saveGraphToWs]);
   // Auto-merge after generate (only if anchor selected). Default on.
   const [autoMerge, setAutoMerge] = useState(true);
   const [autoStatus, setAutoStatus] = useState<string | null>(null);
@@ -656,51 +779,7 @@ export default function KnowledgeStudioPage() {
         </section>
       )}
 
-      {/* ── Source Files & Results ─────────────────────────────── */}
-      <section className="ms-content-grid">
-        <SourceFileList
-          ko={ko}
-          sources={sources}
-          onRemove={removeSource}
-          formatSize={formatSize}
-          formatCount={formatCount}
-        />
-
-        {/* Result panel */}
-        <div className="ms-result ms-glass-card">
-          <div className="ms-panel-header">
-            <h3>{ko ? '생성 결과' : 'Results'}</h3>
-            <span>{formatCount(result?.sectionCount || 0)}</span>
-          </div>
-          {!result ? (
-            <div className="ms-empty">
-              <Brain size={22} />
-              <p>{ko ? '파일을 추가한 뒤 지식망을 생성하세요.' : 'Add files, then build the graph.'}</p>
-            </div>
-          ) : (
-            <div className="ms-result-body">
-              <p className="ms-note">
-                {ko
-                  ? `${result.sourceCount}개 파일에서 ${formatCount(result.sectionCount)}개 섹션, ${formatCount(result.graph.edges.length)}개 연결을 생성했습니다.`
-                  : `Built ${formatCount(result.sectionCount)} sections and ${formatCount(result.graph.edges.length)} links from ${result.sourceCount} files.`}
-              </p>
-              <div className="ms-cluster-list">
-                {topClusters.map((cluster) => (
-                  <div key={cluster.id} className="ms-cluster-row">
-                    <span className="ms-cluster-swatch" style={{ background: cluster.color || 'var(--accent)' }} />
-                    <div>
-                      <strong>{cluster.name}</strong>
-                      <p>{cluster.desc || (ko ? '자동 생성 클러스터' : 'Auto-generated cluster')}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ── Upload Dropzone ──────────────────────────────────────── */}
+      {/* ── Upload / Source Files (unified) ─────────────────────── */}
       <MindSyncDropzone
         ko={ko}
         dragging={dragging}
@@ -715,7 +794,38 @@ export default function KnowledgeStudioPage() {
         maxFileSize={formatSize(MAX_FILE_BYTES)}
         maxTotalSize={formatSize(MAX_TOTAL_BYTES)}
         maxCount={MAX_FILE_COUNT}
+        sources={sources}
+        onRemove={removeSource}
+        formatSize={formatSize}
       />
+
+      {/* ── Results ─────────────────────────────────────────────── */}
+      {result && (
+        <div className="ms-result ms-glass-card">
+          <div className="ms-panel-header">
+            <h3>{ko ? '생성 결과' : 'Results'}</h3>
+            <span>{formatCount(result.sectionCount)}</span>
+          </div>
+          <div className="ms-result-body">
+            <p className="ms-note">
+              {ko
+                ? `${result.sourceCount}개 파일에서 ${formatCount(result.sectionCount)}개 섹션, ${formatCount(result.graph.edges.length)}개 연결을 생성했습니다.`
+                : `Built ${formatCount(result.sectionCount)} sections and ${formatCount(result.graph.edges.length)} links from ${result.sourceCount} files.`}
+            </p>
+            <div className="ms-cluster-list">
+              {topClusters.map((cluster) => (
+                <div key={cluster.id} className="ms-cluster-row">
+                  <span className="ms-cluster-swatch" style={{ background: cluster.color || 'var(--accent)' }} />
+                  <div>
+                    <strong>{cluster.name}</strong>
+                    <p>{cluster.desc || (ko ? '자동 생성 클러스터' : 'Auto-generated cluster')}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Alerts ───────────────────────────────────────────────── */}
       {uploadError && (
@@ -833,12 +943,24 @@ export default function KnowledgeStudioPage() {
             <button
               className={`ms-view-btn ${viewMode === 'graph' ? 'active' : ''}`}
               onClick={() => setViewMode('graph')}
-              disabled={!result?.graph.nodes.length}
-              title={!result?.graph.nodes.length ? (ko ? '지식망을 먼저 생성하세요' : 'Build a graph first') : undefined}
             >
-              <Graph size={14} /> {ko ? '2D 그래프' : '2D Graph'}
+              <Graph size={14} /> {ko ? '그래프 에디터' : 'Graph Editor'}
             </button>
           </div>
+
+          {/* Workspace selector — visible in editor mode */}
+          {viewMode === 'graph' && workspaces.length > 0 && (
+            <select
+              className="ms-ws-select"
+              value={anchorWorkspaceId}
+              onChange={(e) => setAnchorWorkspaceId(e.target.value)}
+            >
+              <option value="">{ko ? '워크스페이스 선택' : 'Select workspace'}</option>
+              {workspaces.map((ws) => (
+                <option key={ws.id} value={ws.id}>{ws.name}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="ms-stage-canvas">
@@ -856,22 +978,29 @@ export default function KnowledgeStudioPage() {
                 onClose={() => {}}
               />
             </Suspense>
-          ) : result ? (
-            <NeuralGraphBoundary surfaceLabel={ko ? '마인드싱크 그래프' : 'MindSync graph'} onClose={() => setViewMode('globe')}>
+          ) : wsGraphLoading ? (
+            <div className="ms-stage-loading"><Loader2 size={28} className="spin" /></div>
+          ) : editorGraph ? (
+            <NeuralGraphBoundary surfaceLabel={ko ? '그래프 에디터' : 'Graph Editor'} onClose={() => setViewMode('globe')}>
               <NeuralGraphView
                 embedded
-                graph={result.graph}
+                graph={editorGraph}
                 currentRoom=""
                 language={language}
-                getBlockText={async (roomPath, blockTs) => result.blockTextByKey[`${roomPath}::${blockTs}`] || null}
+                getBlockText={async (roomPath, blockTs) => result?.blockTextByKey[`${roomPath}::${blockTs}`] || null}
                 onClose={() => setViewMode('globe')}
                 onJump={() => {}}
+                {...(anchorWs ? {
+                  onLinkEdge: handleEditorLinkEdge,
+                  onUnlinkEdge: handleEditorUnlinkEdge,
+                  onDeleteNode: handleEditorDeleteNode,
+                } : {})}
               />
             </NeuralGraphBoundary>
           ) : (
             <div className="ms-stage-empty">
               <Brain size={28} weight="fill" />
-              <p>{ko ? '지식망을 생성하면 2D 그래프를 볼 수 있어요.' : 'Build a graph to see the 2D view.'}</p>
+              <p>{ko ? '워크스페이스를 선택하거나 지식망을 생성하세요.' : 'Select a workspace or build a graph.'}</p>
             </div>
           )}
         </div>

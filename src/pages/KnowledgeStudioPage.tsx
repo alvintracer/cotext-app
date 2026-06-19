@@ -111,6 +111,10 @@ export default function KnowledgeStudioPage() {
   const cyclePanel = useCallback(() => {
     setPanelState((s) => (s === 'collapsed' ? 'panel' : s === 'panel' ? 'full' : 'collapsed'));
   }, []);
+  // Auto-collapse left panel when entering graph editor for maximum canvas space
+  useEffect(() => {
+    if (viewMode === 'graph') setPanelState('collapsed');
+  }, [viewMode]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   // Phase 3: LLM extraction progress + abort + failures + gaps
   const [llmProgress, setLlmProgress] = useState<{ phase: string; current: number; total: number; message?: string } | null>(null);

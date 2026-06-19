@@ -553,7 +553,39 @@ function SceneSetup() {
 }
 
 /* ── Main Scene ─────────────────────────────────────────── */
-function GlobeScene({ graph, selectedIdx, hoveredIdx, onSelect, onHover, onUnhover, connectedNodeIds, tokens }: {
+/** Build a reduced graph where each cluster = one node, with inter-cluster edges. */
+function buildClusterGraph(graph: NeuralGraph): NeuralGraph {
+  // Count how many nodes belong to each cluster
+  const memberCounts = new Map<string, number>();
+  graph.nodes.forEach((n) => {
+    for (const cid of n.clusters) memberCounts.set(cid, (memberCounts.get(cid) || 0) + 1);
+  });
+  const clusterNodes: NeuralNode[] = graph.clusters.map((c) => ({
+    id: `__cluster__${c.id}`,
+    label: c.name,
+    clusters: [c.id],
+    room: '',
+    blockTs: '',
+    description: `${memberCounts.get(c.id) || 0} nodes`,
+  }));
+  // Dedupe cross-cluster edges
+  const seen = new Set<string>();
+  const clusterEdges: Edge[] = [];
+  const nodeCluster = new Map<string, string>();
+  graph.nodes.forEach((n) => { if (n.clusters[0]) nodeCluster.set(n.id, n.clusters[0]); });
+  for (const e of graph.edges) {
+    const cFrom = nodeCluster.get(e.from);
+    const cTo = nodeCluster.get(e.to);
+    if (!cFrom || !cTo || cFrom === cTo) continue;
+    const key = [cFrom, cTo].sort().join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    clusterEdges.push({ from: `__cluster__${cFrom}`, to: `__cluster__${cTo}`, type: 'relates' });
+  }
+  return { ...graph, nodes: clusterNodes, edges: clusterEdges };
+}
+
+function GlobeScene({ graph, selectedIdx, hoveredIdx, onSelect, onHover, onUnhover, connectedNodeIds, tokens, displayMode }: {
   graph: NeuralGraph;
   selectedIdx: number | null;
   hoveredIdx: number | null;
@@ -562,19 +594,26 @@ function GlobeScene({ graph, selectedIdx, hoveredIdx, onSelect, onHover, onUnhov
   onUnhover: () => void;
   connectedNodeIds: Set<string>;
   tokens: ReturnType<typeof themeTokens>;
+  displayMode: 'nodes' | 'clusters';
 }) {
-  const clusterMap = useMemo(() => {
-    const m = new Map<string, number>();
-    graph.clusters.forEach((c, i) => m.set(c.id, i));
-    return m;
-  }, [graph.clusters]);
-
-  const positions = useMemo(
-    () => fibonacciSphere(graph.nodes.length, RADIUS),
-    [graph.nodes.length],
+  // In cluster mode, swap to reduced graph
+  const viewGraph = useMemo(
+    () => displayMode === 'clusters' ? buildClusterGraph(graph) : graph,
+    [graph, displayMode],
   );
 
-  const selectedNodeId = selectedIdx !== null ? graph.nodes[selectedIdx]?.id ?? null : null;
+  const clusterMap = useMemo(() => {
+    const m = new Map<string, number>();
+    viewGraph.clusters.forEach((c, i) => m.set(c.id, i));
+    return m;
+  }, [viewGraph.clusters]);
+
+  const positions = useMemo(
+    () => fibonacciSphere(viewGraph.nodes.length, RADIUS),
+    [viewGraph.nodes.length],
+  );
+
+  const selectedNodeId = selectedIdx !== null ? viewGraph.nodes[selectedIdx]?.id ?? null : null;
   const selectedPos = selectedIdx !== null ? positions[selectedIdx] ?? null : null;
 
   return (
@@ -586,11 +625,11 @@ function GlobeScene({ graph, selectedIdx, hoveredIdx, onSelect, onHover, onUnhov
 
       <GlobeShell tokens={tokens} />
       <GlobeWireframe tokens={tokens} />
-      <EdgeLines graph={graph} positions={positions} selectedNodeId={selectedNodeId} tokens={tokens} />
-      <EdgePulses graph={graph} positions={positions} selectedNodeId={selectedNodeId} />
+      <EdgeLines graph={viewGraph} positions={positions} selectedNodeId={selectedNodeId} tokens={tokens} />
+      <EdgePulses graph={viewGraph} positions={positions} selectedNodeId={selectedNodeId} />
       <SelectedGlow position={selectedPos} />
       <InteractiveNodes
-        graph={graph}
+        graph={viewGraph}
         positions={positions}
         clusterMap={clusterMap}
         selectedIdx={selectedIdx}
@@ -599,15 +638,15 @@ function GlobeScene({ graph, selectedIdx, hoveredIdx, onSelect, onHover, onUnhov
         onUnhover={onUnhover}
       />
       <NodeLabels
-        graph={graph}
+        graph={viewGraph}
         positions={positions}
         clusterMap={clusterMap}
         selectedIdx={selectedIdx}
         connectedNodeIds={connectedNodeIds}
         tokens={tokens}
       />
-      <EdgeTypeLabels graph={graph} positions={positions} selectedNodeId={selectedNodeId} />
-      <HoverTooltip graph={graph} positions={positions} hoveredIdx={hoveredIdx} />
+      <EdgeTypeLabels graph={viewGraph} positions={positions} selectedNodeId={selectedNodeId} />
+      <HoverTooltip graph={viewGraph} positions={positions} hoveredIdx={hoveredIdx} />
 
       <OrbitControls
         enablePan={false}
@@ -801,6 +840,7 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [displayMode, setDisplayMode] = useState<'nodes' | 'clusters'>('nodes');
 
   const clusterMap = useMemo(() => {
     const m = new Map<string, number>();
@@ -884,6 +924,7 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
           onUnhover={() => setHoveredIdx(null)}
           connectedNodeIds={connectedNodeIds}
           tokens={tokens}
+          displayMode={displayMode}
         />
       )}
     </Canvas>
@@ -938,9 +979,13 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
               )}
             </div>
             <div className="neural-globe-stats">
-              <div><span>{graph.nodes.length}</span> {ko ? '노드' : 'nodes'}</div>
+              <button className={`globe-stat-btn ${displayMode === 'nodes' ? 'active' : ''}`} onClick={() => { setDisplayMode('nodes'); setSelectedIdx(null); }}>
+                <span>{graph.nodes.length}</span> {ko ? '노드' : 'nodes'}
+              </button>
               <div><span>{graph.edges.length}</span> {ko ? '연결' : 'edges'}</div>
-              <div><span>{graph.clusters.length}</span> {ko ? '클러스터' : 'clusters'}</div>
+              <button className={`globe-stat-btn ${displayMode === 'clusters' ? 'active' : ''}`} onClick={() => { setDisplayMode('clusters'); setSelectedIdx(null); }}>
+                <span>{graph.clusters.length}</span> {ko ? '클러스터' : 'clusters'}
+              </button>
             </div>
           </>
         )}
@@ -996,9 +1041,13 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
       </div>
 
       <div className="neural-globe-stats">
-        <div><span>{graph.nodes.length}</span> {ko ? '노드' : 'nodes'}</div>
+        <button className={`globe-stat-btn ${displayMode === 'nodes' ? 'active' : ''}`} onClick={() => { setDisplayMode('nodes'); setSelectedIdx(null); }}>
+          <span>{graph.nodes.length}</span> {ko ? '노드' : 'nodes'}
+        </button>
         <div><span>{graph.edges.length}</span> {ko ? '연결' : 'edges'}</div>
-        <div><span>{graph.clusters.length}</span> {ko ? '클러스터' : 'clusters'}</div>
+        <button className={`globe-stat-btn ${displayMode === 'clusters' ? 'active' : ''}`} onClick={() => { setDisplayMode('clusters'); setSelectedIdx(null); }}>
+          <span>{graph.clusters.length}</span> {ko ? '클러스터' : 'clusters'}
+        </button>
       </div>
     </div>
   );

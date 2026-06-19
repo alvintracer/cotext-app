@@ -54,6 +54,10 @@
 
 - [[AI-Sessions/wiki/sources/01_cotext-development-plan_summary]]
 
+## Dev Tasks
+
+- [[AI-Sessions/wiki/dev-tasks/mindsync-ws-integration]]
+
 ## Errors / Lessons
 
 - [[AI-Sessions/wiki/errors/01_npm-bin-quirk-and-publish]]

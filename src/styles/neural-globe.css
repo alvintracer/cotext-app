@@ -154,9 +154,9 @@
   bottom: 24px;
   right: 24px;
   display: flex;
-  gap: 16px;
+  gap: 8px;
   z-index: 10;
-  pointer-events: none;
+  pointer-events: auto;
   color: rgba(255, 255, 255, 0.5);
   font-size: 11px;
   font-family: 'JetBrains Mono', monospace;
@@ -165,6 +165,34 @@
 .neural-globe-stats span {
   color: rgba(255, 255, 255, 0.8);
   font-weight: 600;
+}
+
+.globe-stat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.5);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.globe-stat-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.9);
+}
+.globe-stat-btn.active {
+  background: rgba(59,158,255,0.18);
+  border-color: rgba(59,158,255,0.4);
+  color: #7cc4ff;
+  box-shadow: 0 0 12px rgba(59,158,255,0.2);
+}
+.globe-stat-btn.active span {
+  color: #7cc4ff;
 }
 
 /* Node tooltip */

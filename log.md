@@ -78,6 +78,7 @@ YYYY-MM-DD HH:mm | command | summary | linked files
 ```
 
 ## Log
+2026-06-20 | save | MindSync Studio 통합 리팩터링: WS↔그래프 에디터 연동, 3D 글로브 클러스터 토글, 접기 범례, 모바일 아이콘 전용 툴바, passive event 수정, RoomView 그래프 제거 → MindSync 이전. | [[AI-Sessions/wiki/dev-tasks/mindsync-ws-integration]]
 2026-06-18 | deploy | Managed Track B rollout completed: deployed `neural-extract-managed`, applied `managed_credit_balances` + `managed_credit_transactions` via Supabase Management API, and verified 3 balance rows backfilled / 0 transaction rows. | [[AI-Sessions/wiki/projects/cotext_mvp]], [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]], [[AI-Sessions/wiki/projects/mindsync-future-polish]]
 2026-06-18 | save | Track B beta started: added managed MindSync extraction via new neural-extract-managed Edge Function, wired Studio track selector to real server-side extraction, and updated wiki docs for the first managed milestone. | [[AI-Sessions/wiki/projects/cotext_mvp]], [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]], [[AI-Sessions/wiki/projects/mindsync-future-polish]]
 2026-06-18 | save | MindSync connect flow continued: ConnectMindSyncModal wired into KnowledgeStudioPage, local/remote agent snippets exposed, anchor workspace ctx_ API key auto-filled when available, Track B intent toggle retained, build+eslint passed. | [[AI-Sessions/wiki/projects/cotext_mvp]], [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]]

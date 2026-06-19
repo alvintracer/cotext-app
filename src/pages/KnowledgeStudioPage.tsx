@@ -103,7 +103,7 @@ export default function KnowledgeStudioPage() {
   const [result, setResult] = useState<KnowledgeGraphResult | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   // Phase 3: LLM extraction progress + abort + failures + gaps
-  const [_llmProgress, setLlmProgress] = useState<{ phase: string; current: number; total: number; message?: string } | null>(null);
+  const [llmProgress, setLlmProgress] = useState<{ phase: string; current: number; total: number; message?: string } | null>(null);
   const [llmFailures, setLlmFailures] = useState<LlmExtractResult['failures']>([]);
   const [llmGaps, setLlmGaps] = useState<string[]>([]);
   const [genError, setGenError] = useState<string | null>(null);
@@ -549,7 +549,11 @@ export default function KnowledgeStudioPage() {
               {ko ? '취소' : 'Cancel'}
             </button>
           ) : (
-            <button className="btn btn-secondary" onClick={handleGenerate} disabled={!readySources.length}>
+            <button
+              className={`btn btn-secondary ${readySources.length && !result ? 'btn-pulse' : ''}`}
+              onClick={handleGenerate}
+              disabled={!readySources.length}
+            >
               <Lightning size={16} />
               {ko ? '지식망 생성' : 'Build graph'}
             </button>
@@ -592,6 +596,34 @@ export default function KnowledgeStudioPage() {
           />
         </div>
       </section>
+
+      {/* ── Generation Progress ──────────────────────────────── */}
+      {generating && (
+        <section className="ms-progress-section ms-glass-card">
+          <div className="ms-progress-header">
+            <Loader2 size={16} className="spin" />
+            <span className="ms-progress-phase">
+              {llmProgress?.message || (ko ? '지식망을 추출하고 있습니다...' : 'Extracting knowledge graph...')}
+            </span>
+            {llmProgress && (
+              <span className="ms-progress-count">
+                {llmProgress.current}/{llmProgress.total}
+              </span>
+            )}
+          </div>
+          <div className="ms-progress-bar-track">
+            <div
+              className="ms-progress-bar-fill"
+              style={{ width: llmProgress ? `${Math.round((llmProgress.current / Math.max(llmProgress.total, 1)) * 100)}%` : '0%' }}
+            />
+          </div>
+          {llmProgress && (
+            <div className="ms-progress-pct">
+              {Math.round((llmProgress.current / Math.max(llmProgress.total, 1)) * 100)}%
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ── Source Files & Results ─────────────────────────────── */}
       <section className="ms-content-grid">

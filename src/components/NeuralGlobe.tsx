@@ -649,9 +649,6 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById }: 
     setSelectedIdx(prev => prev === idx ? null : idx);
   }, []);
 
-  const handleBgClick = useCallback(() => {
-    setSelectedIdx(null);
-  }, []);
 
   return (
     <div className="neural-globe-overlay">
@@ -667,7 +664,7 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById }: 
       </div>
 
       {/* 3D Canvas */}
-      <div className="neural-globe-canvas" onClick={handleBgClick}>
+      <div className="neural-globe-canvas">
         {contextLost ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>
             {ko ? 'GPU 컨텍스트가 손실되었습니다. 닫고 다시 열어주세요.' : 'GPU context lost. Close and reopen.'}
@@ -683,6 +680,7 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById }: 
             }}
             camera={{ fov: 50, near: 0.1, far: 100 }}
             onCreated={handleCreated}
+            onPointerMissed={() => setSelectedIdx(null)}
           >
             <GlobeScene
               graph={graph}

@@ -357,3 +357,65 @@
     }
   }
 }
+
+/* ── Embedded mode (studio center stage) ─────────────────── */
+.neural-globe-embed {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+}
+.neural-globe-embed.is-dark {
+  background: radial-gradient(ellipse at center, #0a0e1a 0%, #05060b 100%);
+}
+.neural-globe-embed.is-light {
+  background: radial-gradient(ellipse at center, #eef4fb 0%, #dbe6f4 100%);
+}
+.neural-globe-embed .neural-globe-canvas { flex: 1; min-height: 0; }
+
+/* idle clickable hint */
+.neural-globe-embed[role='button'] { cursor: pointer; }
+.neural-globe-idle-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  pointer-events: none;
+  padding: 24px;
+}
+.neural-globe-idle-hint span {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text, #fff);
+  text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+}
+.neural-globe-embed.is-light .neural-globe-idle-hint span { text-shadow: 0 2px 12px rgba(255,255,255,0.6); }
+.neural-globe-idle-hint small {
+  font-size: 12.5px;
+  color: var(--text-muted, rgba(255,255,255,0.6));
+  opacity: 0; transform: translateY(4px);
+  transition: opacity .25s, transform .25s;
+}
+.neural-globe-embed[role='button']:hover .neural-globe-idle-hint small { opacity: 1; transform: translateY(0); }
+
+.neural-globe-lost {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; color: var(--text-muted, rgba(255,255,255,0.5)); font-size: 14px;
+}
+
+/* In embedded mode the legend/stats float inside the stage, smaller */
+.neural-globe-embed .neural-globe-legend { bottom: 12px; left: 12px; max-width: 40%; }
+.neural-globe-embed .neural-globe-stats { bottom: 12px; right: 12px; }
+
+/* Light-mode legibility for legend/stats text */
+.neural-globe-overlay.is-light, .neural-globe-embed.is-light { color: #0f172a; }
+.neural-globe-embed.is-light .neural-globe-stats div,
+.neural-globe-embed.is-light .neural-globe-legend-item { color: #1e293b; }

@@ -1,6 +1,7 @@
 import { lazy, startTransition, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Brain, Check, GitMerge, Globe, Graph, Lightning, Link as LinkIcon, Spinner as Loader2, UploadSimple, Warning, X,
+  CaretLeft, CaretRight, ArrowsOutSimple,
 } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../contexts/WorkspaceContext';
@@ -17,6 +18,7 @@ import { generateKnowledgeGraph, type KnowledgeGraphResult } from '../lib/knowle
 import { generateKnowledgeGraphLLM, type LlmExtractResult } from '../lib/knowledge/llmExtract';
 import { saveKnowledgeSnapshot } from '../lib/knowledge/session';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { getProvider, type ProviderId } from '../lib/agent/models';
 import { getKey, setKey, getPref, setPref } from '../lib/agent/keys';
 
@@ -98,9 +100,15 @@ export default function KnowledgeStudioPage() {
   const [sources, setSources] = useState<SourceItem[]>([]);
   const [dragging, setDragging] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [graphOpen, setGraphOpen] = useState(false);
-  const [globeOpen, setGlobeOpen] = useState(false);
   const [result, setResult] = useState<KnowledgeGraphResult | null>(null);
+  const { resolvedTheme } = useTheme();
+  // Center stage: 3D globe (default) vs 2D graph
+  const [viewMode, setViewMode] = useState<'globe' | 'graph'>('globe');
+  // Left dashboard panel: 3-stage collapse — rail / panel / full-width
+  const [panelState, setPanelState] = useState<'collapsed' | 'panel' | 'full'>('panel');
+  const cyclePanel = useCallback(() => {
+    setPanelState((s) => (s === 'collapsed' ? 'panel' : s === 'panel' ? 'full' : 'collapsed'));
+  }, []);
   const [uploadError, setUploadError] = useState<string | null>(null);
   // Phase 3: LLM extraction progress + abort + failures + gaps
   const [llmProgress, setLlmProgress] = useState<{ phase: string; current: number; total: number; message?: string } | null>(null);
@@ -353,7 +361,7 @@ export default function KnowledgeStudioPage() {
         startTransition(() => {
           saveKnowledgeSnapshot(final);
           setResult(final);
-          setGlobeOpen(true); // Auto-open 3D globe after extraction
+          setViewMode('globe'); // ensure globe stage shows the new graph
           setLlmFailures(managed.result.failures);
           setLlmGaps(managed.result.gaps ?? []);
           setManagedInfo({
@@ -402,7 +410,7 @@ export default function KnowledgeStudioPage() {
         startTransition(() => {
           saveKnowledgeSnapshot(final);
           setResult(final);
-          setGlobeOpen(true); // Auto-open 3D globe after LLM extraction
+          setViewMode('globe');
           setLlmFailures(llmResult.failures);
           setLlmGaps(llmResult.gaps ?? []);
           setGenerating(false);
@@ -425,7 +433,7 @@ export default function KnowledgeStudioPage() {
       startTransition(() => {
         saveKnowledgeSnapshot(next);
         setResult(next);
-        setGlobeOpen(true); // Auto-open 3D globe after extraction
+        setViewMode('globe');
         setGenerating(false);
       });
       autoMergeIntoAnchor(next);
@@ -530,7 +538,31 @@ export default function KnowledgeStudioPage() {
 
 
   return (
-    <div className="ms-page">
+    <div className={`ms-studio ms-panel-${panelState}`}>
+      {/* ── LEFT: collapsible dashboard panel (rail / panel / full) ── */}
+      <aside className="ms-left">
+        <div className="ms-left-rail">
+          <button
+            className="ms-rail-btn"
+            onClick={cyclePanel}
+            title={ko ? '패널 펼치기/접기' : 'Expand/collapse panel'}
+          >
+            {panelState === 'collapsed' ? <CaretRight size={16} /> : panelState === 'panel' ? <ArrowsOutSimple size={15} /> : <CaretLeft size={16} />}
+          </button>
+          {panelState === 'collapsed' && (
+            <>
+              <button className="ms-rail-btn" onClick={() => { setPanelState('panel'); inputRef.current?.click(); }} title={ko ? '파일 추가' : 'Add files'}>
+                <UploadSimple size={16} />
+              </button>
+              <button className="ms-rail-btn" onClick={() => setPanelState('panel')} title="MindSync">
+                <Brain size={16} weight="fill" />
+              </button>
+            </>
+          )}
+        </div>
+
+        {panelState !== 'collapsed' && (
+          <div className="ms-left-body">
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <section className="ms-hero ms-glass-card">
         <div className="ms-hero-content">
@@ -565,14 +597,6 @@ export default function KnowledgeStudioPage() {
               {ko ? '지식망 생성' : 'Build graph'}
             </button>
           )}
-          <button className="btn btn-ghost" onClick={() => setGraphOpen(true)} disabled={!result?.graph.nodes.length}>
-            <Graph size={16} />
-            {ko ? '그래프 보기' : 'Open graph'}
-          </button>
-          <button className="btn btn-ghost" onClick={() => setGlobeOpen(true)} disabled={!result?.graph.nodes.length}>
-            <Globe size={16} />
-            {ko ? '3D 글로브' : '3D Globe'}
-          </button>
           <button className="btn btn-ghost" onClick={() => navigate('/mindsync/think')} disabled={!result?.graph.nodes.length}>
             <Brain size={16} />
             {ko ? '질문하기' : 'Ask the brain'}
@@ -792,38 +816,66 @@ export default function KnowledgeStudioPage() {
         />
       </div>
 
-      {/* ── Graph View ───────────────────────────────────────────── */}
-      {graphOpen && result && (
-        <NeuralGraphBoundary
-          surfaceLabel={ko ? '마인드싱크 그래프' : 'MindSync graph'}
-          onClose={() => setGraphOpen(false)}
-        >
-          <NeuralGraphView
-            graph={result.graph}
-            currentRoom=""
-            language={language}
-            getBlockText={async (roomPath, blockTs) => result.blockTextByKey[`${roomPath}::${blockTs}`] || null}
-            onClose={() => setGraphOpen(false)}
-            onJump={() => {}}
-          />
-        </NeuralGraphBoundary>
-      )}
-
-      {/* ── 3D Neural Globe ────────────────────────────────────── */}
-      {globeOpen && result && (
-        <Suspense fallback={
-          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4ecafc' }}>
-            <Loader2 size={32} className="spin" />
           </div>
-        }>
-          <NeuralGlobe
-            graph={result.graph}
-            onClose={() => setGlobeOpen(false)}
-            language={language}
-            nodeTextById={result.nodeTextById}
-          />
-        </Suspense>
-      )}
+        )}
+      </aside>
+
+      {/* ── CENTER: 3D globe / 2D graph stage ─────────────────────── */}
+      <main className="ms-stage">
+        <div className="ms-stage-toolbar">
+          <div className="ms-view-toggle" role="group" aria-label="view mode">
+            <button
+              className={`ms-view-btn ${viewMode === 'globe' ? 'active' : ''}`}
+              onClick={() => setViewMode('globe')}
+            >
+              <Globe size={14} /> {ko ? '3D 글로브' : '3D Globe'}
+            </button>
+            <button
+              className={`ms-view-btn ${viewMode === 'graph' ? 'active' : ''}`}
+              onClick={() => setViewMode('graph')}
+              disabled={!result?.graph.nodes.length}
+              title={!result?.graph.nodes.length ? (ko ? '지식망을 먼저 생성하세요' : 'Build a graph first') : undefined}
+            >
+              <Graph size={14} /> {ko ? '2D 그래프' : '2D Graph'}
+            </button>
+          </div>
+        </div>
+
+        <div className="ms-stage-canvas">
+          {viewMode === 'globe' ? (
+            <Suspense fallback={<div className="ms-stage-loading"><Loader2 size={28} className="spin" /></div>}>
+              <NeuralGlobe
+                key={result ? 'data' : 'idle'}
+                graph={result?.graph ?? { version: 1, updatedAt: '', clusters: [], nodes: [], edges: [] }}
+                idle={!result?.graph.nodes.length}
+                onIdleClick={() => setPanelState('panel')}
+                embedded
+                theme={resolvedTheme}
+                language={language}
+                nodeTextById={result?.nodeTextById}
+                onClose={() => {}}
+              />
+            </Suspense>
+          ) : result ? (
+            <NeuralGraphBoundary surfaceLabel={ko ? '마인드싱크 그래프' : 'MindSync graph'} onClose={() => setViewMode('globe')}>
+              <NeuralGraphView
+                embedded
+                graph={result.graph}
+                currentRoom=""
+                language={language}
+                getBlockText={async (roomPath, blockTs) => result.blockTextByKey[`${roomPath}::${blockTs}`] || null}
+                onClose={() => setViewMode('globe')}
+                onJump={() => {}}
+              />
+            </NeuralGraphBoundary>
+          ) : (
+            <div className="ms-stage-empty">
+              <Brain size={28} weight="fill" />
+              <p>{ko ? '지식망을 생성하면 2D 그래프를 볼 수 있어요.' : 'Build a graph to see the 2D view.'}</p>
+            </div>
+          )}
+        </div>
+      </main>
 
       <ConnectMindSyncModal
         open={connectOpen}

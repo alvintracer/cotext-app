@@ -1593,3 +1593,162 @@
   text-align: right;
   font-family: var(--font-mono, monospace);
 }
+
+/* ============================================================
+   MindSync Studio v2 — 3-zone shell (left panel · stage · right)
+   Globe/graph is the page; dashboard lives in a collapsible left panel.
+   ============================================================ */
+.ms-studio {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--ms-left-w, 380px) 1fr;
+  height: 100%;
+  min-height: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 30% -10%, var(--accent-glow) 0%, transparent 60%),
+    var(--bg);
+  overflow: hidden;
+}
+.ms-studio.ms-panel-collapsed { --ms-left-w: 52px; }
+.ms-studio.ms-panel-panel     { --ms-left-w: 520px; }
+.ms-studio.ms-panel-full      { --ms-left-w: min(780px, 62vw); }
+
+/* ── Left panel ───────────────────────────────────────────── */
+.ms-left {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  border-right: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+.ms-left-rail {
+  flex: 0 0 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-right: 1px solid var(--glass-border);
+}
+.ms-rail-btn {
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all .18s;
+}
+.ms-rail-btn:hover { color: var(--accent); border-color: var(--accent); }
+.ms-left-body {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+/* the old vertical stack styles still apply to inner sections */
+.ms-left-body .ms-content-grid { grid-template-columns: 1fr; }
+.ms-left-body .ms-settings-row { grid-template-columns: 1fr; }
+.ms-panel-collapsed .ms-left-body { display: none; }
+
+/* compact content-grid & settings in panel mode — single-column, tighter padding */
+.ms-panel-panel .ms-left-body .ms-hero { padding: var(--space-4) var(--space-5); }
+.ms-panel-panel .ms-left-body .ms-hero h1 { font-size: var(--text-lg); }
+.ms-panel-panel .ms-left-body .ms-hero p { font-size: var(--text-xs); }
+.ms-panel-panel .ms-left-body .ms-hero-actions { flex-wrap: wrap; gap: var(--space-2); }
+.ms-panel-panel .ms-left-body .ms-hero-actions .btn { padding: 6px 12px; font-size: 12px; }
+.ms-panel-panel .ms-left-body .ms-glass-card { padding: var(--space-3) var(--space-4); }
+.ms-panel-panel .ms-left-body .ms-stats { grid-template-columns: repeat(2, 1fr); gap: var(--space-2); }
+.ms-panel-panel .ms-left-body .ms-stat-card { padding: var(--space-3); }
+.ms-panel-panel .ms-left-body .ms-stat-value { font-size: var(--text-base); }
+.ms-panel-panel .ms-left-body .ms-dropzone { padding: var(--space-4) var(--space-3); }
+.ms-panel-panel .ms-left-body .ms-source-list { max-height: 200px; }
+
+/* ── Center stage ─────────────────────────────────────────── */
+.ms-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px;
+  gap: 12px;
+}
+.ms-stage-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.ms-view-toggle {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+}
+.ms-view-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 16px;
+  border: none; border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: all .18s;
+}
+.ms-view-btn:hover:not(:disabled):not(.active) { color: var(--text); }
+.ms-view-btn.active { background: var(--accent); color: #fff; box-shadow: 0 2px 10px var(--accent-glow); }
+.ms-view-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.ms-stage-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+}
+/* embedded graph fills the stage instead of floating as a modal */
+.neural-graph-embed {
+  position: absolute; inset: 0;
+  display: flex;
+}
+.neural-graph-embed .neural-graph { width: 100%; height: 100%; max-width: none; max-height: none; border-radius: 0; }
+
+.ms-stage-loading, .ms-stage-empty {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; color: var(--text-muted); text-align: center; padding: 24px;
+}
+.ms-stage-empty svg { color: var(--accent); opacity: .7; }
+
+/* ── Mobile: stage on top, dashboard below ────────────────── */
+@media (max-width: 860px) {
+  .ms-studio {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+  .ms-stage {
+    order: -1;
+    height: 56vh;
+    min-height: 360px;
+    padding: 10px;
+  }
+  .ms-left { border-right: none; border-top: 1px solid var(--glass-border); }
+  .ms-left-rail { display: none; }
+  .ms-left-body { display: flex !important; max-height: none; }
+  .ms-panel-collapsed .ms-left-body { display: flex !important; }
+}

@@ -13,7 +13,7 @@
 
 import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { OrbitControls, Html, Text } from '@react-three/drei';
+import { OrbitControls, Html, Text, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import type { NeuralGraph, NeuralNode, Edge, Cluster } from '../lib/neural/types';
 import { X, ArrowRight, GitBranch, CirclesFour } from '@phosphor-icons/react';
@@ -26,6 +26,39 @@ const CLUSTER_COLORS = [
   '#14b8a6', '#e879f9', '#fb923c', '#38bdf8', '#34d399',
 ];
 const DEFAULT_NODE_COLOR = '#607d8b';
+const ACCENT = '#3b9eff';        // brand key colour — used for edges & glow
+const ACCENT_BRIGHT = '#7cc4ff'; // lighter accent for travelling signal pulses
+
+type GlobeTheme = 'light' | 'dark';
+
+/** Theme-dependent visual tokens so the globe reads in both modes. */
+function themeTokens(theme: GlobeTheme) {
+  return theme === 'light'
+    ? {
+        labelColor: '#0f172a',
+        labelDim: 'rgba(30,41,59,0.55)',
+        labelOutline: '#ffffff',
+        edge: '#2b8ae6',
+        edgeOpacity: 0.32,
+        edgeDimOpacity: 0.12,
+        shell: '#dbe7f5',
+        shellOpacity: 0.18,
+        wire: '#9db8d8',
+        ambient: 0.75,
+      }
+    : {
+        labelColor: '#ffffff',
+        labelDim: 'rgba(255,255,255,0.6)',
+        labelOutline: '#000000',
+        edge: ACCENT,
+        edgeOpacity: 0.45,
+        edgeDimOpacity: 0.12,
+        shell: '#0d1117',
+        shellOpacity: 0.12,
+        wire: '#1a2744',
+        ambient: 0.35,
+      };
+}
 
 function clusterColor(clusterIndex: number): string {
   return CLUSTER_COLORS[clusterIndex % CLUSTER_COLORS.length];
@@ -85,6 +118,13 @@ interface NeuralGlobeProps {
   onClose: () => void;
   language: string;
   nodeTextById?: Record<string, string>;
+  /** Render inline inside a container instead of a fixed full-screen overlay. */
+  embedded?: boolean;
+  /** Light / dark visual theme. Defaults to dark. */
+  theme?: GlobeTheme;
+  /** When true, show a decorative idle globe (no real data). Clicking calls onIdleClick. */
+  idle?: boolean;
+  onIdleClick?: () => void;
 }
 
 interface SelectedInfo {
@@ -113,7 +153,7 @@ function InteractiveNodes({ graph, positions, clusterMap, selectedIdx, onSelect,
   const count = graph.nodes.length;
   const animProgress = useRef(0);
   const selectedIdxRef = useRef(selectedIdx);
-  selectedIdxRef.current = selectedIdx;
+  useEffect(() => { selectedIdxRef.current = selectedIdx; }, [selectedIdx]);
 
   // Set instance transforms and colors
   useEffect(() => {
@@ -195,12 +235,13 @@ function InteractiveNodes({ graph, positions, clusterMap, selectedIdx, onSelect,
 }
 
 /* ── Node Labels (Billboard Text, nearest N to camera) ──── */
-function NodeLabels({ graph, positions, clusterMap, selectedIdx, connectedNodeIds }: {
+function NodeLabels({ graph, positions, clusterMap, selectedIdx, connectedNodeIds, tokens }: {
   graph: NeuralGraph;
   positions: THREE.Vector3[];
   clusterMap: Map<string, number>;
   selectedIdx: number | null;
   connectedNodeIds: Set<string>;
+  tokens: ReturnType<typeof themeTokens>;
 }) {
   const { camera } = useThree();
   const [visibleIndices, setVisibleIndices] = useState<number[]>([]);
@@ -241,31 +282,31 @@ function NodeLabels({ graph, positions, clusterMap, selectedIdx, connectedNodeId
         const labelPos = positions[i].clone().normalize().multiplyScalar(RADIUS + 0.12);
 
         return (
-          <Text
-            key={node.id}
-            position={labelPos}
-            fontSize={isSelected ? 0.07 : 0.045}
-            color={isSelected ? '#ffffff' : isConnected ? color : 'rgba(255,255,255,0.6)'}
-            anchorX="center"
-            anchorY="bottom"
-            outlineWidth={0.004}
-            outlineColor="#000000"
-            maxWidth={0.6}
-          >
-            {node.label.length > 20 ? node.label.slice(0, 18) + '…' : node.label}
-          </Text>
+          <Billboard key={node.id} position={labelPos}>
+            <Text
+              fontSize={isSelected ? 0.07 : 0.045}
+              color={isSelected ? tokens.labelColor : isConnected ? color : tokens.labelDim}
+              anchorX="center"
+              anchorY="bottom"
+              outlineWidth={0.004}
+              outlineColor={tokens.labelOutline}
+              maxWidth={0.6}
+            >
+              {node.label.length > 20 ? node.label.slice(0, 18) + '…' : node.label}
+            </Text>
+          </Billboard>
         );
       })}
     </>
   );
 }
 
-/* ── Edge Lines with highlight ──────────────────────────── */
-function EdgeLines({ graph, positions, clusterMap, selectedNodeId }: {
+/* ── Edge Lines with highlight (brand-blue base) ────────── */
+function EdgeLines({ graph, positions, selectedNodeId, tokens }: {
   graph: NeuralGraph;
   positions: THREE.Vector3[];
-  clusterMap: Map<string, number>;
   selectedNodeId: string | null;
+  tokens: ReturnType<typeof themeTokens>;
 }) {
   const [visible, setVisible] = useState(false);
 
@@ -280,10 +321,7 @@ function EdgeLines({ graph, positions, clusterMap, selectedNodeId }: {
 
     const edgesToRender = graph.edges.slice(0, MAX_EDGES_RENDERED);
     const normVerts: number[] = [];
-    const normColors: number[] = [];
     const hiVerts: number[] = [];
-    const hiColors: number[] = [];
-    const color = new THREE.Color();
 
     for (const edge of edgesToRender) {
       const fi = nodeIdx.get(edge.from);
@@ -293,42 +331,132 @@ function EdgeLines({ graph, positions, clusterMap, selectedNodeId }: {
 
       const isHighlighted = selectedNodeId && (edge.from === selectedNodeId || edge.to === selectedNodeId);
       const arcPts = sphereArc(positions[fi], positions[ti], 16);
-      const fromNode = graph.nodes[fi];
-      const cIdx = fromNode.clusters[0] ? (clusterMap.get(fromNode.clusters[0]) ?? -1) : -1;
-      color.set(cIdx >= 0 ? clusterColor(cIdx) : DEFAULT_NODE_COLOR);
-
       const targetVerts = isHighlighted ? hiVerts : normVerts;
-      const targetColors = isHighlighted ? hiColors : normColors;
 
       for (let i = 0; i < arcPts.length - 1; i++) {
         targetVerts.push(arcPts[i].x, arcPts[i].y, arcPts[i].z);
         targetVerts.push(arcPts[i + 1].x, arcPts[i + 1].y, arcPts[i + 1].z);
-        targetColors.push(color.r, color.g, color.b);
-        targetColors.push(color.r, color.g, color.b);
       }
     }
 
-    const makeGeo = (v: number[], c: number[]) => {
+    const makeGeo = (v: number[]) => {
       const geo = new THREE.BufferGeometry();
-      if (v.length) {
-        geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
-        geo.setAttribute('color', new THREE.Float32BufferAttribute(c, 3));
-      }
+      if (v.length) geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
       return geo;
     };
 
-    return { normalGeo: makeGeo(normVerts, normColors), highlightGeo: makeGeo(hiVerts, hiColors) };
-  }, [graph.edges, graph.nodes, positions, clusterMap, selectedNodeId]);
+    return { normalGeo: makeGeo(normVerts), highlightGeo: makeGeo(hiVerts) };
+  }, [graph.edges, graph.nodes, positions, selectedNodeId]);
 
   return (
     <>
       <lineSegments geometry={normalGeo} visible={visible}>
-        <lineBasicMaterial vertexColors transparent opacity={selectedNodeId ? 0.06 : 0.15} />
+        <lineBasicMaterial color={tokens.edge} transparent opacity={selectedNodeId ? tokens.edgeDimOpacity : tokens.edgeOpacity} />
       </lineSegments>
       <lineSegments geometry={highlightGeo} visible={visible}>
-        <lineBasicMaterial vertexColors transparent opacity={0.6} />
+        <lineBasicMaterial color={ACCENT_BRIGHT} transparent opacity={0.85} />
       </lineSegments>
     </>
+  );
+}
+
+/* ── Electric pulses — bright dots travelling along edge arcs ── */
+function EdgePulses({ graph, positions, selectedNodeId, count = 14 }: {
+  graph: NeuralGraph;
+  positions: THREE.Vector3[];
+  selectedNodeId: string | null;
+  count?: number;
+}) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+
+  // Precompute candidate arcs (idle pulses cover the whole graph; when a node
+  // is selected we bias toward its edges so the "signal" looks intentional).
+  const arcs = useMemo(() => {
+    const nodeIdx = new Map<string, number>();
+    graph.nodes.forEach((n, i) => nodeIdx.set(n.id, i));
+    const out: { pts: THREE.Vector3[]; touchesSelected: boolean }[] = [];
+    for (const edge of graph.edges.slice(0, MAX_EDGES_RENDERED)) {
+      const fi = nodeIdx.get(edge.from);
+      const ti = nodeIdx.get(edge.to);
+      if (fi === undefined || ti === undefined || !positions[fi] || !positions[ti]) continue;
+      out.push({
+        pts: sphereArc(positions[fi], positions[ti], 24),
+        touchesSelected: !!selectedNodeId && (edge.from === selectedNodeId || edge.to === selectedNodeId),
+      });
+    }
+    return out;
+  }, [graph.edges, graph.nodes, positions, selectedNodeId]);
+
+  // Per-pulse runtime state
+  const pulses = useRef<{ arc: number; t: number; speed: number }[]>([]);
+  const pool = Math.min(count, Math.max(0, arcs.length));
+
+  const pickArc = useCallback(() => {
+    if (arcs.length === 0) return 0;
+    if (selectedNodeId) {
+      const sel = arcs.map((a, i) => (a.touchesSelected ? i : -1)).filter((i) => i >= 0);
+      if (sel.length && Math.random() < 0.8) return sel[(Math.random() * sel.length) | 0];
+    }
+    return (Math.random() * arcs.length) | 0;
+  }, [arcs, selectedNodeId]);
+
+  useEffect(() => {
+    pulses.current = Array.from({ length: pool }, () => ({
+      arc: pickArc(),
+      t: Math.random(),
+      speed: 0.4 + Math.random() * 0.5,
+    }));
+  }, [pool, pickArc]);
+
+  useFrame((_, delta) => {
+    const mesh = meshRef.current;
+    if (!mesh || pool === 0) return;
+    const dummy = new THREE.Object3D();
+    for (let i = 0; i < pool; i++) {
+      const p = pulses.current[i];
+      if (!p) continue;
+      p.t += delta * p.speed;
+      if (p.t >= 1) { p.t = 0; p.arc = pickArc(); p.speed = 0.4 + Math.random() * 0.5; }
+      const arc = arcs[p.arc];
+      if (!arc || arc.pts.length < 2) { dummy.scale.setScalar(0.0001); dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix); continue; }
+      const seg = p.t * (arc.pts.length - 1);
+      const i0 = Math.floor(seg);
+      const frac = seg - i0;
+      const a = arc.pts[i0];
+      const b = arc.pts[Math.min(i0 + 1, arc.pts.length - 1)];
+      dummy.position.lerpVectors(a, b, frac);
+      // fade in/out at the ends so pulses appear to be born and die smoothly
+      const fade = Math.sin(p.t * Math.PI);
+      dummy.scale.setScalar(0.022 * fade + 0.004);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+
+  if (pool === 0) return null;
+  return (
+    <instancedMesh ref={meshRef} args={[undefined, undefined, pool]}>
+      <sphereGeometry args={[1, 8, 8]} />
+      <meshBasicMaterial color={ACCENT_BRIGHT} transparent opacity={0.95} toneMapped={false} />
+    </instancedMesh>
+  );
+}
+
+/* ── Selected node glow ring (billboarded halo) ─────────── */
+function SelectedGlow({ position }: { position: THREE.Vector3 | null }) {
+  if (!position) return null;
+  return (
+    <Billboard position={position}>
+      <mesh>
+        <ringGeometry args={[0.11, 0.15, 32]} />
+        <meshBasicMaterial color={ACCENT_BRIGHT} transparent opacity={0.7} side={THREE.DoubleSide} toneMapped={false} />
+      </mesh>
+      <mesh>
+        <circleGeometry args={[0.1, 32]} />
+        <meshBasicMaterial color={ACCENT} transparent opacity={0.18} side={THREE.DoubleSide} toneMapped={false} />
+      </mesh>
+    </Billboard>
   );
 }
 
@@ -379,23 +507,23 @@ function EdgeTypeLabels({ graph, positions, selectedNodeId }: {
 }
 
 /* ── Wireframe Grid ─────────────────────────────────────── */
-function GlobeWireframe() {
+function GlobeWireframe({ tokens }: { tokens: ReturnType<typeof themeTokens> }) {
   return (
     <mesh>
       <sphereGeometry args={[RADIUS * 0.99, 24, 24]} />
-      <meshBasicMaterial color="#1a2744" transparent opacity={0.06} wireframe />
+      <meshBasicMaterial color={tokens.wire} transparent opacity={0.08} wireframe />
     </mesh>
   );
 }
 
 /* ── Shell ──────────────────────────────────────────────── */
-function GlobeShell() {
+function GlobeShell({ tokens }: { tokens: ReturnType<typeof themeTokens> }) {
   const ref = useRef<THREE.Mesh>(null);
   useFrame(() => { if (ref.current) ref.current.rotation.y += 0.0004; });
   return (
     <mesh ref={ref}>
       <sphereGeometry args={[RADIUS * 0.97, 48, 48]} />
-      <meshStandardMaterial color="#0d1117" transparent opacity={0.12} roughness={1} metalness={0} side={THREE.BackSide} />
+      <meshStandardMaterial color={tokens.shell} transparent opacity={tokens.shellOpacity} roughness={1} metalness={0} side={THREE.BackSide} />
     </mesh>
   );
 }
@@ -425,7 +553,7 @@ function SceneSetup() {
 }
 
 /* ── Main Scene ─────────────────────────────────────────── */
-function GlobeScene({ graph, selectedIdx, hoveredIdx, onSelect, onHover, onUnhover, connectedNodeIds }: {
+function GlobeScene({ graph, selectedIdx, hoveredIdx, onSelect, onHover, onUnhover, connectedNodeIds, tokens }: {
   graph: NeuralGraph;
   selectedIdx: number | null;
   hoveredIdx: number | null;
@@ -433,6 +561,7 @@ function GlobeScene({ graph, selectedIdx, hoveredIdx, onSelect, onHover, onUnhov
   onHover: (idx: number) => void;
   onUnhover: () => void;
   connectedNodeIds: Set<string>;
+  tokens: ReturnType<typeof themeTokens>;
 }) {
   const clusterMap = useMemo(() => {
     const m = new Map<string, number>();
@@ -446,17 +575,20 @@ function GlobeScene({ graph, selectedIdx, hoveredIdx, onSelect, onHover, onUnhov
   );
 
   const selectedNodeId = selectedIdx !== null ? graph.nodes[selectedIdx]?.id ?? null : null;
+  const selectedPos = selectedIdx !== null ? positions[selectedIdx] ?? null : null;
 
   return (
     <>
       <SceneSetup />
-      <ambientLight intensity={0.3} />
+      <ambientLight intensity={tokens.ambient} />
       <pointLight position={[5, 5, 5]} intensity={0.6} />
-      <pointLight position={[-5, -3, -5]} intensity={0.3} color="#4ecafc" />
+      <pointLight position={[-5, -3, -5]} intensity={0.4} color={ACCENT} />
 
-      <GlobeShell />
-      <GlobeWireframe />
-      <EdgeLines graph={graph} positions={positions} clusterMap={clusterMap} selectedNodeId={selectedNodeId} />
+      <GlobeShell tokens={tokens} />
+      <GlobeWireframe tokens={tokens} />
+      <EdgeLines graph={graph} positions={positions} selectedNodeId={selectedNodeId} tokens={tokens} />
+      <EdgePulses graph={graph} positions={positions} selectedNodeId={selectedNodeId} />
+      <SelectedGlow position={selectedPos} />
       <InteractiveNodes
         graph={graph}
         positions={positions}
@@ -472,6 +604,7 @@ function GlobeScene({ graph, selectedIdx, hoveredIdx, onSelect, onHover, onUnhov
         clusterMap={clusterMap}
         selectedIdx={selectedIdx}
         connectedNodeIds={connectedNodeIds}
+        tokens={tokens}
       />
       <EdgeTypeLabels graph={graph} positions={positions} selectedNodeId={selectedNodeId} />
       <HoverTooltip graph={graph} positions={positions} hoveredIdx={hoveredIdx} />
@@ -485,6 +618,81 @@ function GlobeScene({ graph, selectedIdx, hoveredIdx, onSelect, onHover, onUnhov
         enableDamping
         dampingFactor={0.05}
       />
+    </>
+  );
+}
+
+/* ── Idle decorative globe (no real data) ───────────────── */
+function IdleScene({ tokens }: { tokens: ReturnType<typeof themeTokens> }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const count = 80;
+  const positions = useMemo(() => fibonacciSphere(count, RADIUS), []);
+
+  // Random faint edges between nearby points
+  const edgeGeo = useMemo(() => {
+    const verts: number[] = [];
+    for (let i = 0; i < count; i++) {
+      // connect each node to ~2 nearby neighbours
+      const links = [(i + 3) % count, (i + 7) % count];
+      for (const j of links) {
+        const arc = sphereArc(positions[i], positions[j], 12);
+        for (let k = 0; k < arc.length - 1; k++) {
+          verts.push(arc[k].x, arc[k].y, arc[k].z, arc[k + 1].x, arc[k + 1].y, arc[k + 1].z);
+        }
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    return geo;
+  }, [positions]);
+
+  // Synthetic graph for pulses + node instances
+  const fakeGraph = useMemo<NeuralGraph>(() => ({
+    version: 1,
+    updatedAt: '',
+    clusters: [],
+    nodes: positions.map((_, i) => ({ id: `idle-${i}`, label: '', clusters: [], room: '', blockTs: '', source: '' })),
+    edges: positions.map((_, i) => ({ from: `idle-${i}`, to: `idle-${(i + 3) % count}`, type: 'relates' as const })),
+  }), [positions]);
+
+  const nodesMesh = useRef<THREE.InstancedMesh>(null);
+  useEffect(() => {
+    const mesh = nodesMesh.current;
+    if (!mesh) return;
+    const dummy = new THREE.Object3D();
+    const color = new THREE.Color(ACCENT);
+    for (let i = 0; i < count; i++) {
+      dummy.position.copy(positions[i]);
+      dummy.scale.setScalar(0.03);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+      mesh.setColorAt(i, color);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }, [positions]);
+
+  useFrame(() => { if (groupRef.current) groupRef.current.rotation.y += 0.0016; });
+
+  return (
+    <>
+      <SceneSetup />
+      <ambientLight intensity={tokens.ambient} />
+      <pointLight position={[5, 5, 5]} intensity={0.5} />
+      <pointLight position={[-5, -3, -5]} intensity={0.4} color={ACCENT} />
+      <group ref={groupRef}>
+        <GlobeShell tokens={tokens} />
+        <GlobeWireframe tokens={tokens} />
+        <lineSegments geometry={edgeGeo}>
+          <lineBasicMaterial color={tokens.edge} transparent opacity={tokens.edgeOpacity * 0.7} />
+        </lineSegments>
+        <instancedMesh ref={nodesMesh} args={[undefined, undefined, count]}>
+          <sphereGeometry args={[1, 8, 8]} />
+          <meshStandardMaterial emissive={ACCENT} emissiveIntensity={0.6} roughness={0.4} metalness={0.2} vertexColors />
+        </instancedMesh>
+        <EdgePulses graph={fakeGraph} positions={positions} selectedNodeId={null} count={18} />
+      </group>
+      <OrbitControls enablePan={false} enableZoom={false} autoRotate autoRotateSpeed={0.4} enableDamping dampingFactor={0.05} />
     </>
   );
 }
@@ -586,8 +794,9 @@ function DetailPanel({ info, graph, clusterMap, ko, nodeTextById, onClose }: {
 }
 
 /* ── Exported component ─────────────────────────────────── */
-export default function NeuralGlobe({ graph, onClose, language, nodeTextById }: NeuralGlobeProps) {
+export default function NeuralGlobe({ graph, onClose, language, nodeTextById, embedded = false, theme = 'dark', idle = false, onIdleClick }: NeuralGlobeProps) {
   const ko = language === 'ko';
+  const tokens = useMemo(() => themeTokens(theme), [theme]);
   const [contextLost, setContextLost] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -650,9 +859,84 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById }: 
   }, []);
 
 
+  const canvasEl = contextLost ? (
+    <div className="neural-globe-lost">
+      {ko ? 'GPU 컨텍스트가 손실되었습니다. 다시 시도해주세요.' : 'GPU context lost. Please retry.'}
+    </div>
+  ) : (
+    <Canvas
+      dpr={[1, 1.5]}
+      gl={{ antialias: true, alpha: true, powerPreference: 'default', failIfMajorPerformanceCaveat: false }}
+      camera={{ fov: 50, near: 0.1, far: 100 }}
+      onCreated={handleCreated}
+      onPointerMissed={() => { if (!idle) setSelectedIdx(null); }}
+    >
+      {idle ? (
+        <IdleScene tokens={tokens} />
+      ) : (
+        <GlobeScene
+          graph={graph}
+          selectedIdx={selectedIdx}
+          hoveredIdx={hoveredIdx}
+          onSelect={handleSelect}
+          onHover={setHoveredIdx}
+          onUnhover={() => setHoveredIdx(null)}
+          connectedNodeIds={connectedNodeIds}
+          tokens={tokens}
+        />
+      )}
+    </Canvas>
+  );
+
+  // ── Embedded mode: fill the parent container (the studio center stage) ──
+  if (embedded) {
+    return (
+      <div
+        className={`neural-globe-embed ${theme === 'light' ? 'is-light' : 'is-dark'}`}
+        onClick={idle ? onIdleClick : undefined}
+        role={idle ? 'button' : undefined}
+      >
+        <div className="neural-globe-canvas">{canvasEl}</div>
+
+        {idle ? (
+          <div className="neural-globe-idle-hint">
+            <span>{ko ? '데이터를 기반으로 지식망을 구현하세요' : 'Build a knowledge graph from your data'}</span>
+            <small>{ko ? '왼쪽 패널에서 파일을 업로드하고 생성하세요' : 'Upload files in the left panel, then generate'}</small>
+          </div>
+        ) : (
+          <>
+            {selectedInfo && (
+              <DetailPanel
+                info={selectedInfo}
+                graph={graph}
+                clusterMap={clusterMap}
+                ko={ko}
+                nodeTextById={nodeTextById}
+                onClose={() => setSelectedIdx(null)}
+              />
+            )}
+            <div className="neural-globe-legend">
+              {clusterLegend.map((c) => (
+                <div key={c.id} className="neural-globe-legend-item">
+                  <div className="neural-globe-legend-dot" style={{ background: c.color, boxShadow: `0 0 6px ${c.color}` }} />
+                  {c.name}
+                </div>
+              ))}
+            </div>
+            <div className="neural-globe-stats">
+              <div><span>{graph.nodes.length}</span> {ko ? '노드' : 'nodes'}</div>
+              <div><span>{graph.edges.length}</span> {ko ? '연결' : 'edges'}</div>
+              <div><span>{graph.clusters.length}</span> {ko ? '클러스터' : 'clusters'}</div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // ── Full-screen overlay mode (legacy) ──
   return (
-    <div className="neural-globe-overlay">
-      {/* Header */}
+    <div className={`neural-globe-overlay ${theme === 'light' ? 'is-light' : 'is-dark'}`}>
       <div className="neural-globe-header">
         <div className="neural-globe-title">
           <div className="globe-icon" />
@@ -663,39 +947,8 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById }: 
         </button>
       </div>
 
-      {/* 3D Canvas */}
-      <div className="neural-globe-canvas">
-        {contextLost ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>
-            {ko ? 'GPU 컨텍스트가 손실되었습니다. 닫고 다시 열어주세요.' : 'GPU context lost. Close and reopen.'}
-          </div>
-        ) : (
-          <Canvas
-            dpr={[1, 1.5]}
-            gl={{
-              antialias: true,
-              alpha: true,
-              powerPreference: 'default',
-              failIfMajorPerformanceCaveat: false,
-            }}
-            camera={{ fov: 50, near: 0.1, far: 100 }}
-            onCreated={handleCreated}
-            onPointerMissed={() => setSelectedIdx(null)}
-          >
-            <GlobeScene
-              graph={graph}
-              selectedIdx={selectedIdx}
-              hoveredIdx={hoveredIdx}
-              onSelect={handleSelect}
-              onHover={setHoveredIdx}
-              onUnhover={() => setHoveredIdx(null)}
-              connectedNodeIds={connectedNodeIds}
-            />
-          </Canvas>
-        )}
-      </div>
+      <div className="neural-globe-canvas">{canvasEl}</div>
 
-      {/* Detail Panel */}
       {selectedInfo && (
         <DetailPanel
           info={selectedInfo}
@@ -707,7 +960,6 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById }: 
         />
       )}
 
-      {/* Cluster legend */}
       <div className="neural-globe-legend">
         {clusterLegend.map((c) => (
           <div key={c.id} className="neural-globe-legend-item">
@@ -717,7 +969,6 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById }: 
         ))}
       </div>
 
-      {/* Stats */}
       <div className="neural-globe-stats">
         <div><span>{graph.nodes.length}</span> {ko ? '노드' : 'nodes'}</div>
         <div><span>{graph.edges.length}</span> {ko ? '연결' : 'edges'}</div>

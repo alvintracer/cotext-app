@@ -95,11 +95,13 @@ function colorFor(clusterId: string | undefined, palette: Map<string, string>): 
 
 export default function NeuralGraphView({
   graph, currentRoom, language, getBlockText, onClose, onJump, onNavigateRoom,
-  onDeleteNode, onLinkEdge, onUnlinkEdge,
+  onDeleteNode, onLinkEdge, onUnlinkEdge, embedded = false,
 }: {
   graph: NeuralGraph;
   currentRoom: string;
   language: string;
+  /** Render inline inside a container instead of a fixed overlay (studio center stage). */
+  embedded?: boolean;
   /** Async block-text fetch for the detail panel (current room = local; others = GitHub). */
   getBlockText?: (roomPath: string, blockTs: string) => Promise<string | null>;
   onClose: () => void;
@@ -457,7 +459,10 @@ export default function NeuralGraphView({
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className={embedded ? 'neural-graph-embed' : 'modal-overlay'}
+      onClick={embedded ? undefined : onClose}
+    >
       <div className="modal-content neural-graph" onClick={(e) => e.stopPropagation()}>
         <div className="neural-graph-toolbar">
           <div className="neural-graph-title">{ko ? '뉴럴 링크 그래프' : 'Neural Link graph'}</div>
@@ -490,7 +495,7 @@ export default function NeuralGraphView({
           <button className="btn btn-ghost btn-sm" onClick={() => setView({ x: 0, y: 0, k: 1 })} title={ko ? '뷰 리셋' : 'Reset view'}>
             <ArrowsOutCardinal size={13} /> {ko ? '뷰 리셋' : 'Reset'}
           </button>
-          <button className="icon-button" onClick={onClose} aria-label="close"><X size={16} /></button>
+          {!embedded && <button className="icon-button" onClick={onClose} aria-label="close"><X size={16} /></button>}
         </div>
 
         <div className="neural-graph-body">

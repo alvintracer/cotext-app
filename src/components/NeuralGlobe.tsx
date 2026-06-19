@@ -839,7 +839,9 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
   const [contextLost, setContextLost] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-  const [legendOpen, setLegendOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(
+    typeof window !== 'undefined' && window.innerWidth > 768
+  );
   const [displayMode, setDisplayMode] = useState<'nodes' | 'clusters'>('nodes');
 
   const clusterMap = useMemo(() => {
@@ -982,10 +984,10 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
               <button className={`globe-stat-btn ${displayMode === 'nodes' ? 'active' : ''}`} onClick={() => { setDisplayMode('nodes'); setSelectedIdx(null); }}>
                 <span>{graph.nodes.length}</span> {ko ? '노드' : 'nodes'}
               </button>
-              <div><span>{graph.edges.length}</span> {ko ? '연결' : 'edges'}</div>
               <button className={`globe-stat-btn ${displayMode === 'clusters' ? 'active' : ''}`} onClick={() => { setDisplayMode('clusters'); setSelectedIdx(null); }}>
                 <span>{graph.clusters.length}</span> {ko ? '클러스터' : 'clusters'}
               </button>
+              <div><span>{graph.edges.length}</span> {ko ? '연결' : 'edges'}</div>
             </div>
           </>
         )}
@@ -1044,10 +1046,10 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
         <button className={`globe-stat-btn ${displayMode === 'nodes' ? 'active' : ''}`} onClick={() => { setDisplayMode('nodes'); setSelectedIdx(null); }}>
           <span>{graph.nodes.length}</span> {ko ? '노드' : 'nodes'}
         </button>
-        <div><span>{graph.edges.length}</span> {ko ? '연결' : 'edges'}</div>
         <button className={`globe-stat-btn ${displayMode === 'clusters' ? 'active' : ''}`} onClick={() => { setDisplayMode('clusters'); setSelectedIdx(null); }}>
           <span>{graph.clusters.length}</span> {ko ? '클러스터' : 'clusters'}
         </button>
+        <div><span>{graph.edges.length}</span> {ko ? '연결' : 'edges'}</div>
       </div>
     </div>
   );

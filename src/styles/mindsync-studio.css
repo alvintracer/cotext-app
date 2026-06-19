@@ -887,8 +887,10 @@
 .ms-track-btn {
   position: relative;
   z-index: 1;
+  flex: 1 1 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   font-size: var(--text-sm);

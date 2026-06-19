@@ -128,8 +128,98 @@ export interface ManagedKnowledgeExtractResponse {
 }
 
 export const managedKnowledgeApi = {
-  extract(workspaceId: string, sources: Array<{ name: string; text: string }>) {
-    return invokeFunction<ManagedKnowledgeExtractResponse>('neural-extract-managed', { workspace_id: workspaceId, sources });
+  /**
+   * Managed extraction via SSE streaming.
+   * The edge function sends `progress`, `chunk`, `done`, and `error` events.
+   * `onProgress` fires for each progress/chunk event so the UI can show real-time updates.
+   */
+  async extract(
+    workspaceId: string,
+    sources: Array<{ name: string; text: string }>,
+    onProgress?: (info: { phase: string; current: number; total: number; message?: string }) => void,
+    signal?: AbortSignal,
+  ): Promise<ManagedKnowledgeExtractResponse> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not authenticated');
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const url = `${supabaseUrl}/functions/v1/neural-extract-managed`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ workspace_id: workspaceId, sources }),
+      signal,
+    });
+
+    // Non-SSE response (error cases return JSON)
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('text/event-stream')) {
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+      return data as ManagedKnowledgeExtractResponse;
+    }
+
+    // SSE streaming
+    return new Promise<ManagedKnowledgeExtractResponse>((resolve, reject) => {
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      function processLines() {
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // keep incomplete line
+
+        let currentEvent = '';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            const raw = line.slice(6);
+            try {
+              const data = JSON.parse(raw);
+              if (currentEvent === 'progress' && onProgress) {
+                onProgress(data);
+              } else if (currentEvent === 'chunk' && onProgress && data.totalChunks) {
+                onProgress({
+                  phase: 'extracting',
+                  current: data.chunkIndex + 1,
+                  total: data.totalChunks,
+                  message: data.error
+                    ? `Chunk ${data.chunkIndex + 1}/${data.totalChunks} failed`
+                    : `Chunk ${data.chunkIndex + 1}/${data.totalChunks} done`,
+                });
+              } else if (currentEvent === 'done') {
+                resolve(data as ManagedKnowledgeExtractResponse);
+                return;
+              } else if (currentEvent === 'error') {
+                reject(new Error(data.error || 'Server error'));
+                return;
+              }
+            } catch { /* skip malformed JSON */ }
+          }
+        }
+      }
+
+      function pump(): void {
+        reader.read().then(({ done, value }) => {
+          if (done) {
+            if (buffer.trim()) processLines();
+            // If we get here without resolve/reject, the stream ended unexpectedly
+            reject(new Error('Stream ended without result'));
+            return;
+          }
+          buffer += decoder.decode(value, { stream: true });
+          processLines();
+          pump();
+        }).catch(reject);
+      }
+
+      pump();
+    });
   },
 };
 

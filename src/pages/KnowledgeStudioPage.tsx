@@ -328,14 +328,21 @@ export default function KnowledgeStudioPage() {
         setGenerating(false);
         return;
       }
+      const managedAbort = new AbortController();
+      abortRef.current = managedAbort;
       try {
         setLlmProgress({
           phase: 'extracting',
-          current: 1,
+          current: 0,
           total: 1,
           message: ko ? '서버에서 지식망을 추출하는 중...' : 'Building knowledge graph on the server...',
         });
-        const managed = await managedKnowledgeApi.extract(anchorWs.id, deduped);
+        const managed = await managedKnowledgeApi.extract(
+          anchorWs.id,
+          deduped,
+          (info) => setLlmProgress(info),
+          managedAbort.signal,
+        );
         const final: KnowledgeGraphResult = {
           graph: managed.result.graph as KnowledgeGraphResult['graph'],
           nodeTextById: managed.result.nodeTextById,

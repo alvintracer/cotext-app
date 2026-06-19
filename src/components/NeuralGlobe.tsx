@@ -1,18 +1,17 @@
 /**
  * NeuralGlobe — 3D sphere-surface knowledge graph visualisation.
  *
- * Renders all NeuralGraph nodes on the surface of a translucent sphere,
- * colour-coded by cluster, with arc-edges connecting related nodes.
- * Fullscreen overlay with OrbitControls (rotate/zoom).
+ * Uses InstancedMesh for nodes (single draw call) and limits edge count
+ * to prevent WebGL context loss. Fullscreen overlay with OrbitControls.
  *
  * Code-split via React.lazy() so three.js never enters the main bundle.
  */
 
 import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
-import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { OrbitControls, Line, Billboard, Text } from '@react-three/drei';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import type { NeuralGraph, NeuralNode, Edge } from '../lib/neural/types';
+import type { NeuralGraph } from '../lib/neural/types';
 import { X } from '@phosphor-icons/react';
 import '../styles/neural-globe.css';
 
@@ -31,9 +30,10 @@ function clusterColor(clusterIndex: number): string {
 /* ── fibonacci sphere distribution ──────────────────────── */
 function fibonacciSphere(count: number, radius: number): THREE.Vector3[] {
   const points: THREE.Vector3[] = [];
+  if (count === 0) return points;
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < count; i++) {
-    const y = 1 - (i / (count - 1 || 1)) * 2; // -1..1
+    const y = 1 - (i / (count - 1 || 1)) * 2;
     const r = Math.sqrt(1 - y * y);
     const theta = goldenAngle * i;
     points.push(new THREE.Vector3(
@@ -46,17 +46,15 @@ function fibonacciSphere(count: number, radius: number): THREE.Vector3[] {
 }
 
 /* ── arc between two points on sphere surface ────────────── */
-function sphereArc(a: THREE.Vector3, b: THREE.Vector3, segments = 48): THREE.Vector3[] {
+function sphereArc(a: THREE.Vector3, b: THREE.Vector3, segments = 24): THREE.Vector3[] {
   const pts: THREE.Vector3[] = [];
   const aDir = a.clone().normalize();
   const bDir = b.clone().normalize();
   const angle = aDir.angleTo(bDir);
   if (angle < 0.001) return [a.clone(), b.clone()];
-
   const axis = new THREE.Vector3().crossVectors(aDir, bDir).normalize();
   const radius = a.length();
-  const lift = 1 + 0.08 * (angle / Math.PI); // slight lift above surface
-
+  const lift = 1 + 0.06 * (angle / Math.PI);
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
     const dir = aDir.clone().applyAxisAngle(axis, angle * t);
@@ -65,289 +63,199 @@ function sphereArc(a: THREE.Vector3, b: THREE.Vector3, segments = 48): THREE.Vec
   return pts;
 }
 
-/* ── Types ──────────────────────────────────────────────── */
-interface GlobeNodeData {
-  node: NeuralNode;
-  pos: THREE.Vector3;
-  color: string;
-  clusterIdx: number;
-}
-
 interface NeuralGlobeProps {
   graph: NeuralGraph;
   onClose: () => void;
   language: string;
 }
 
-/* ── Animated Node Mesh ─────────────────────────────────── */
-function NodeSphere({
-  data,
-  index,
-  onHover,
-  onUnhover,
-  highlighted,
-}: {
-  data: GlobeNodeData;
-  index: number;
-  onHover: (data: GlobeNodeData, evt: ThreeEvent<PointerEvent>) => void;
-  onUnhover: () => void;
-  highlighted: boolean;
+const MAX_EDGES_RENDERED = 200; // cap edges to prevent GPU overload
+const RADIUS = 1.5;
+
+/* ── Instanced Nodes (single draw call) ─────────────────── */
+function InstancedNodes({ graph, positions, clusterMap }: {
+  graph: NeuralGraph;
+  positions: THREE.Vector3[];
+  clusterMap: Map<string, number>;
 }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
-  const [scale, setScale] = useState(0);
-  const baseSize = 0.06;
-  const targetScale = highlighted ? 1.8 : 1;
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const count = graph.nodes.length;
+  const animProgress = useRef(0);
 
-  // Entry animation — stagger by index
+  // Set instance transforms and colors
   useEffect(() => {
-    const delay = 200 + index * 30;
-    const timer = setTimeout(() => setScale(1), delay);
-    return () => clearTimeout(timer);
-  }, [index]);
+    if (!meshRef.current || count === 0) return;
+    const dummy = new THREE.Object3D();
+    const color = new THREE.Color();
 
-  useFrame(() => {
-    if (!meshRef.current) return;
-    const cur = meshRef.current.scale.x;
-    const target = scale * targetScale;
-    const next = THREE.MathUtils.lerp(cur, target, 0.12);
-    meshRef.current.scale.setScalar(next);
-    if (glowRef.current) {
-      glowRef.current.scale.setScalar(next * 2.5);
-      (glowRef.current.material as THREE.MeshBasicMaterial).opacity =
-        THREE.MathUtils.lerp((glowRef.current.material as THREE.MeshBasicMaterial).opacity, highlighted ? 0.35 : 0.12, 0.1);
+    for (let i = 0; i < count; i++) {
+      dummy.position.copy(positions[i]);
+      dummy.scale.setScalar(0.001); // start tiny for animation
+      dummy.updateMatrix();
+      meshRef.current.setMatrixAt(i, dummy.matrix);
+
+      const node = graph.nodes[i];
+      const cIdx = node.clusters[0] ? (clusterMap.get(node.clusters[0]) ?? -1) : -1;
+      color.set(cIdx >= 0 ? clusterColor(cIdx) : DEFAULT_NODE_COLOR);
+      meshRef.current.setColorAt(i, color);
     }
+    meshRef.current.instanceMatrix.needsUpdate = true;
+    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
+    animProgress.current = 0;
+  }, [count, positions, graph.nodes, clusterMap]);
+
+  // Animate scale in
+  useFrame((_, delta) => {
+    if (!meshRef.current || count === 0) return;
+    if (animProgress.current >= 1) return;
+
+    animProgress.current = Math.min(1, animProgress.current + delta * 0.8);
+    const t = animProgress.current;
+    const dummy = new THREE.Object3D();
+
+    for (let i = 0; i < count; i++) {
+      const stagger = Math.min(1, Math.max(0, (t * count - i * 0.3) / (count * 0.7)));
+      const s = easeOutBack(stagger) * 0.06;
+      dummy.position.copy(positions[i]);
+      dummy.scale.setScalar(s);
+      dummy.updateMatrix();
+      meshRef.current.setMatrixAt(i, dummy.matrix);
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true;
   });
 
-  const col = new THREE.Color(data.color);
+  if (count === 0) return null;
 
   return (
-    <group position={data.pos}>
-      {/* Glow */}
-      <mesh ref={glowRef}>
-        <sphereGeometry args={[baseSize, 12, 12]} />
-        <meshBasicMaterial color={col} transparent opacity={0.12} depthWrite={false} />
-      </mesh>
-      {/* Core */}
-      <mesh
-        ref={meshRef}
-        scale={0}
-        onPointerOver={(e) => { e.stopPropagation(); onHover(data, e); }}
-        onPointerOut={(e) => { e.stopPropagation(); onUnhover(); }}
-      >
-        <sphereGeometry args={[baseSize, 16, 16]} />
-        <meshStandardMaterial
-          color={col}
-          emissive={col}
-          emissiveIntensity={highlighted ? 1.2 : 0.6}
-          roughness={0.3}
-          metalness={0.2}
-        />
-      </mesh>
-    </group>
-  );
-}
-
-/* ── Animated Edge Arc ──────────────────────────────────── */
-function EdgeArc({
-  from,
-  to,
-  color,
-  index,
-}: {
-  from: THREE.Vector3;
-  to: THREE.Vector3;
-  color: string;
-  index: number;
-}) {
-  const [opacity, setOpacity] = useState(0);
-  const points = useMemo(() => sphereArc(from, to), [from, to]);
-
-  useEffect(() => {
-    const delay = 600 + index * 15;
-    const timer = setTimeout(() => setOpacity(1), delay);
-    return () => clearTimeout(timer);
-  }, [index]);
-
-  useFrame(() => {
-    // opacity is handled by Line's opacity prop
-  });
-
-  return (
-    <Line
-      points={points}
-      color={color}
-      lineWidth={1}
-      transparent
-      opacity={opacity * 0.25}
-    />
-  );
-}
-
-/* ── Translucent Sphere Shell ───────────────────────────── */
-function GlobeSphere({ radius }: { radius: number }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-
-  useFrame(() => {
-    if (meshRef.current) meshRef.current.rotation.y += 0.0005;
-  });
-
-  return (
-    <mesh ref={meshRef}>
-      <sphereGeometry args={[radius * 0.98, 64, 64]} />
+    <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
+      <sphereGeometry args={[1, 12, 12]} />
       <meshStandardMaterial
-        color="#0d1117"
-        transparent
-        opacity={0.15}
-        roughness={1}
-        metalness={0}
-        wireframe={false}
-        side={THREE.BackSide}
+        emissive="#ffffff"
+        emissiveIntensity={0.5}
+        roughness={0.3}
+        metalness={0.2}
+        vertexColors
       />
-    </mesh>
+    </instancedMesh>
   );
 }
 
-/* ── Wireframe grid on sphere ───────────────────────────── */
-function GlobeWireframe({ radius }: { radius: number }) {
+/* ── Edge Lines (BufferGeometry batch) ──────────────────── */
+function EdgeLines({ graph, positions, clusterMap }: {
+  graph: NeuralGraph;
+  positions: THREE.Vector3[];
+  clusterMap: Map<string, number>;
+}) {
+  const lineRef = useRef<THREE.LineSegments>(null);
+  const [visible, setVisible] = useState(false);
+
+  // Fade in edges after nodes appear
+  useEffect(() => {
+    const timer = setTimeout(() => setVisible(true), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const geometry = useMemo(() => {
+    const nodeIdx = new Map<string, number>();
+    graph.nodes.forEach((n, i) => nodeIdx.set(n.id, i));
+
+    const edgesToRender = graph.edges.slice(0, MAX_EDGES_RENDERED);
+    const verts: number[] = [];
+    const colors: number[] = [];
+    const color = new THREE.Color();
+
+    for (const edge of edgesToRender) {
+      const fi = nodeIdx.get(edge.from);
+      const ti = nodeIdx.get(edge.to);
+      if (fi === undefined || ti === undefined) continue;
+      if (!positions[fi] || !positions[ti]) continue;
+
+      const arcPts = sphereArc(positions[fi], positions[ti], 16);
+      const fromNode = graph.nodes[fi];
+      const cIdx = fromNode.clusters[0] ? (clusterMap.get(fromNode.clusters[0]) ?? -1) : -1;
+      color.set(cIdx >= 0 ? clusterColor(cIdx) : DEFAULT_NODE_COLOR);
+
+      // Add line segments for the arc
+      for (let i = 0; i < arcPts.length - 1; i++) {
+        verts.push(arcPts[i].x, arcPts[i].y, arcPts[i].z);
+        verts.push(arcPts[i + 1].x, arcPts[i + 1].y, arcPts[i + 1].z);
+        colors.push(color.r, color.g, color.b);
+        colors.push(color.r, color.g, color.b);
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    return geo;
+  }, [graph.edges, graph.nodes, positions, clusterMap]);
+
+  return (
+    <lineSegments ref={lineRef} geometry={geometry} visible={visible}>
+      <lineBasicMaterial vertexColors transparent opacity={0.15} />
+    </lineSegments>
+  );
+}
+
+/* ── Wireframe Grid ─────────────────────────────────────── */
+function GlobeWireframe() {
   return (
     <mesh>
-      <sphereGeometry args={[radius * 0.99, 32, 32]} />
-      <meshBasicMaterial
-        color="#1a2744"
-        transparent
-        opacity={0.08}
-        wireframe
-      />
+      <sphereGeometry args={[RADIUS * 0.99, 24, 24]} />
+      <meshBasicMaterial color="#1a2744" transparent opacity={0.06} wireframe />
     </mesh>
   );
 }
 
-/* ── Label on hover ─────────────────────────────────────── */
-function NodeLabel({ data, visible }: { data: GlobeNodeData | null; visible: boolean }) {
-  if (!data || !visible) return null;
+/* ── Shell ──────────────────────────────────────────────── */
+function GlobeShell() {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame(() => { if (ref.current) ref.current.rotation.y += 0.0004; });
   return (
-    <Billboard position={data.pos.clone().normalize().multiplyScalar(data.pos.length() + 0.15)}>
-      <Text
-        fontSize={0.06}
-        color="#ffffff"
-        anchorX="center"
-        anchorY="bottom"
-        outlineWidth={0.003}
-        outlineColor="#000000"
-      >
-        {data.node.label.length > 30 ? data.node.label.slice(0, 30) + '…' : data.node.label}
-      </Text>
-    </Billboard>
+    <mesh ref={ref}>
+      <sphereGeometry args={[RADIUS * 0.97, 48, 48]} />
+      <meshStandardMaterial color="#0d1117" transparent opacity={0.12} roughness={1} metalness={0} side={THREE.BackSide} />
+    </mesh>
   );
 }
 
-/* ── Auto-rotate scene ──────────────────────────────────── */
+/* ── Scene Setup ────────────────────────────────────────── */
 function SceneSetup() {
   const { camera } = useThree();
-  useEffect(() => {
-    camera.position.set(0, 0.5, 3.2);
-  }, [camera]);
+  useEffect(() => { camera.position.set(0, 0.5, 3.5); }, [camera]);
   return null;
 }
 
-/* ── Main Globe Scene ───────────────────────────────────── */
+/* ── Main Scene ─────────────────────────────────────────── */
 function GlobeScene({ graph }: { graph: NeuralGraph }) {
-  const RADIUS = 1.5;
-  const [hovered, setHovered] = useState<GlobeNodeData | null>(null);
-  const hoveredNeighbors = useRef<Set<string>>(new Set());
-
-  // Build cluster → index map
   const clusterMap = useMemo(() => {
     const m = new Map<string, number>();
     graph.clusters.forEach((c, i) => m.set(c.id, i));
     return m;
   }, [graph.clusters]);
 
-  // Assign positions on the sphere
-  const nodesData: GlobeNodeData[] = useMemo(() => {
-    const positions = fibonacciSphere(graph.nodes.length, RADIUS);
-    return graph.nodes.map((node, i) => {
-      const cIdx = node.clusters[0] ? (clusterMap.get(node.clusters[0]) ?? -1) : -1;
-      return {
-        node,
-        pos: positions[i],
-        color: cIdx >= 0 ? clusterColor(cIdx) : DEFAULT_NODE_COLOR,
-        clusterIdx: cIdx,
-      };
-    });
-  }, [graph.nodes, clusterMap]);
-
-  // Node id → index for edge lookup
-  const nodeIdx = useMemo(() => {
-    const m = new Map<string, number>();
-    graph.nodes.forEach((n, i) => m.set(n.id, i));
-    return m;
-  }, [graph.nodes]);
-
-  // Edge data
-  const edgesData = useMemo(() => {
-    return graph.edges
-      .map((e, i) => {
-        const fi = nodeIdx.get(e.from);
-        const ti = nodeIdx.get(e.to);
-        if (fi === undefined || ti === undefined) return null;
-        return { edge: e, fromPos: nodesData[fi].pos, toPos: nodesData[ti].pos, color: nodesData[fi].color, index: i };
-      })
-      .filter(Boolean) as { edge: Edge; fromPos: THREE.Vector3; toPos: THREE.Vector3; color: string; index: number }[];
-  }, [graph.edges, nodeIdx, nodesData]);
-
-  const handleHover = useCallback((data: GlobeNodeData, _evt: ThreeEvent<PointerEvent>) => {
-    setHovered(data);
-    const neighbors = new Set<string>();
-    neighbors.add(data.node.id);
-    graph.edges.forEach((e) => {
-      if (e.from === data.node.id) neighbors.add(e.to);
-      if (e.to === data.node.id) neighbors.add(e.from);
-    });
-    hoveredNeighbors.current = neighbors;
-  }, [graph.edges]);
-
-  const handleUnhover = useCallback(() => {
-    setHovered(null);
-    hoveredNeighbors.current = new Set();
-  }, []);
+  const positions = useMemo(
+    () => fibonacciSphere(graph.nodes.length, RADIUS),
+    [graph.nodes.length],
+  );
 
   return (
     <>
       <SceneSetup />
       <ambientLight intensity={0.3} />
-      <pointLight position={[5, 5, 5]} intensity={0.8} />
-      <pointLight position={[-5, -3, -5]} intensity={0.4} color="#4ecafc" />
+      <pointLight position={[5, 5, 5]} intensity={0.6} />
+      <pointLight position={[-5, -3, -5]} intensity={0.3} color="#4ecafc" />
 
-      <GlobeSphere radius={RADIUS} />
-      <GlobeWireframe radius={RADIUS} />
-
-      {/* Edges */}
-      {edgesData.map((e, i) => (
-        <EdgeArc key={i} from={e.fromPos} to={e.toPos} color={e.color} index={i} />
-      ))}
-
-      {/* Nodes */}
-      {nodesData.map((nd, i) => (
-        <NodeSphere
-          key={nd.node.id}
-          data={nd}
-          index={i}
-          onHover={handleHover}
-          onUnhover={handleUnhover}
-          highlighted={hoveredNeighbors.current.has(nd.node.id)}
-        />
-      ))}
-
-      {/* Hover label */}
-      <NodeLabel data={hovered} visible={!!hovered} />
+      <GlobeShell />
+      <GlobeWireframe />
+      <EdgeLines graph={graph} positions={positions} clusterMap={clusterMap} />
+      <InstancedNodes graph={graph} positions={positions} clusterMap={clusterMap} />
 
       <OrbitControls
         enablePan={false}
         autoRotate
-        autoRotateSpeed={0.4}
-        minDistance={2}
+        autoRotateSpeed={0.3}
+        minDistance={2.2}
         maxDistance={6}
         enableDamping
         dampingFactor={0.05}
@@ -356,11 +264,18 @@ function GlobeScene({ graph }: { graph: NeuralGraph }) {
   );
 }
 
+/* ── Easing ─────────────────────────────────────────────── */
+function easeOutBack(t: number): number {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
 /* ── Exported component ─────────────────────────────────── */
 export default function NeuralGlobe({ graph, onClose, language }: NeuralGlobeProps) {
   const ko = language === 'ko';
+  const [contextLost, setContextLost] = useState(false);
 
-  // Cluster legend with assigned colours
   const clusterLegend = useMemo(() =>
     graph.clusters.slice(0, 10).map((c, i) => ({
       ...c,
@@ -374,6 +289,15 @@ export default function NeuralGlobe({ graph, onClose, language }: NeuralGlobePro
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
+
+  // Handle WebGL context loss
+  const handleCreated = useCallback(({ gl }: { gl: THREE.WebGLRenderer }) => {
+    const canvas = gl.domElement;
+    const onLost = (e: Event) => { e.preventDefault(); setContextLost(true); };
+    const onRestored = () => setContextLost(false);
+    canvas.addEventListener('webglcontextlost', onLost);
+    canvas.addEventListener('webglcontextrestored', onRestored);
+  }, []);
 
   return (
     <div className="neural-globe-overlay">
@@ -390,13 +314,25 @@ export default function NeuralGlobe({ graph, onClose, language }: NeuralGlobePro
 
       {/* 3D Canvas */}
       <div className="neural-globe-canvas">
-        <Canvas
-          dpr={[1, 2]}
-          gl={{ antialias: true, alpha: true }}
-          camera={{ fov: 50, near: 0.1, far: 100 }}
-        >
-          <GlobeScene graph={graph} />
-        </Canvas>
+        {contextLost ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>
+            {ko ? 'GPU 컨텍스트가 손실되었습니다. 닫고 다시 열어주세요.' : 'GPU context lost. Close and reopen.'}
+          </div>
+        ) : (
+          <Canvas
+            dpr={[1, 1.5]}
+            gl={{
+              antialias: true,
+              alpha: true,
+              powerPreference: 'default',
+              failIfMajorPerformanceCaveat: false,
+            }}
+            camera={{ fov: 50, near: 0.1, far: 100 }}
+            onCreated={handleCreated}
+          >
+            <GlobeScene graph={graph} />
+          </Canvas>
+        )}
       </div>
 
       {/* Cluster legend */}

@@ -718,11 +718,21 @@ export default function KnowledgeStudioPage() {
           ) : (
             <button
               className={`btn btn-secondary ${readySources.length && !result ? 'btn-pulse' : ''}`}
-              onClick={handleGenerate}
+              onClick={() => {
+                if (!anchorWorkspaceId) {
+                  setUploadError(ko
+                    ? '워크스페이스를 선택하세요. 새 워크스페이스가 필요하면 워크스페이스 페이지에서 생성할 수 있습니다.'
+                    : 'Select a workspace first. Create a new one from the Workspaces page if needed.');
+                  return;
+                }
+                handleGenerate();
+              }}
               disabled={!readySources.length}
             >
               <Lightning size={16} />
-              {ko ? '지식망 생성' : 'Build graph'}
+              {anchorWs
+                ? (ko ? `${anchorWs.name}에 증강` : `Augment ${anchorWs.name}`)
+                : (ko ? '지식망 생성' : 'Build graph')}
             </button>
           )}
           <button className="btn btn-ghost" onClick={() => navigate('/mindsync/think')} disabled={!result?.graph.nodes.length}>
@@ -954,18 +964,23 @@ export default function KnowledgeStudioPage() {
           </div>
 
           {/* Workspace selector — shared between globe & editor */}
-          {workspaces.length > 0 && (
-            <select
-              className="ms-ws-select"
-              value={anchorWorkspaceId}
-              onChange={(e) => setAnchorWorkspaceId(e.target.value)}
-            >
-              <option value="">{ko ? '워크스페이스 선택' : 'Select workspace'}</option>
-              {workspaces.map((ws) => (
-                <option key={ws.id} value={ws.id}>{ws.name}</option>
-              ))}
-            </select>
-          )}
+          <select
+            className="ms-ws-select"
+            value={anchorWorkspaceId}
+            onChange={(e) => {
+              if (e.target.value === '__new__') {
+                navigate('/workspaces');
+                return;
+              }
+              setAnchorWorkspaceId(e.target.value);
+            }}
+          >
+            <option value="">{ko ? '워크스페이스 선택' : 'Select workspace'}</option>
+            {workspaces.map((ws) => (
+              <option key={ws.id} value={ws.id}>{ws.name}</option>
+            ))}
+            <option value="__new__">{ko ? '+ 새 워크스페이스' : '+ New workspace'}</option>
+          </select>
         </div>
 
         <div className="ms-stage-canvas">

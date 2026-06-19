@@ -251,7 +251,6 @@ function NodeLabels({ graph, positions, clusterMap, selectedIdx, connectedNodeId
             outlineWidth={0.004}
             outlineColor="#000000"
             maxWidth={0.6}
-            font="/fonts/Inter-Medium.woff"
           >
             {node.label.length > 20 ? node.label.slice(0, 18) + '…' : node.label}
           </Text>

@@ -128,3 +128,71 @@ export async function executeWorkspaceMerge(
 
   return result;
 }
+
+export interface SaveGraphResult {
+  /** New sha of neural.json after the push (for the next edit). */
+  sha: string | null;
+  pushed: { neuralJson: boolean; neuralIndex: boolean; supabaseSync: boolean };
+}
+
+/**
+ * Persist a *direct* graph edit (node delete, edge link/unlink from the graph
+ * editor) to a workspace's canonical store. Unlike a merge, the caller already
+ * holds the full graph — we just overwrite it — but we MUST run the same
+ * 3-step sync as `executeWorkspaceMerge` so NEURAL_INDEX.md and the Supabase
+ * search index never drift from neural.json.
+ *
+ * Returns the new neural.json sha so the editor can chain further edits without
+ * a 409 conflict. Steps 2 & 3 are best-effort (same policy as merge).
+ */
+export async function saveWorkspaceGraph(
+  ws: MergeWorkspace,
+  graph: NeuralGraph,
+  baseSha: string | null,
+  commitMessage = 'cotext: graph edit',
+): Promise<SaveGraphResult> {
+  const folder = ws.cotext_folder_name || '.cotext';
+  const pathJson = neuralFilePath(folder);
+  const pathIndex = neuralIndexFilePath(folder);
+  const out: SaveGraphResult = {
+    sha: baseSha,
+    pushed: { neuralJson: false, neuralIndex: false, supabaseSync: false },
+  };
+
+  // 1. neural.json — the truth. Capture the returned sha for the next edit.
+  const pushed = await githubApi.pushRoom(
+    ws.github_owner, ws.github_repo, ws.default_branch,
+    pathJson, serializeGraph(graph), baseSha, commitMessage,
+  );
+  out.pushed.neuralJson = true;
+  out.sha = pushed?.sha ?? baseSha;
+
+  // 2. NEURAL_INDEX.md — non-blocking
+  try {
+    let idxSha: string | null = null;
+    try {
+      const ex = await githubApi.getRoomContent(
+        ws.github_owner, ws.github_repo, ws.default_branch, pathIndex,
+      );
+      idxSha = ex.sha;
+    } catch { /* first time, no existing index */ }
+    const md = generateNeuralIndex(graph, `${ws.github_owner}/${ws.github_repo}`);
+    await githubApi.pushRoom(
+      ws.github_owner, ws.github_repo, ws.default_branch,
+      pathIndex, md, idxSha, `${commitMessage} (index)`,
+    );
+    out.pushed.neuralIndex = true;
+  } catch (e) {
+    console.warn('NEURAL_INDEX.md publish failed during graph edit:', e);
+  }
+
+  // 3. Supabase derived index — non-blocking
+  try {
+    await neuralApi.sync(ws.id, graph);
+    out.pushed.supabaseSync = true;
+  } catch (e) {
+    console.warn('Supabase neural index sync failed during graph edit:', e);
+  }
+
+  return out;
+}

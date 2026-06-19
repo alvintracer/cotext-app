@@ -168,15 +168,20 @@ export const managedKnowledgeApi = {
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      // Must persist across pump() reads: a single SSE event (`event: <name>`
+      // then `data: <json>`) can split across TCP chunks — notably the large
+      // `done` payload — so resetting it per-call would drop the event.
+      let currentEvent = '';
 
       function processLines() {
         const lines = buffer.split('\n');
         buffer = lines.pop() || ''; // keep incomplete line
 
-        let currentEvent = '';
         for (const line of lines) {
           if (line.startsWith('event: ')) {
             currentEvent = line.slice(7).trim();
+          } else if (line === '') {
+            currentEvent = ''; // blank line = end of one SSE event
           } else if (line.startsWith('data: ')) {
             const raw = line.slice(6);
             try {

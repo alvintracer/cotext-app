@@ -95,13 +95,15 @@ function colorFor(clusterId: string | undefined, palette: Map<string, string>): 
 
 export default function NeuralGraphView({
   graph, currentRoom, language, getBlockText, onClose, onJump, onNavigateRoom,
-  onDeleteNode, onLinkEdge, onUnlinkEdge, embedded = false,
+  onDeleteNode, onLinkEdge, onUnlinkEdge, embedded = false, focusNodeId,
 }: {
   graph: NeuralGraph;
   currentRoom: string;
   language: string;
   /** Render inline inside a container instead of a fixed overlay (studio center stage). */
   embedded?: boolean;
+  /** Deep-link target: auto-select this node once it's present in the graph. */
+  focusNodeId?: string;
   /** Async block-text fetch for the detail panel (current room = local; others = GitHub). */
   getBlockText?: (roomPath: string, blockTs: string) => Promise<string | null>;
   onClose: () => void;
@@ -224,6 +226,19 @@ export default function NeuralGraphView({
 
     return { nodes: cNodes, links: cLinks };
   }, [collapsed, baseNodes, baseLinks, clusterList, originalById]);
+
+  // Deep-link focus: select the requested node once it shows up in the graph
+  // (graph loads async). Only auto-applies once per focusNodeId.
+  const focusedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusNodeId || focusedRef.current === focusNodeId) return;
+    const target = nodes.find((n) => n.id === focusNodeId);
+    if (target) {
+      focusedRef.current = focusNodeId;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time deep-link focus once async graph data arrives
+      setSelected(target);
+    }
+  }, [focusNodeId, nodes]);
 
   // d3-force simulation, rebuilt on nodes/links swap.
   const simRef = useRef<Simulation<GNode, GLink> | null>(null);
@@ -369,10 +384,11 @@ export default function NeuralGraphView({
 
   function handleDeleteSelectedNode() {
     if (!selected || selected.isCluster || !onDeleteNode) return;
-    if (selected.room !== currentRoom) {
-      // Cross-room deletion needs that room's content — not wired yet.
-      return;
-    }
+    // Room-scoped graph (currentRoom set): only delete nodes from this room,
+    // since cross-room deletion would need that room's content. The MindSync
+    // workspace-wide editor passes an empty currentRoom and deletes via
+    // neural.json directly, so the guard doesn't apply there.
+    if (currentRoom && selected.room !== currentRoom) return;
     onDeleteNode(selected);
     setSelected(null);
   }
@@ -713,7 +729,7 @@ export default function NeuralGraphView({
                     cx={selected.x}
                     cy={selected.y!}
                     nodeRadius={nodeRadius(selected)}
-                    canDelete={selected.room === currentRoom && !!onDeleteNode}
+                    canDelete={!!onDeleteNode && (!currentRoom || selected.room === currentRoom)}
                     canLink={!!onLinkEdge}
                     draftType={draftEdge?.from === selected.id ? draftEdge.type : null}
                     onDelete={handleDeleteSelectedNode}

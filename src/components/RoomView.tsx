@@ -1071,6 +1071,7 @@ ${filteredContent}
               onNodify={(ts, meta) => setNodeEditor({ ts, meta })}
               onRemoveNode={(ts) => handleRemoveNode(ts)}
               onLinkNode={(id, label) => setLinkEditor({ id, label })}
+              onToMindSync={(nodeId) => navigate(`/mindsync/studio?ws=${encodeURIComponent(workspace?.id || '')}&node=${encodeURIComponent(nodeId)}&view=editor`)}
               onFixWithAgent={onFixWithAgent}
               onDeleteBlock={handleDeleteBlock}
               onEditBlock={handleUpdateBlock}
@@ -1140,7 +1141,7 @@ ${filteredContent}
 }
 
 // Simple timeline renderer
-function TimelineView({ content, remoteContent, workspace, room, graph, onDeleteBlock, onEditBlock, onChangeSource, onFixWithAgent, onNodify, onRemoveNode, onLinkNode, onJump, onNavigateRoom, onOpenCluster }: {
+function TimelineView({ content, remoteContent, workspace, room, graph, onDeleteBlock, onEditBlock, onChangeSource, onFixWithAgent, onNodify, onRemoveNode, onLinkNode, onJump, onNavigateRoom, onOpenCluster, onToMindSync }: {
   content: string;
   remoteContent: string;
   workspace: Workspace;
@@ -1156,6 +1157,7 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
   onJump?: (timestamp: string) => void;
   onNavigateRoom?: (roomPath: string, blockTs: string) => void;
   onOpenCluster?: (clusterId: string) => void;
+  onToMindSync?: (nodeId: string) => void;
 }) {
   const { language } = useLanguage();
   const ko = language === 'ko';
@@ -1346,7 +1348,7 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
                           className="draft-menu-item draft-menu-node"
                           onClick={() => {
                             setOpenMenu(null);
-                            window.location.href = `/mindsync/studio?ws=${encodeURIComponent(workspace?.id || '')}&node=${encodeURIComponent(block.node!.id)}&view=editor`;
+                            onToMindSync?.(block.node!.id);
                           }}
                         >
                           <Brain size={13} weight="fill" />

@@ -8,8 +8,8 @@ import { useWorkspace } from '../contexts/WorkspaceContext';
 import { supabase } from '../lib/supabase/client';
 import { githubApi, managedKnowledgeApi } from '../lib/supabase/functions';
 import { appendMessage, createInitialContent } from '../lib/markdown';
-import { previewWorkspaceMerge, executeWorkspaceMerge, type MergePreview, type MergeResult } from '../lib/knowledge/merge';
-import { parseGraph, emptyGraph, serializeGraph } from '../lib/neural/graph';
+import { previewWorkspaceMerge, executeWorkspaceMerge, saveWorkspaceGraph, type MergePreview, type MergeResult } from '../lib/knowledge/merge';
+import { parseGraph, emptyGraph } from '../lib/neural/graph';
 import type { NeuralGraph } from '../lib/neural/types';
 import NeuralGraphView from '../components/NeuralGraphView';
 import NeuralGraphBoundary from '../components/NeuralGraphBoundary';
@@ -177,7 +177,10 @@ export default function KnowledgeStudioPage() {
   const [wsGraph, setWsGraph] = useState<NeuralGraph | null>(null);
   const [wsGraphSha, setWsGraphSha] = useState<string | null>(null);
   const [wsGraphLoading, setWsGraphLoading] = useState(false);
-  const [_selectedNodeId, _setSelectedNodeId] = useState<string | null>(() => {
+  // Bump to force a re-fetch of the workspace graph (e.g. after auto-merge).
+  const [wsGraphReload, setWsGraphReload] = useState(0);
+  // Deep-link target node (from RoomView "마인드싱크로"); consumed by the editor.
+  const [focusNodeId] = useState<string | null>(() => {
     try { return new URLSearchParams(window.location.search).get('node'); } catch { return null; }
   });
 
@@ -207,7 +210,7 @@ export default function KnowledgeStudioPage() {
       if (!cancelled) setWsGraphLoading(false);
     });
     return () => { cancelled = true; };
-  }, [anchorWs]);
+  }, [anchorWs, wsGraphReload]);
 
   // Graph that the editor shows: ws graph (if workspace selected), fallback to extraction result
   const editorGraph = useMemo(() => {
@@ -216,24 +219,14 @@ export default function KnowledgeStudioPage() {
   }, [anchorWs, wsGraph, result]);
 
   // ── Editor callbacks: write changes back to workspace ──────────
+  // Optimistically update local state, then persist via the full 3-step sync
+  // (neural.json + NEURAL_INDEX.md + Supabase) so the search index never drifts.
   const saveGraphToWs = useCallback(async (updated: NeuralGraph) => {
     if (!anchorWs) return;
-    const folder = anchorWs.cotext_folder_name || '.cotext';
-    const path = `${folder.replace(/\/$/, '')}/neural.json`;
-    const serialised = serializeGraph(updated);
+    setWsGraph(updated); // optimistic — editor reflects the change immediately
     try {
-      await githubApi.pushRoom(
-        anchorWs.github_owner, anchorWs.github_repo, anchorWs.default_branch,
-        path, serialised, wsGraphSha, `MindSync: graph edit`,
-      );
-      // Re-fetch to get updated sha
-      try {
-        const res = await githubApi.getRoomContent(
-          anchorWs.github_owner, anchorWs.github_repo, anchorWs.default_branch, path,
-        );
-        setWsGraphSha(res.sha);
-      } catch { /* sha refresh failed, will retry on next save */ }
-      setWsGraph(updated);
+      const res = await saveWorkspaceGraph(anchorWs, updated, wsGraphSha, 'cotext: MindSync graph edit');
+      setWsGraphSha(res.sha);
     } catch (err) {
       console.error('[MindSync] graph save error', err);
     }
@@ -432,6 +425,10 @@ export default function KnowledgeStudioPage() {
       const preview = await previewWorkspaceMerge(anchorWs, graphResult.graph);
       const merged = await executeWorkspaceMerge(anchorWs, preview,
         mode === 'generate' ? 'cotext: MindSync seed generated' : 'cotext: MindSync augment');
+      // Reflect the merged result in the center stage (globe/editor read wsGraph
+      // first). Without this the stage would keep showing the pre-merge graph.
+      setWsGraph(preview.mergedGraph);
+      setWsGraphReload((n) => n + 1); // re-fetch to capture the new sha
       setAutoStatus(
         ko
           ? `저장 완료 → ${anchorWs.name} (+${merged.stats.newClusters}/${merged.stats.newNodes}/${merged.stats.newEdges})`
@@ -1011,6 +1008,7 @@ export default function KnowledgeStudioPage() {
                 graph={editorGraph}
                 currentRoom=""
                 language={language}
+                focusNodeId={focusNodeId ?? undefined}
                 getBlockText={async (roomPath, blockTs) => result?.blockTextByKey[`${roomPath}::${blockTs}`] || null}
                 onClose={() => setViewMode('globe')}
                 onJump={() => {}}

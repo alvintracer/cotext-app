@@ -148,3 +148,4 @@ YYYY-MM-DD HH:mm | command | summary | linked files
 2026-06-18 | fix | Capacitor.isNativePlatform() race condition으로 인한 모바일 앱 하얀 화면(백화) 이슈 해결 (App 컴포넌트 내부에서 Router 평가하도록 수정) | [[App.tsx]]
 2026-06-19 | save | v1.0.26~33 통합: SW 화이트스크린 픽스, 랜딩/로그인 카피, 모바일 키보드 UX, OAuth provider_token 수정, 3D Neural Globe(InstancedMesh), Studio 스크롤/프로그레스바/버튼 펄스, Edge Function SSE 스트리밍 전환(타임아웃 방지+실시간 진행률) | [[AI-Sessions/wiki/dev-tasks/2026-06-19-session-log]], [[AI-Sessions/wiki/projects/mindsync-future-polish]]
 2026-06-20 | save | MindSync 에이전트 연결 모달 UI 레이아웃 개선 및 복사 프롬프트의 Supabase URL 동적 할당 적용 | [[src/components/ConnectMindSyncModal.tsx]], [[src/index.css]]
+2026-06-20 | save | ChatGPT/Gemini 등 웹 에이전트 직접 HTTP 요청 불가 이슈 대응을 위해 프롬프트 복사 시 그래프 마크다운 데이터를 동적으로 가져와 삽입 복사하도록 구현 | [[src/components/ConnectMindSyncModal.tsx]]

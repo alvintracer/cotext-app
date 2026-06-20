@@ -93,12 +93,50 @@ export default function ConnectMindSyncModal({
   const ko = language === 'ko';
   const [tab, setTab] = useState<TabId>('claude-code');
   const [copied, setCopied] = useState<string | null>(null);
+  const [fetchingGraph, setFetchingGraph] = useState(false);
 
   const copy = (text: string, id: string) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(id);
       setTimeout(() => setCopied(null), 1400);
     });
+  };
+
+  const handleCopyGraphPrompt = async () => {
+    if (!activeKey) {
+      alert(ko ? 'API Key를 먼저 발급해주세요.' : 'Please create an API Key first.');
+      return;
+    }
+    setFetchingGraph(true);
+    try {
+      const res = await fetch(`${url}/neural/graph?format=markdown`, {
+        headers: {
+          'Authorization': `Bearer ${activeKey}`
+        }
+      });
+      if (!res.ok) {
+        throw new Error(ko ? '그래프 데이터를 가져오는데 실패했습니다.' : 'Failed to fetch graph data.');
+      }
+      const graphMarkdown = await res.text();
+      
+      const fullPrompt = 
+`I have a MindSync knowledge graph at ${repoLabel}. Use the following markdown table of clusters, nodes, and edges as your only source of truth. When you cite, use the node IDs (for example n_xxxx) and labels exactly as they appear.
+
+If the answer is not in the graph, say so plainly. Never invent.
+
+---
+### MindSync Knowledge Graph Data
+${graphMarkdown}
+`;
+
+      await navigator.clipboard.writeText(fullPrompt);
+      setCopied('wa');
+      setTimeout(() => setCopied(null), 2000);
+    } catch (err: any) {
+      alert(err.message || err);
+    } finally {
+      setFetchingGraph(false);
+    }
   };
 
   const snippets = useMemo(() => ({
@@ -292,15 +330,41 @@ If the answer is not in the graph, say so plainly. Never invent.`,
             <>
               <p className="connect-help">
                 {ko
-                  ? 'ChatGPT, Gemini, Perplexity처럼 네이티브 MCP가 없는 웹 에이전트에는 아래 시스템 프롬프트를 넣으세요. 에이전트가 HTTP로 MindSync 그래프를 직접 가져오도록 지시합니다.'
-                  : 'For ChatGPT, Gemini, or Perplexity without native MCP, paste this system prompt so the agent fetches MindSync over HTTP.'}
+                  ? 'ChatGPT, Gemini 등 일반 웹 에이전트는 보안 정책으로 외부 API를 직접 호출(Fetch)하지 못합니다. 아래 방법 1을 사용하여 그래프 데이터를 포함한 전체 프롬프트를 한 번에 복사해서 붙여넣으세요.'
+                  : 'Web agents like ChatGPT and Gemini cannot call external APIs directly due to security policies. Use Option 1 below to copy the entire prompt containing the graph data.'}
               </p>
+              
+              <div className="connect-block" style={{ marginTop: '8px' }}>
+                <span className="connect-block-title" style={{ display: 'block', marginBottom: '8px' }}>
+                  {ko ? '방법 1: 그래프 데이터 포함하여 프롬프트 복사 (추천)' : 'Option 1: Copy prompt with embedded graph data (Recommended)'}
+                </span>
+                <button 
+                  className="connect-warning-cta" 
+                  onClick={handleCopyGraphPrompt}
+                  disabled={fetchingGraph || !activeKey}
+                  style={{ width: '100%', justifyContent: 'center', padding: '10px 14px', fontSize: '12px' }}
+                >
+                  <Plus size={14} />
+                  {fetchingGraph 
+                    ? (ko ? '그래프 데이터 가져오는 중...' : 'Fetching graph data...') 
+                    : (ko ? '전체 프롬프트 복사하기' : 'Copy Full Prompt with Graph')}
+                </button>
+                {!activeKey && (
+                  <p className="connect-block-help" style={{ color: 'var(--red)', marginTop: '4px' }}>
+                    {ko ? '※ 프롬프트를 복사하려면 먼저 위의 API Key 발급 버튼을 눌러 키를 생성해야 합니다.' : '* Please generate an API Key first to fetch and embed the graph data.'}
+                  </p>
+                )}
+              </div>
+
+              <div style={{ margin: '16px 0', borderTop: '1px dashed var(--border)' }} />
+
               <CodeBlock
-                title={ko ? '시스템 프롬프트' : 'System prompt'}
+                title={ko ? '방법 2: API 직접 연결용 시스템 프롬프트 (Custom GPTs Action 설정 등)' : 'Option 2: Direct API fetch prompt (for Custom GPTs Actions, etc.)'}
                 lang="text"
                 code={snippets.webAgentPrompt}
                 copied={copied === 'wa'}
                 onCopy={() => copy(snippets.webAgentPrompt, 'wa')}
+                help={ko ? '외부 API 호출이 가능한 Custom GPTs Action을 생성할 때 사용되는 프롬프트입니다.' : 'Use this if you set up a Custom GPT Action that can perform HTTP requests.'}
               />
             </>
           )}

@@ -375,7 +375,20 @@
   border-radius: 4px;
   background: rgba(78, 202, 252, 0.15);
   color: #4ecafc;
+  border: 1px solid transparent;
   flex-shrink: 0;
+}
+
+.globe-detail-conn-room {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-left: auto;
+  padding-left: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 40%;
+  flex-shrink: 1;
 }
 
 .globe-detail-more {

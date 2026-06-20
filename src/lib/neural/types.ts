@@ -42,6 +42,11 @@ export interface Edge {
   type?: string;
   /** 클러스터에서 암묵적으로 파생된 엣지면 그 클러스터 id */
   viaCluster?: string;
+  /**
+   * provenance — 'wiki': [[wikilink]] 결정론적 뼈대, 'llm': 추론된 의미 엣지,
+   * undefined: 레거시/수동(Studio 에디터). 재컴파일이 'llm' 엣지를 보존하는 근거.
+   */
+  source?: string;
 }
 
 /** .cotext/neural.json 의 형태 — repo 단위 그래프 집계(정본). */

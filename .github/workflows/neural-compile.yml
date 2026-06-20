@@ -1,0 +1,47 @@
+name: Neural Compile
+
+# 위키(마크다운)가 push되면 지식그래프를 재컴파일해 .cotext/에 커밋한다.
+# 그래프는 "파생물"이고 이 워크플로가 단일 작성자(authority)다.
+# 트리거 경로에 .cotext/** 가 없으므로 봇 커밋이 워크플로를 재트리거하지 않는다.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'AI-Sessions/**'
+      - 'prompts/**'
+      - '*.md'
+      - 'scripts/neural-compile.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: neural-compile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Compile wiki → neural graph
+        run: npx -y tsx scripts/neural-compile.ts --repo "${{ github.repository }}"
+
+      - name: Commit graph if changed
+        run: |
+          git config user.name  "cotext-neural-bot"
+          git config user.email "neural-bot@users.noreply.github.com"
+          if [ -n "$(git status --porcelain .cotext)" ]; then
+            git add .cotext/neural.json .cotext/NEURAL_INDEX.md
+            git commit -m "chore(neural): recompile knowledge graph [skip ci]"
+            git push
+          else
+            echo "Graph already up to date — nothing to commit."
+          fi

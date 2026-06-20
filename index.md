@@ -37,6 +37,7 @@
 ## Decisions
 
 - [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]]
+- [[AI-Sessions/wiki/decisions/mindsync-knowledge-sync-architecture]] — Wiki→Graph 컴파일 모델(레포=버스, 그래프=파생물, [[wikilink]]→엣지)
 
 ## Concepts
 
@@ -48,6 +49,7 @@
  - [[AI-Sessions/wiki/concepts/neural-link-vs-gbrain]]
 ## Design
 
+- [[AI-Sessions/wiki/design/cotext-architecture-overview]] — 전체 아키텍처 구조도 (Wiki→Graph→Sync 3계층 흐름, npm 명령, 파일 맵)
 - [[AI-Sessions/wiki/design/cotext-brand-and-landing]]
 
 ## Sources

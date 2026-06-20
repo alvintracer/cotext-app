@@ -76,8 +76,8 @@ export function removeCluster(g: NeuralGraph, id: string): NeuralGraph {
 
 // ---- 엣지 --------------------------------------------------------------
 
-/** 노드↔노드 엣지 추가(무방향 중복 제거). */
-export function linkEdge(g: NeuralGraph, from: string, to: string, type?: string): NeuralGraph {
+/** 노드↔노드 엣지 추가(무방향 중복 제거). source는 제공되면 기록·보존된다. */
+export function linkEdge(g: NeuralGraph, from: string, to: string, type?: string, source?: string): NeuralGraph {
   if (from === to) return g;
   const exists = g.edges.some(
     (e) => (e.from === from && e.to === to) || (e.from === to && e.to === from),
@@ -87,12 +87,12 @@ export function linkEdge(g: NeuralGraph, from: string, to: string, type?: string
       ...g,
       edges: g.edges.map((e) =>
         (e.from === from && e.to === to) || (e.from === to && e.to === from)
-          ? { ...e, type: type ?? e.type }
+          ? { ...e, type: type ?? e.type, source: source ?? e.source }
           : e,
       ),
     };
   }
-  return { ...g, edges: [...g.edges, { from, to, type }] };
+  return { ...g, edges: [...g.edges, { from, to, type, source }] };
 }
 
 /** 노드↔노드 엣지 제거(무방향). */
@@ -223,7 +223,7 @@ export function mergeGraphs(base: NeuralGraph, incoming: NeuralGraph): { graph: 
     } else {
       stats.newEdges += 1;
     }
-    g = linkEdge(g, e.from, e.to, e.type);
+    g = linkEdge(g, e.from, e.to, e.type, e.source);
   }
 
   g = { ...g, updatedAt: new Date().toISOString() };

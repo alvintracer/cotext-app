@@ -1,0 +1,23 @@
+{
+  "name": "cotext",
+  "version": "0.1.0",
+  "description": "Cotext CLI — scaffold the LLM-wiki structure and compile its knowledge graph (npx cotext init / compile / check)",
+  "type": "module",
+  "bin": {
+    "cotext": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["cotext", "knowledge-graph", "llm-wiki", "mindsync", "neural-link", "scaffold"],
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "typescript": "^5.5.0",
+    "@types/node": "^22.0.0"
+  }
+}

@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "wiki:init": "tsx scripts/wiki-init.ts",
+    "neural:compile": "tsx scripts/neural-compile.ts",
+    "neural:check": "tsx scripts/neural-compile.ts --check",
+    "neural:enrich": "tsx scripts/neural-enrich.ts"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",

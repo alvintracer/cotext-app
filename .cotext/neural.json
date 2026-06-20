@@ -1,0 +1,1293 @@
+{
+  "version": 1,
+  "updatedAt": "2026-06-20T03:38:25.682Z",
+  "clusters": [
+    {
+      "id": "concept",
+      "name": "Concept",
+      "color": "#2563eb"
+    },
+    {
+      "id": "dev-task",
+      "name": "Dev-task",
+      "color": "#d97706"
+    },
+    {
+      "id": "mindsync",
+      "name": "mindsync",
+      "color": "#0891b2"
+    },
+    {
+      "id": "graph-editor",
+      "name": "graph-editor",
+      "color": "#16a34a"
+    },
+    {
+      "id": "neural-globe",
+      "name": "neural-globe",
+      "color": "#dc2626"
+    },
+    {
+      "id": "workspace",
+      "name": "workspace",
+      "color": "#7c3aed"
+    },
+    {
+      "id": "refactoring",
+      "name": "refactoring",
+      "color": "#db2777"
+    },
+    {
+      "id": "project",
+      "name": "Project",
+      "color": "#4f46e5"
+    },
+    {
+      "id": "decision",
+      "name": "Decision",
+      "color": "#d97706"
+    },
+    {
+      "id": "design",
+      "name": "Design",
+      "color": "#0891b2"
+    },
+    {
+      "id": "architecture",
+      "name": "architecture",
+      "color": "#16a34a"
+    },
+    {
+      "id": "wiki",
+      "name": "wiki",
+      "color": "#dc2626"
+    },
+    {
+      "id": "neural-link",
+      "name": "neural-link",
+      "color": "#db2777"
+    },
+    {
+      "id": "mcp",
+      "name": "mcp",
+      "color": "#4f46e5"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "w-agents",
+      "room": "AGENTS.md",
+      "blockTs": "",
+      "label": "AGENTS.md",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-conversations-2026-06-14-mcp-api-publish-handoff",
+      "room": "AI-Sessions/conversations/2026-06-14-mcp-api-publish-handoff.md",
+      "blockTs": "",
+      "label": "Session Handoff: MCP API & npm Publish",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-raw-01-cotext-development-plan",
+      "room": "AI-Sessions/raw/01_cotext-development-plan.md",
+      "blockTs": "",
+      "label": "Cotext 개발 계획서 / 설계서",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-raw-g-brain-reference",
+      "room": "AI-Sessions/raw/g-brain-reference.md",
+      "blockTs": "",
+      "label": "g-brain-reference",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko",
+      "room": "AI-Sessions/wiki/concepts/cotext-neural-link-second-brain-ko.md",
+      "blockTs": "",
+      "label": "Cotext와 Neural Link, 그리고 세컨드 브레인 방향성",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain",
+      "room": "AI-Sessions/wiki/concepts/cotext-neural-link-second-brain.md",
+      "blockTs": "",
+      "label": "Cotext, Neural Link, and the Second-Brain Direction",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-concepts-neural-link-mcp-grounding",
+      "room": "AI-Sessions/wiki/concepts/neural-link-mcp-grounding.md",
+      "blockTs": "2026-06-15",
+      "label": "Neural Link — MCP grounding 옵션 (에이전트가 그래프를 이해시키는 방법)",
+      "clusters": [
+        "concept"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-concepts-neural-link-overview",
+      "room": "AI-Sessions/wiki/concepts/neural-link-overview.md",
+      "blockTs": "2026-06-15",
+      "label": "Neural Link — Cotext의 그래프 컨텍스트 레이어",
+      "clusters": [
+        "concept"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-concepts-neural-link-synthesis-v3",
+      "room": "AI-Sessions/wiki/concepts/neural-link-synthesis-v3.md",
+      "blockTs": "2026-06-17",
+      "label": "Neural Link × GBrain — 의도적 수집 및 투트랙 비즈니스 모델 (The Monetized Synthesis)",
+      "clusters": [
+        "concept"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain-synthesis",
+      "room": "AI-Sessions/wiki/concepts/neural-link-vs-gbrain-synthesis.md",
+      "blockTs": "2026-06-16",
+      "label": "Neural Link × GBrain — 합쳐진 최고 모델 (The Synthesis)",
+      "clusters": [
+        "concept"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain",
+      "room": "AI-Sessions/wiki/concepts/neural-link-vs-gbrain.md",
+      "blockTs": "2026-06-17",
+      "label": "Neural Link vs GBrain",
+      "clusters": [
+        "concept"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-decisions-cotext-architecture-decisions",
+      "room": "AI-Sessions/wiki/decisions/cotext-architecture-decisions.md",
+      "blockTs": "",
+      "label": "Decisions: Cotext 아키텍처 핵심 결정",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "room": "AI-Sessions/wiki/decisions/mindsync-knowledge-sync-architecture.md",
+      "blockTs": "2026-06-20",
+      "label": "MindSync 지식 동기화 아키텍처 (Wiki → Graph 컴파일 모델)",
+      "clusters": [
+        "decision"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-design-cotext-architecture-overview",
+      "room": "AI-Sessions/wiki/design/cotext-architecture-overview.md",
+      "blockTs": "2026-06-20",
+      "label": "Cotext 전체 아키텍처 — Wiki → Graph → Sync 흐름",
+      "clusters": [
+        "design",
+        "architecture",
+        "wiki",
+        "mindsync",
+        "neural-link",
+        "mcp"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-design-cotext-brand-and-landing",
+      "room": "AI-Sessions/wiki/design/cotext-brand-and-landing.md",
+      "blockTs": "",
+      "label": "Design: Cotext 브랜드 · 디자인 시스템 · 랜딩",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log",
+      "room": "AI-Sessions/wiki/dev-tasks/2026-06-19-session-log.md",
+      "blockTs": "2026-06-19",
+      "label": "2026-06-19 세션 작업 로그",
+      "clusters": [
+        "dev-task"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration",
+      "room": "AI-Sessions/wiki/dev-tasks/mindsync-ws-integration.md",
+      "blockTs": "2026-06-20",
+      "label": "MindSync Studio v1.0.35–36 — 통합 리팩터링",
+      "clusters": [
+        "mindsync",
+        "graph-editor",
+        "neural-globe",
+        "workspace",
+        "refactoring"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-errors-01-npm-bin-quirk-and-publish",
+      "room": "AI-Sessions/wiki/errors/01_npm-bin-quirk-and-publish.md",
+      "blockTs": "",
+      "label": "Error: npm bin field quirk and publish authorization",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-projects-chatgpt-share-01-overview",
+      "room": "AI-Sessions/wiki/projects/chatgpt-share-01-overview.md",
+      "blockTs": "2026-06-13",
+      "label": "ChatGPT Share Pack 01 - Overview",
+      "clusters": [
+        "project"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-projects-chatgpt-share-02-structure",
+      "room": "AI-Sessions/wiki/projects/chatgpt-share-02-structure.md",
+      "blockTs": "2026-06-13",
+      "label": "ChatGPT Share Pack 02 - Structure",
+      "clusters": [
+        "project"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts",
+      "room": "AI-Sessions/wiki/projects/chatgpt-share-03-rules-and-prompts.md",
+      "blockTs": "2026-06-13",
+      "label": "ChatGPT Share Pack 03 - Rules And Prompts",
+      "clusters": [
+        "project"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan",
+      "room": "AI-Sessions/wiki/projects/cotext-knowledge-studio-plan.md",
+      "blockTs": "2026-06-16",
+      "label": "Cotext Knowledge Studio — GBrain-level 진화 수행 계획",
+      "clusters": [
+        "project"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-projects-cotext-knowledge-studio",
+      "room": "AI-Sessions/wiki/projects/cotext-knowledge-studio.md",
+      "blockTs": "",
+      "label": "Project Note: Cotext Knowledge Studio",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-projects-cotext-mvp",
+      "room": "AI-Sessions/wiki/projects/cotext_mvp.md",
+      "blockTs": "",
+      "label": "Project: Cotext MVP",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-projects-mindsync-future-polish",
+      "room": "AI-Sessions/wiki/projects/mindsync-future-polish.md",
+      "blockTs": "2026-06-17",
+      "label": "MindSync — 향후 비주얼·자동화 폴리시 (Jarvis vibe + ambient)",
+      "clusters": [
+        "project"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-sources-01-cotext-development-plan-summary",
+      "room": "AI-Sessions/wiki/sources/01_cotext-development-plan_summary.md",
+      "blockTs": "",
+      "label": "Source Summary: 01_cotext-development-plan.md",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-chatgpt",
+      "room": "CHATGPT.md",
+      "blockTs": "",
+      "label": "CHATGPT.md",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-claude",
+      "room": "CLAUDE.md",
+      "blockTs": "",
+      "label": "CLAUDE.md",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-cotext-development-plan",
+      "room": "cotext-development-plan.md",
+      "blockTs": "",
+      "label": "Cotext 개발 계획서 / 설계서",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-index",
+      "room": "index.md",
+      "blockTs": "",
+      "label": "AI Agent Wiki Index",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-license",
+      "room": "LICENSE.md",
+      "blockTs": "",
+      "label": "License",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-log",
+      "room": "log.md",
+      "blockTs": "",
+      "label": "Agent Work Log",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-prompts-first-setup",
+      "room": "prompts/first-setup.md",
+      "blockTs": "",
+      "label": "First Setup Prompt",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-prompts-ingest",
+      "room": "prompts/ingest.md",
+      "blockTs": "",
+      "label": "Ingest Prompt",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-prompts-lint",
+      "room": "prompts/lint.md",
+      "blockTs": "",
+      "label": "Lint Prompt",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-prompts-query",
+      "room": "prompts/query.md",
+      "blockTs": "",
+      "label": "Query Prompt",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-prompts-save",
+      "room": "prompts/save.md",
+      "blockTs": "",
+      "label": "Save Prompt",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-readme",
+      "room": "README.md",
+      "blockTs": "",
+      "label": "React + TypeScript + Vite",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-start-here",
+      "room": "START_HERE.md",
+      "blockTs": "",
+      "label": "Obsidian AI 업무 위키 템플릿",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-template-manifest",
+      "room": "TEMPLATE_MANIFEST.md",
+      "blockTs": "",
+      "label": "Template Manifest",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-stub-wikilink",
+      "room": "(unresolved)",
+      "blockTs": "",
+      "label": "wikilink",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-stub-room",
+      "room": "(unresolved)",
+      "blockTs": "",
+      "label": "room",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-stub-links",
+      "room": "(unresolved)",
+      "blockTs": "",
+      "label": "links",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-stub-b",
+      "room": "(unresolved)",
+      "blockTs": "",
+      "label": "B",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-stub-x",
+      "room": "(unresolved)",
+      "blockTs": "",
+      "label": "X",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-stub-link",
+      "room": "(unresolved)",
+      "blockTs": "",
+      "label": "link",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-stub-name",
+      "room": "(unresolved)",
+      "blockTs": "",
+      "label": "name",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-stub-app-tsx",
+      "room": "(unresolved)",
+      "blockTs": "",
+      "label": "App.tsx",
+      "clusters": [],
+      "source": "wiki"
+    }
+  ],
+  "edges": [
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain-synthesis",
+      "type": "relates",
+      "source": "llm"
+    },
+    {
+      "from": "w-ai-sessions-raw-01-cotext-development-plan",
+      "to": "w-ai-sessions-wiki-sources-01-cotext-development-plan-summary",
+      "type": "relates",
+      "source": "llm"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain-synthesis",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio",
+      "type": "supports",
+      "source": "llm"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "to": "w-ai-sessions-wiki-projects-mindsync-future-polish",
+      "type": "supports",
+      "source": "llm"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain-synthesis",
+      "type": "relates",
+      "source": "llm"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-mcp-grounding",
+      "type": "relates",
+      "source": "llm"
+    },
+    {
+      "from": "w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan",
+      "type": "relates",
+      "source": "llm"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-mcp-grounding",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio",
+      "type": "supports",
+      "source": "llm"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan",
+      "type": "relates",
+      "source": "llm"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-cotext-architecture-decisions",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio",
+      "type": "supports",
+      "source": "llm"
+    },
+    {
+      "from": "w-ai-sessions-wiki-sources-01-cotext-development-plan-summary",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan",
+      "type": "supports",
+      "source": "llm"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko",
+      "to": "w-ai-sessions-wiki-projects-mindsync-future-polish",
+      "type": "relates",
+      "source": "llm"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-cotext-mvp",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan",
+      "type": "relates",
+      "source": "llm"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-overview",
+      "to": "w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration",
+      "type": "supports",
+      "source": "llm"
+    },
+    {
+      "from": "w-ai-sessions-raw-01-cotext-development-plan",
+      "to": "w-stub-wikilink",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-raw-01-cotext-development-plan",
+      "to": "w-stub-room",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-mcp-grounding",
+      "to": "w-ai-sessions-wiki-decisions-cotext-architecture-decisions",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-mcp-grounding",
+      "to": "w-stub-wikilink",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-overview",
+      "to": "w-ai-sessions-wiki-decisions-cotext-architecture-decisions",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-overview",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-mcp-grounding",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-overview",
+      "to": "w-stub-wikilink",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain-synthesis",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-overview",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain-synthesis",
+      "to": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain-synthesis",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-overview",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain",
+      "to": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-cotext-architecture-decisions",
+      "to": "w-ai-sessions-wiki-projects-cotext-mvp",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-cotext-architecture-decisions",
+      "to": "w-ai-sessions-wiki-design-cotext-brand-and-landing",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "to": "w-stub-wikilink",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-mcp-grounding",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "to": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "to": "w-stub-links",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "to": "w-stub-b",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "to": "w-stub-x",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "to": "w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-overview",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "to": "w-ai-sessions-wiki-decisions-cotext-architecture-decisions",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-design-cotext-architecture-overview",
+      "to": "w-stub-link",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-design-cotext-architecture-overview",
+      "to": "w-stub-name",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-design-cotext-architecture-overview",
+      "to": "w-stub-wikilink",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-design-cotext-architecture-overview",
+      "to": "w-stub-x",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-design-cotext-architecture-overview",
+      "to": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-design-cotext-architecture-overview",
+      "to": "w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-design-cotext-brand-and-landing",
+      "to": "w-ai-sessions-wiki-projects-cotext-mvp",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log",
+      "to": "w-ai-sessions-wiki-projects-cotext-mvp",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log",
+      "to": "w-ai-sessions-wiki-projects-mindsync-future-polish",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log",
+      "to": "w-ai-sessions-wiki-decisions-cotext-architecture-decisions",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-01-overview",
+      "to": "w-readme",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-01-overview",
+      "to": "w-start-here",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-01-overview",
+      "to": "w-template-manifest",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-01-overview",
+      "to": "w-ai-sessions-wiki-projects-chatgpt-share-02-structure",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-01-overview",
+      "to": "w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-02-structure",
+      "to": "w-index",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-02-structure",
+      "to": "w-readme",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-02-structure",
+      "to": "w-template-manifest",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-02-structure",
+      "to": "w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts",
+      "to": "w-agents",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts",
+      "to": "w-claude",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts",
+      "to": "w-start-here",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts",
+      "to": "w-prompts-first-setup",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts",
+      "to": "w-prompts-save",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts",
+      "to": "w-prompts-query",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts",
+      "to": "w-prompts-ingest",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts",
+      "to": "w-prompts-lint",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-overview",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan",
+      "to": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-cotext-knowledge-studio",
+      "to": "w-ai-sessions-wiki-projects-cotext-mvp",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-cotext-knowledge-studio",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-overview",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-cotext-knowledge-studio",
+      "to": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-cotext-knowledge-studio",
+      "to": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-cotext-mvp",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-mcp-grounding",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-cotext-mvp",
+      "to": "w-ai-sessions-wiki-sources-01-cotext-development-plan-summary",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-mindsync-future-polish",
+      "to": "w-ai-sessions-wiki-decisions-cotext-architecture-decisions",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-mindsync-future-polish",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-projects-mindsync-future-polish",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain-synthesis",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-cotext-development-plan",
+      "to": "w-stub-wikilink",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-cotext-development-plan",
+      "to": "w-stub-room",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-start-here",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-claude",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-agents",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-readme",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-template-manifest",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-log",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-projects-chatgpt-share-01-overview",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-projects-cotext-mvp",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-decisions-cotext-architecture-decisions",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-stub-wikilink",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-overview",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-mcp-grounding",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-design-cotext-architecture-overview",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-design-cotext-brand-and-landing",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-sources-01-cotext-development-plan-summary",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-errors-01-npm-bin-quirk-and-publish",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-conversations-2026-06-14-mcp-api-publish-handoff",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-prompts-first-setup",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-prompts-save",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-prompts-query",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-prompts-ingest",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-prompts-lint",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-stub-wikilink",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-projects-cotext-mvp",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-decisions-cotext-architecture-decisions",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-projects-mindsync-future-polish",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-projects-cotext-knowledge-studio",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-projects-chatgpt-share-01-overview",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-projects-chatgpt-share-02-structure",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-sources-01-cotext-development-plan-summary",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-design-cotext-brand-and-landing",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-errors-01-npm-bin-quirk-and-publish",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-conversations-2026-06-14-mcp-api-publish-handoff",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-cotext-development-plan",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-mcp-grounding",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-concepts-neural-link-overview",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-stub-app-tsx",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log",
+      "type": "relates",
+      "source": "wiki"
+    }
+  ]
+}

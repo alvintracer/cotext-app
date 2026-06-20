@@ -25,6 +25,7 @@ import {
   Trash, LinkSimple, ArrowsClockwise, ArrowFatUp,
 } from '@phosphor-icons/react';
 import type { NeuralGraph, NeuralNode, Cluster } from '../lib/neural';
+import PanelResizer from './PanelResizer';
 
 // React FC alias for Phosphor icon components (used in ring menu segments).
 type IconFC = React.FC<{ size?: number; color?: string; weight?: 'regular' | 'bold' | 'fill' }>;
@@ -47,6 +48,9 @@ interface GNode extends SimulationNodeDatum {
 interface GLink extends SimulationLinkDatum<GNode> {
   type?: string;
   viaCluster?: string;
+  /** Edge provenance: 'wiki' (compiled from [[link]]) | 'llm' (LLM-inferred) | undefined.
+   *  Named `provenance` (not `source`) to avoid collision with d3's link.source endpoint. */
+  provenance?: string;
 }
 
 const CLUSTER_COLORS = [
@@ -134,6 +138,8 @@ export default function NeuralGraphView({
   // Mobile support
   const [legendOpen, setLegendOpen] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  // Resizable right detail panel — drag the left edge to widen/narrow.
+  const [panelWidth, setPanelWidth] = useState(320);
   const lastTouchDist = useRef(0);
   // Keep view in a ref so native (non-passive) wheel/touch handlers never read stale state.
   const viewRef = useRef(view);
@@ -152,18 +158,42 @@ export default function NeuralGraphView({
   }, []);
 
   // Build base sim nodes/links from the graph.
+  // GNode identity registry — preserves x/y/vx/vy/pinned across graph updates.
+  // Without this, adding an edge would recreate every GNode and reset the whole
+  // layout (causing the "튕김" jolt and stranding the ring menu at stale coords).
+  const nodeRegistryRef = useRef<Map<string, GNode>>(new Map());
+
   const { palette, clusterList, baseNodes, baseLinks, originalById } = useMemo(() => {
     const pal = new Map<string, string>();
     for (const c of graph.clusters) colorFor(c.id, pal);
-    const ns: GNode[] = graph.nodes.map((n: NeuralNode) => ({
-      id: n.id, label: n.label || n.id, room: n.room, blockTs: n.blockTs,
-      clusters: n.clusters, source: n.source,
-    }));
+    const registry = nodeRegistryRef.current;
+    const ns: GNode[] = graph.nodes.map((n: NeuralNode) => {
+      const existing = registry.get(n.id);
+      if (existing) {
+        // Mutate in place so the simulation's x/y/vx/vy stay attached.
+        existing.label = n.label || n.id;
+        existing.room = n.room;
+        existing.blockTs = n.blockTs;
+        existing.clusters = n.clusters;
+        existing.source = n.source;
+        // Clear any leftover cluster-mode flags so a real node never inherits them.
+        existing.isCluster = false;
+        existing.memberIds = undefined;
+        existing.members = undefined;
+        return existing;
+      }
+      const fresh: GNode = {
+        id: n.id, label: n.label || n.id, room: n.room, blockTs: n.blockTs,
+        clusters: n.clusters, source: n.source,
+      };
+      registry.set(n.id, fresh);
+      return fresh;
+    });
     const byId = new Map(graph.nodes.map((n) => [n.id, n]));
     const ids = new Set(ns.map((n) => n.id));
     const ls: GLink[] = graph.edges
       .filter((e) => ids.has(e.from) && ids.has(e.to))
-      .map((e) => ({ source: e.from, target: e.to, type: e.type, viaCluster: e.viaCluster }));
+      .map((e) => ({ source: e.from, target: e.to, type: e.type, viaCluster: e.viaCluster, provenance: e.source }));
     return { palette: pal, clusterList: graph.clusters, baseNodes: ns, baseLinks: ls, originalById: byId };
   }, [graph]);
 
@@ -188,6 +218,7 @@ export default function NeuralGraphView({
       return isCluster ? `cluster:${groupId}` : groupId;
     };
 
+    const registry = nodeRegistryRef.current;
     const cNodes: GNode[] = [];
     for (const [groupId, members] of membersByGroup) {
       const isCluster = clusterList.some((c) => c.id === groupId);
@@ -196,16 +227,32 @@ export default function NeuralGraphView({
         continue;
       }
       const cluster = clusterList.find((c) => c.id === groupId);
-      cNodes.push({
-        id: `cluster:${groupId}`,
-        label: cluster?.name ?? groupId,
-        room: members[0].room,
-        blockTs: '',
-        clusters: [groupId],
-        isCluster: true,
-        memberIds: members.map((m) => m.id),
-        members: members.map((m) => originalById.get(m.id)!).filter(Boolean),
-      });
+      const superId = `cluster:${groupId}`;
+      const memberIds = members.map((m) => m.id);
+      const memberNodes = members.map((m) => originalById.get(m.id)!).filter(Boolean);
+      const existing = registry.get(superId);
+      if (existing) {
+        existing.label = cluster?.name ?? groupId;
+        existing.room = members[0].room;
+        existing.clusters = [groupId];
+        existing.isCluster = true;
+        existing.memberIds = memberIds;
+        existing.members = memberNodes;
+        cNodes.push(existing);
+      } else {
+        const fresh: GNode = {
+          id: superId,
+          label: cluster?.name ?? groupId,
+          room: members[0].room,
+          blockTs: '',
+          clusters: [groupId],
+          isCluster: true,
+          memberIds,
+          members: memberNodes,
+        };
+        registry.set(superId, fresh);
+        cNodes.push(fresh);
+      }
     }
 
     const seen = new Set<string>();
@@ -221,7 +268,7 @@ export default function NeuralGraphView({
       const key = `${ss}::${tt}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      cLinks.push({ source: ss, target: tt, type: e.type, viaCluster: e.viaCluster });
+      cLinks.push({ source: ss, target: tt, type: e.type, viaCluster: e.viaCluster, provenance: e.provenance });
     }
 
     return { nodes: cNodes, links: cLinks };
@@ -240,9 +287,20 @@ export default function NeuralGraphView({
     }
   }, [focusNodeId, nodes]);
 
-  // d3-force simulation, rebuilt on nodes/links swap.
+  // d3-force simulation. Built once; nodes/links swapped IN PLACE on graph updates
+  // (rebuilding would reset alpha to 1 and "튕기게" — the visible jolt the user
+  // complained about). Since GNode identity is preserved via the registry, the
+  // existing x/y survive and only the link force needs a tiny re-settle.
   const simRef = useRef<Simulation<GNode, GLink> | null>(null);
   useEffect(() => {
+    if (simRef.current) {
+      simRef.current.nodes(nodes);
+      const linkForce = simRef.current.force('link') as ReturnType<typeof forceLink<GNode, GLink>> | null;
+      if (linkForce) linkForce.links(links);
+      // Tiny nudge so new edges can pull their endpoints — barely visible.
+      if (physics) simRef.current.alpha(0.08).restart();
+      return;
+    }
     const sim = forceSimulation<GNode>(nodes)
       .force('charge', forceManyBody().strength(-220))
       .force('link', forceLink<GNode, GLink>(links).id((d) => d.id).distance(90).strength(0.55))
@@ -250,8 +308,8 @@ export default function NeuralGraphView({
       .force('collide', forceCollide<GNode>().radius((d) => (d.isCluster ? 26 + Math.min(20, (d.memberIds?.length ?? 0) * 1.5) : 22)));
     sim.on('tick', () => force((n) => (n + 1) & 0xffff));
     simRef.current = sim;
-    return () => { sim.stop(); };
-  }, [nodes, links]);
+    return () => { sim.stop(); simRef.current = null; };
+  }, [nodes, links, physics]);
 
   useEffect(() => {
     const sim = simRef.current;
@@ -263,9 +321,27 @@ export default function NeuralGraphView({
   }, [size.w, size.h]);
 
   // Physics toggle: OFF → pin all at current positions; ON → unfreeze non-user-pinned.
+  // The previous version had `nodes` in its deps and restarted the sim at alpha(0.7)
+  // on every graph update, which jolted the entire layout each time an edge was added.
+  // Now: only the actual physics toggle restarts; node array refresh just pins any
+  // newly-arrived nodes when physics is off (without restarting).
+  const prevPhysicsRef = useRef(physics);
   useEffect(() => {
     const sim = simRef.current;
     if (!sim) return;
+    const toggled = prevPhysicsRef.current !== physics;
+    prevPhysicsRef.current = physics;
+
+    if (!toggled) {
+      if (!physics) {
+        // New node arrived while paused — pin it where it landed.
+        for (const n of nodes) {
+          if (n.fx == null && n.x != null) { n.fx = n.x; n.fy = n.y; n.pinned = true; }
+        }
+      }
+      return;
+    }
+
     if (physics) {
       for (const n of nodes) {
         if (!n.pinned) { n.fx = null; n.fy = null; }
@@ -515,7 +591,7 @@ export default function NeuralGraphView({
             title={ko ? '같은 클러스터 노드를 하나로 묶기' : 'Collapse same-cluster nodes'}
           >
             {collapsed ? <CirclesThree size={13} weight="fill" /> : <CircleDashed size={13} />}
-            {collapsed ? (ko ? '묶음 ON' : 'Grouped') : (ko ? '묶음 OFF' : 'Individual')}
+            {collapsed ? (ko ? '클러스터 ON' : 'Cluster') : (ko ? '클러스터 OFF' : 'Individual')}
           </button>
           <button
             className={`btn btn-ghost btn-sm ${physics ? '' : 'active'}`}
@@ -563,7 +639,7 @@ export default function NeuralGraphView({
               <p>{ko ? '드래그: 노드 이동(자동 핀)' : 'Drag: move node (auto-pin)'}</p>
               <p>{ko ? '휠/팬: 줌·이동' : 'Wheel/pan: zoom·move'}</p>
               <p>{ko ? '물리 OFF: 모든 위치 고정' : 'Physics off: pin all'}</p>
-              <p>{ko ? '묶음 ON: 클러스터 단위' : 'Grouped: collapse by cluster'}</p>
+              <p>{ko ? '클러스터 ON: 클러스터 단위' : 'Cluster ON: collapse by cluster'}</p>
             </div>
           </aside>
 
@@ -588,7 +664,9 @@ export default function NeuralGraphView({
                 {links.map((l, i) => {
                   const s = l.source as GNode; const t = l.target as GNode;
                   if (s?.x == null || t?.x == null) return null;
-                  const dashed = l.type === 'supersedes';
+                  // Visual provenance: 'llm' (AI-inferred) = dashed amber; 'supersedes' = dashed default.
+                  const isLlm = l.provenance === 'llm';
+                  const dashed = l.type === 'supersedes' || isLlm;
                   const mx = (s.x + t.x!) / 2;
                   const my = (s.y! + t.y!) / 2;
                   const tlabel = typeLabel(l.type);
@@ -596,14 +674,15 @@ export default function NeuralGraphView({
                   const tId = typeof l.target === 'string' ? l.target : (l.target as GNode).id;
                   const editable = !collapsed && onUnlinkEdge && !sId.startsWith('cluster:') && !tId.startsWith('cluster:');
                   const isSelectedEdge = selectedEdge && selectedEdge.from === sId && selectedEdge.to === tId;
+                  const llmStroke = '#f59e0b'; // amber — distinct from default text-dim
                   return (
                     <g key={i}>
                       <line
                         x1={s.x} y1={s.y!} x2={t.x} y2={t.y!}
-                        stroke={isSelectedEdge ? 'var(--accent)' : 'var(--text-dim)'}
-                        strokeOpacity={isSelectedEdge ? 0.9 : 0.5}
+                        stroke={isSelectedEdge ? 'var(--accent)' : isLlm ? llmStroke : 'var(--text-dim)'}
+                        strokeOpacity={isSelectedEdge ? 0.9 : isLlm ? 0.6 : 0.5}
                         strokeWidth={isSelectedEdge ? 2 : 1.3}
-                        strokeDasharray={dashed ? '4 3' : undefined}
+                        strokeDasharray={dashed ? (isLlm ? '5 4' : '4 3') : undefined}
                         markerEnd={l.type ? 'url(#ng-arrow)' : undefined}
                       />
                       {editable && (
@@ -790,9 +869,10 @@ export default function NeuralGraphView({
             </button>
           </div>
 
-          {/* Right detail panel */}
+          {/* Right detail panel — drag the left edge to resize */}
           {selected && (
-            <aside className="neural-graph-detail">
+            <aside className="neural-graph-detail" style={{ width: panelWidth }}>
+              <PanelResizer width={panelWidth} setWidth={setPanelWidth} min={260} max={640} side="left" />
               <div className="neural-graph-detail-header">
                 {selected.isCluster ? <Tag size={14} /> : <GraphIcon size={14} weight="bold" />}
                 <span className="neural-graph-detail-title">{selected.label}</span>

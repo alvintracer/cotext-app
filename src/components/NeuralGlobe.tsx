@@ -17,6 +17,7 @@ import { OrbitControls, Html, Text, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import type { NeuralGraph, NeuralNode, Edge, Cluster } from '../lib/neural/types';
 import { X, ArrowRight, GitBranch, CirclesFour } from '@phosphor-icons/react';
+import PanelResizer from './PanelResizer';
 import '../styles/neural-globe.css';
 
 /* ── colour palette ─────────────────────────────────────── */
@@ -28,6 +29,14 @@ const CLUSTER_COLORS = [
 const DEFAULT_NODE_COLOR = '#607d8b';
 const ACCENT = '#3b9eff';        // brand key colour — used for edges & glow
 const ACCENT_BRIGHT = '#7cc4ff'; // lighter accent for travelling signal pulses
+const LLM_EDGE_COLOR = '#f59e0b'; // amber — LLM-inferred (Edge.source === 'llm')
+
+// Edge type labels mirror NeuralGraphView.EDGE_TYPE_LABEL — keep in sync.
+const GLOBE_EDGE_LABEL: Record<string, { ko: string; en: string }> = {
+  relates: { ko: '관련', en: 'Relates' },
+  supersedes: { ko: '대체', en: 'Supersedes' },
+  supports: { ko: '근거', en: 'Supports' },
+};
 
 type GlobeTheme = 'light' | 'dark';
 
@@ -315,12 +324,13 @@ function EdgeLines({ graph, positions, selectedNodeId, tokens }: {
     return () => clearTimeout(timer);
   }, []);
 
-  const { normalGeo, highlightGeo } = useMemo(() => {
+  const { normalGeo, llmGeo, highlightGeo } = useMemo(() => {
     const nodeIdx = new Map<string, number>();
     graph.nodes.forEach((n, i) => nodeIdx.set(n.id, i));
 
     const edgesToRender = graph.edges.slice(0, MAX_EDGES_RENDERED);
     const normVerts: number[] = [];
+    const llmVerts: number[] = []; // LLM-inferred — drawn as dashes (every other segment)
     const hiVerts: number[] = [];
 
     for (const edge of edgesToRender) {
@@ -330,12 +340,22 @@ function EdgeLines({ graph, positions, selectedNodeId, tokens }: {
       if (!positions[fi] || !positions[ti]) continue;
 
       const isHighlighted = selectedNodeId && (edge.from === selectedNodeId || edge.to === selectedNodeId);
+      const isLlm = edge.source === 'llm';
       const arcPts = sphereArc(positions[fi], positions[ti], 16);
-      const targetVerts = isHighlighted ? hiVerts : normVerts;
+      // Selection wins over provenance: highlighted edges go to the bright bucket regardless.
+      const targetVerts = isHighlighted ? hiVerts : isLlm ? llmVerts : normVerts;
 
-      for (let i = 0; i < arcPts.length - 1; i++) {
-        targetVerts.push(arcPts[i].x, arcPts[i].y, arcPts[i].z);
-        targetVerts.push(arcPts[i + 1].x, arcPts[i + 1].y, arcPts[i + 1].z);
+      // LLM (non-highlighted) → dashed: push only every other segment pair so gaps appear.
+      if (targetVerts === llmVerts) {
+        for (let i = 0; i < arcPts.length - 1; i += 2) {
+          targetVerts.push(arcPts[i].x, arcPts[i].y, arcPts[i].z);
+          targetVerts.push(arcPts[i + 1].x, arcPts[i + 1].y, arcPts[i + 1].z);
+        }
+      } else {
+        for (let i = 0; i < arcPts.length - 1; i++) {
+          targetVerts.push(arcPts[i].x, arcPts[i].y, arcPts[i].z);
+          targetVerts.push(arcPts[i + 1].x, arcPts[i + 1].y, arcPts[i + 1].z);
+        }
       }
     }
 
@@ -345,13 +365,16 @@ function EdgeLines({ graph, positions, selectedNodeId, tokens }: {
       return geo;
     };
 
-    return { normalGeo: makeGeo(normVerts), highlightGeo: makeGeo(hiVerts) };
+    return { normalGeo: makeGeo(normVerts), llmGeo: makeGeo(llmVerts), highlightGeo: makeGeo(hiVerts) };
   }, [graph.edges, graph.nodes, positions, selectedNodeId]);
 
   return (
     <>
       <lineSegments geometry={normalGeo} visible={visible}>
         <lineBasicMaterial color={tokens.edge} transparent opacity={selectedNodeId ? tokens.edgeDimOpacity : tokens.edgeOpacity} />
+      </lineSegments>
+      <lineSegments geometry={llmGeo} visible={visible}>
+        <lineBasicMaterial color={LLM_EDGE_COLOR} transparent opacity={selectedNodeId ? tokens.edgeDimOpacity * 1.5 : tokens.edgeOpacity * 0.9} />
       </lineSegments>
       <lineSegments geometry={highlightGeo} visible={visible}>
         <lineBasicMaterial color={ACCENT_BRIGHT} transparent opacity={0.85} />
@@ -744,12 +767,14 @@ function easeOutBack(t: number): number {
 }
 
 /* ── Detail Panel (HTML overlay) ────────────────────────── */
-function DetailPanel({ info, graph, clusterMap, ko, nodeTextById, onClose }: {
+function DetailPanel({ info, graph, clusterMap, ko, nodeTextById, width, setWidth, onClose }: {
   info: SelectedInfo;
   graph: NeuralGraph;
   clusterMap: Map<string, number>;
   ko: boolean;
   nodeTextById?: Record<string, string>;
+  width: number;
+  setWidth: (px: number) => void;
   onClose: () => void;
 }) {
   const { node, connectedEdges, connectedNodes } = info;
@@ -759,7 +784,8 @@ function DetailPanel({ info, graph, clusterMap, ko, nodeTextById, onClose }: {
   const text = nodeTextById?.[node.id];
 
   return (
-    <div className="globe-detail-panel">
+    <div className="globe-detail-panel" style={{ width }}>
+      <PanelResizer width={width} setWidth={setWidth} min={260} max={640} side="left" />
       <div className="globe-detail-header">
         <div className="globe-detail-label">{node.label}</div>
         <button className="globe-detail-close" onClick={onClose}><X size={14} /></button>
@@ -802,7 +828,10 @@ function DetailPanel({ info, graph, clusterMap, ko, nodeTextById, onClose }: {
         </div>
       </div>
 
-      {/* Connections */}
+      {/* Connections — parity with NeuralGraphView's NodePanel:
+          - translated edge-type labels (ko: 관련/대체/근거)
+          - LLM-edge tag for edges added by neural-enrich
+          - other-node's room when it differs from this node's */}
       {connectedEdges.length > 0 && (
         <div className="globe-detail-section">
           <div className="globe-detail-section-title">
@@ -814,17 +843,120 @@ function DetailPanel({ info, graph, clusterMap, ko, nodeTextById, onClose }: {
               const otherId = edge.from === node.id ? edge.to : edge.from;
               const otherNode = connectedNodes.find(n => n.id === otherId);
               if (!otherNode) return null;
+              const typeLabel = edge.type ? (GLOBE_EDGE_LABEL[edge.type]?.[ko ? 'ko' : 'en'] ?? edge.type) : '';
+              const showRoom = otherNode.room && otherNode.room !== node.room;
               return (
                 <div key={i} className="globe-detail-connection">
                   <ArrowRight size={10} />
                   <span className="globe-detail-conn-label">{otherNode.label}</span>
-                  {edge.type && <span className="globe-detail-conn-type">{edge.type}</span>}
+                  {typeLabel && <span className="globe-detail-conn-type">{typeLabel}</span>}
+                  {edge.source === 'llm' && (
+                    <span className="globe-detail-conn-type" style={{ borderColor: LLM_EDGE_COLOR, color: LLM_EDGE_COLOR }}>
+                      LLM
+                    </span>
+                  )}
+                  {showRoom && <span className="globe-detail-conn-room">{otherNode.room}</span>}
                 </div>
               );
             })}
             {connectedEdges.length > 10 && (
               <div className="globe-detail-more">+{connectedEdges.length - 10} {ko ? '더' : 'more'}</div>
             )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Cluster Detail Panel (3D globe cluster mode) ────────── */
+function ClusterDetailPanel({ info, graph, clusterMap, ko, width, setWidth, onClose }: {
+  info: SelectedInfo;
+  graph: NeuralGraph;
+  clusterMap: Map<string, number>;
+  ko: boolean;
+  width: number;
+  setWidth: (px: number) => void;
+  onClose: () => void;
+}) {
+  const { node } = info;
+  // Extract real cluster id from __cluster__ prefix
+  const realClusterId = node.id.replace(/^__cluster__/, '');
+  const cluster = graph.clusters.find(c => c.id === realClusterId);
+  const cIdx = clusterMap.get(realClusterId) ?? -1;
+  const color = cIdx >= 0 ? clusterColor(cIdx) : '#888';
+
+  // Find all member nodes
+  const memberNodes = graph.nodes.filter(n => n.clusters.includes(realClusterId));
+
+  // Inter-cluster edges
+  const clusterEdges = info.connectedEdges;
+  const connectedClusterNames = info.connectedNodes.map(cn => {
+    const cid = cn.id.replace(/^__cluster__/, '');
+    return graph.clusters.find(c => c.id === cid)?.name ?? cid;
+  });
+
+  return (
+    <div className="globe-detail-panel" style={{ width }}>
+      <PanelResizer width={width} setWidth={setWidth} min={260} max={640} side="left" />
+      <div className="globe-detail-header">
+        <div className="globe-detail-label" style={{ color }}>
+          <CirclesFour size={14} weight="fill" style={{ marginRight: 6, color }} />
+          {cluster?.name ?? realClusterId}
+        </div>
+        <button className="globe-detail-close" onClick={onClose}><X size={14} /></button>
+      </div>
+
+      {/* Cluster meta */}
+      <div className="globe-detail-section">
+        <div className="globe-detail-meta">
+          <span className="globe-detail-tag" style={{ borderColor: color, color }}>
+            {ko ? `${memberNodes.length}개 노드` : `${memberNodes.length} nodes`}
+          </span>
+        </div>
+        {cluster?.desc && (
+          <div className="globe-detail-text" style={{ marginTop: 6 }}>{cluster.desc}</div>
+        )}
+      </div>
+
+      {/* Member nodes */}
+      <div className="globe-detail-section">
+        <div className="globe-detail-section-title">
+          <GitBranch size={12} />
+          {ko ? '소속 노드' : 'Members'}
+        </div>
+        <div className="globe-detail-connections">
+          {memberNodes.slice(0, 20).map((m) => (
+            <div key={m.id} className="globe-detail-connection">
+              <ArrowRight size={10} />
+              <span className="globe-detail-conn-label">{m.label}</span>
+              {m.room && <span className="globe-detail-conn-room">{m.room}</span>}
+            </div>
+          ))}
+          {memberNodes.length > 20 && (
+            <div className="globe-detail-more">+{memberNodes.length - 20} {ko ? '더' : 'more'}</div>
+          )}
+        </div>
+      </div>
+
+      {/* Connected clusters */}
+      {clusterEdges.length > 0 && (
+        <div className="globe-detail-section">
+          <div className="globe-detail-section-title">
+            <CirclesFour size={12} weight="fill" />
+            {ko ? `연결된 클러스터 (${clusterEdges.length})` : `Connected clusters (${clusterEdges.length})`}
+          </div>
+          <div className="globe-detail-tags" style={{ marginTop: 4 }}>
+            {connectedClusterNames.map((name, i) => {
+              const cid = info.connectedNodes[i]?.id.replace(/^__cluster__/, '');
+              const ci = cid ? (clusterMap.get(cid) ?? -1) : -1;
+              const c2 = ci >= 0 ? clusterColor(ci) : '#888';
+              return (
+                <span key={i} className="globe-detail-tag" style={{ borderColor: c2, color: c2 }}>
+                  {name}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
@@ -843,12 +975,15 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
     typeof window !== 'undefined' && window.innerWidth > 768
   );
   const [displayMode, setDisplayMode] = useState<'nodes' | 'clusters'>('nodes');
+  const [panelWidth, setPanelWidth] = useState(320);
 
   const clusterMap = useMemo(() => {
     const m = new Map<string, number>();
     graph.clusters.forEach((c, i) => m.set(c.id, i));
     return m;
   }, [graph.clusters]);
+
+  const hasLlmEdges = useMemo(() => graph.edges.some((e) => e.source === 'llm'), [graph.edges]);
 
   const clusterLegend = useMemo(() =>
     graph.clusters.slice(0, 10).map((c, i) => ({
@@ -857,16 +992,22 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
     })),
   [graph.clusters]);
 
-  // Compute selected info
+  // Build the view graph (cluster-reduced when in clusters mode)
+  const viewGraph = useMemo(
+    () => displayMode === 'clusters' ? buildClusterGraph(graph) : graph,
+    [graph, displayMode],
+  );
+
+  // Compute selected info — must use viewGraph to match selectedIdx from InteractiveNodes
   const selectedInfo = useMemo<SelectedInfo | null>(() => {
-    if (selectedIdx === null || !graph.nodes[selectedIdx]) return null;
-    const node = graph.nodes[selectedIdx];
-    const connectedEdges = graph.edges.filter(e => e.from === node.id || e.to === node.id);
+    if (selectedIdx === null || !viewGraph.nodes[selectedIdx]) return null;
+    const node = viewGraph.nodes[selectedIdx];
+    const connectedEdges = viewGraph.edges.filter(e => e.from === node.id || e.to === node.id);
     const connectedIds = new Set(connectedEdges.flatMap(e => [e.from, e.to]));
     connectedIds.delete(node.id);
-    const connectedNodes = graph.nodes.filter(n => connectedIds.has(n.id));
+    const connectedNodes = viewGraph.nodes.filter(n => connectedIds.has(n.id));
     return { node, index: selectedIdx, connectedEdges, connectedNodes };
-  }, [selectedIdx, graph]);
+  }, [selectedIdx, viewGraph]);
 
   const connectedNodeIds = useMemo(() => {
     if (!selectedInfo) return new Set<string>();
@@ -950,14 +1091,28 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
         ) : (
           <>
             {selectedInfo && (
-              <DetailPanel
-                info={selectedInfo}
-                graph={graph}
-                clusterMap={clusterMap}
-                ko={ko}
-                nodeTextById={nodeTextById}
-                onClose={() => setSelectedIdx(null)}
-              />
+              displayMode === 'clusters' ? (
+                <ClusterDetailPanel
+                  info={selectedInfo}
+                  graph={graph}
+                  clusterMap={clusterMap}
+                  ko={ko}
+                  width={panelWidth}
+                  setWidth={setPanelWidth}
+                  onClose={() => setSelectedIdx(null)}
+                />
+              ) : (
+                <DetailPanel
+                  info={selectedInfo}
+                  graph={graph}
+                  clusterMap={clusterMap}
+                  ko={ko}
+                  nodeTextById={nodeTextById}
+                  width={panelWidth}
+                  setWidth={setPanelWidth}
+                  onClose={() => setSelectedIdx(null)}
+                />
+              )
             )}
             {/* Collapsible cluster legend */}
             <div className={`neural-globe-legend ${legendOpen ? 'is-open' : ''}`}>
@@ -977,6 +1132,14 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
                       {c.name}
                     </div>
                   ))}
+                  {hasLlmEdges && (
+                    <div className="neural-globe-legend-item neural-globe-legend-edge-llm" title={ko ? 'LLM이 의미상 연결을 추론한 엣지' : 'LLM-inferred semantic edges'}>
+                      <svg width="20" height="6" viewBox="0 0 20 6" aria-hidden>
+                        <line x1="0" y1="3" x2="20" y2="3" stroke={LLM_EDGE_COLOR} strokeWidth="2" strokeDasharray="4 3" />
+                      </svg>
+                      <span style={{ opacity: 0.85 }}>{ko ? 'LLM 추론 엣지' : 'LLM-inferred'}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1011,14 +1174,28 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
       <div className="neural-globe-canvas">{canvasEl}</div>
 
       {selectedInfo && (
-        <DetailPanel
-          info={selectedInfo}
-          graph={graph}
-          clusterMap={clusterMap}
-          ko={ko}
-          nodeTextById={nodeTextById}
-          onClose={() => setSelectedIdx(null)}
-        />
+        displayMode === 'clusters' ? (
+          <ClusterDetailPanel
+            info={selectedInfo}
+            graph={graph}
+            clusterMap={clusterMap}
+            ko={ko}
+            width={panelWidth}
+            setWidth={setPanelWidth}
+            onClose={() => setSelectedIdx(null)}
+          />
+        ) : (
+          <DetailPanel
+            info={selectedInfo}
+            graph={graph}
+            clusterMap={clusterMap}
+            ko={ko}
+            nodeTextById={nodeTextById}
+            width={panelWidth}
+            setWidth={setPanelWidth}
+            onClose={() => setSelectedIdx(null)}
+          />
+        )
       )}
 
       <div className={`neural-globe-legend ${legendOpen ? 'is-open' : ''}`}>

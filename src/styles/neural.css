@@ -598,6 +598,28 @@
   min-height: 0;
   background: var(--surface);
   animation: slideInRight var(--duration-normal) var(--ease-out);
+  position: relative; /* anchor for the absolute resize handle */
+}
+
+/* ---- Resize handle (shared by 2D editor panel + 3D globe panel) ---- */
+.panel-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  z-index: 5;
+  /* tiny tinted strip on hover so users discover it */
+  background: transparent;
+  transition: background 120ms ease;
+  touch-action: none;
+}
+.panel-resizer-left  { left: -3px; }
+.panel-resizer-right { right: -3px; }
+.panel-resizer:hover,
+.panel-resizer:active {
+  background: var(--accent);
+  opacity: 0.6;
 }
 .neural-graph-detail-header {
   display: flex;

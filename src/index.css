@@ -5729,3 +5729,79 @@ button:focus-visible {
      padding: 14px;
    }
  }
+
+/* ── Connect modal — 3-tier web-agent options ─────────────── */
+.connect-tier {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-top: 12px;
+}
+.connect-tier-best {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+.connect-tier-good {
+  border-color: color-mix(in srgb, var(--draft) 35%, var(--border));
+}
+.connect-tier-fallback {
+  background: var(--surface-2);
+}
+.connect-tier-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.connect-tier-badge {
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.connect-tier-best .connect-tier-badge {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.connect-tier-good .connect-tier-badge {
+  background: var(--draft-bg);
+  color: var(--draft);
+  border-color: var(--draft-border);
+}
+.connect-tier-title {
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+.connect-tier-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+.connect-platform {
+  margin-top: 10px;
+}
+.connect-platform-name {
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.connect-share-section {
+  margin-top: 8px;
+}
+.connect-share-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}

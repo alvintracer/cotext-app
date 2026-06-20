@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { owner, repo, branch, room_path, source_filter, user_id, label } = linkData
+    const { owner, repo, branch, room_path, source_filter, user_id, label, link_type } = linkData
 
     // Get GitHub token for the link creator
     const { data: conn } = await supabase
@@ -50,7 +50,42 @@ Deno.serve(async (req) => {
 
     const ghToken = conn.access_token_encrypted
 
-    // Fetch content from GitHub
+    // ── Graph link: serve the workspace-wide NEURAL_INDEX.md ──
+    // The neural-compile workflow keeps this file current on every push, so
+    // a stable share URL always returns the latest snapshot. This is the path
+    // web-agent users (ChatGPT/Claude/Gemini) attach to their Projects.
+    if (link_type === 'graph') {
+      const idxRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/.cotext/NEURAL_INDEX.md?ref=${branch}`, {
+        headers: {
+          'Authorization': `Bearer ${ghToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'Cotext-App',
+        },
+      })
+      if (!idxRes.ok) {
+        return new Response(JSON.stringify({ error: `Graph snapshot not found — run \`cotext compile\` and push (.cotext/NEURAL_INDEX.md). GitHub ${idxRes.status}.` }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+      const ghData = await idxRes.json()
+      const raw = atob(ghData.content.replace(/\n/g, ''))
+      const md = new TextDecoder().decode(Uint8Array.from(raw, c => c.charCodeAt(0)))
+      const header = `<!-- MindSync knowledge graph snapshot — ${owner}/${repo} · live, regenerated on every push -->\n\n`
+      if (format === 'json') {
+        return new Response(JSON.stringify({
+          title: label || `${owner}/${repo} — graph`,
+          owner, repo, branch,
+          link_type: 'graph',
+          generated: new Date().toISOString(),
+          content: md,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+      return new Response(header + md, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/markdown; charset=utf-8' }
+      })
+    }
+
+    // Fetch content from GitHub (context link path — original behavior)
     let content = ''
     if (room_path) {
       // Single room

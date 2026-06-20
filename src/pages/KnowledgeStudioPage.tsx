@@ -1038,6 +1038,7 @@ export default function KnowledgeStudioPage() {
           github_repo: anchorWs.github_repo,
           default_branch: anchorWs.default_branch || 'main',
         } : null}
+        graph={wsGraph ?? null}
         apiKey={anchorApiKey || undefined}
         language={ko ? 'ko' : 'en'}
       />

@@ -882,6 +882,7 @@ export default function NeuralGraphView({
               {selected.isCluster ? (
                 <ClusterPanel
                   node={selected}
+                  graph={graph}
                   clusterList={clusterList}
                   palette={palette}
                   currentRoom={currentRoom}
@@ -993,9 +994,10 @@ function NodePanel({ node, graph, clusterList, palette, currentRoom, blockText, 
   );
 }
 
-// ---- Right panel: cluster detail ----
-function ClusterPanel({ node, clusterList, palette, currentRoom, ko, onPickMember }: {
+// ---- Right panel: cluster detail (unified with Globe) ----
+function ClusterPanel({ node, graph, clusterList, palette, currentRoom, ko, onPickMember }: {
   node: GNode;
+  graph: NeuralGraph;
   clusterList: Cluster[];
   palette: Map<string, string>;
   currentRoom: string;
@@ -1004,14 +1006,31 @@ function ClusterPanel({ node, clusterList, palette, currentRoom, ko, onPickMembe
 }) {
   const cluster = clusterList.find((c) => c.id === node.clusters[0]);
   const color = palette.get(node.clusters[0]);
+
+  // Connected clusters (via edges of member nodes)
+  const nodeCluster = new Map<string, string>();
+  graph.nodes.forEach((n) => { if (n.clusters[0]) nodeCluster.set(n.id, n.clusters[0]); });
+  const connectedClusterIds = new Set<string>();
+  for (const e of graph.edges) {
+    const cFrom = nodeCluster.get(e.from);
+    const cTo = nodeCluster.get(e.to);
+    if (!cFrom || !cTo || cFrom === cTo) continue;
+    if (cFrom === node.clusters[0]) connectedClusterIds.add(cTo);
+    else if (cTo === node.clusters[0]) connectedClusterIds.add(cFrom);
+  }
+
   return (
     <div className="neural-graph-detail-body">
+      {/* Cluster meta */}
       <div className="neural-graph-detail-meta">
         <span className="neural-graph-swatch" style={{ background: color }} />
-        <span>{ko ? `${node.memberIds?.length ?? 0}개 노드` : `${node.memberIds?.length ?? 0} nodes`}</span>
+        <span className="cluster-chip" style={{ borderColor: color, color }}>
+          {ko ? `${node.memberIds?.length ?? 0}개 노드` : `${node.memberIds?.length ?? 0} nodes`}
+        </span>
       </div>
-      {cluster?.desc && <p className="text-muted" style={{ fontSize: 'var(--text-xs)' }}>{cluster.desc}</p>}
+      {cluster?.desc && <p className="text-muted" style={{ fontSize: 'var(--text-xs)', marginTop: 4 }}>{cluster.desc}</p>}
 
+      {/* Member nodes */}
       <label className="node-editor-label">{ko ? '소속 노드' : 'Members'}</label>
       <div className="neural-graph-member-list">
         {node.members?.map((m) => (
@@ -1024,6 +1043,24 @@ function ClusterPanel({ node, clusterList, palette, currentRoom, ko, onPickMembe
           </button>
         ))}
       </div>
+
+      {/* Connected clusters */}
+      {connectedClusterIds.size > 0 && (
+        <>
+          <label className="node-editor-label">{ko ? `연결된 클러스터 (${connectedClusterIds.size})` : `Connected clusters (${connectedClusterIds.size})`}</label>
+          <div className="cluster-chips">
+            {[...connectedClusterIds].map((cid) => {
+              const c = clusterList.find(x => x.id === cid);
+              const col = palette.get(cid);
+              return (
+                <span key={cid} className="cluster-chip" style={{ borderColor: col, color: col }}>
+                  <Tag size={10} /> {c?.name ?? cid}
+                </span>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

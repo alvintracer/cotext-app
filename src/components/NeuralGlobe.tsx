@@ -870,7 +870,7 @@ function DetailPanel({ info, graph, clusterMap, ko, nodeTextById, width, setWidt
 }
 
 /* ── Cluster Detail Panel (3D globe cluster mode) ────────── */
-function ClusterDetailPanel({ info, graph, clusterMap, ko, width, setWidth, onClose }: {
+function ClusterDetailPanel({ info, graph, clusterMap, ko, width, setWidth, onClose, onPickMember }: {
   info: SelectedInfo;
   graph: NeuralGraph;
   clusterMap: Map<string, number>;
@@ -878,18 +878,16 @@ function ClusterDetailPanel({ info, graph, clusterMap, ko, width, setWidth, onCl
   width: number;
   setWidth: (px: number) => void;
   onClose: () => void;
+  onPickMember?: (nodeId: string) => void;
 }) {
   const { node } = info;
-  // Extract real cluster id from __cluster__ prefix
   const realClusterId = node.id.replace(/^__cluster__/, '');
   const cluster = graph.clusters.find(c => c.id === realClusterId);
   const cIdx = clusterMap.get(realClusterId) ?? -1;
   const color = cIdx >= 0 ? clusterColor(cIdx) : '#888';
 
-  // Find all member nodes
   const memberNodes = graph.nodes.filter(n => n.clusters.includes(realClusterId));
 
-  // Inter-cluster edges
   const clusterEdges = info.connectedEdges;
   const connectedClusterNames = info.connectedNodes.map(cn => {
     const cid = cn.id.replace(/^__cluster__/, '');
@@ -919,7 +917,7 @@ function ClusterDetailPanel({ info, graph, clusterMap, ko, width, setWidth, onCl
         )}
       </div>
 
-      {/* Member nodes */}
+      {/* Member nodes — clickable */}
       <div className="globe-detail-section">
         <div className="globe-detail-section-title">
           <GitBranch size={12} />
@@ -927,11 +925,15 @@ function ClusterDetailPanel({ info, graph, clusterMap, ko, width, setWidth, onCl
         </div>
         <div className="globe-detail-connections">
           {memberNodes.slice(0, 20).map((m) => (
-            <div key={m.id} className="globe-detail-connection">
+            <button
+              key={m.id}
+              className="globe-detail-connection globe-detail-connection-btn"
+              onClick={() => onPickMember?.(m.id)}
+            >
               <ArrowRight size={10} />
               <span className="globe-detail-conn-label">{m.label}</span>
               {m.room && <span className="globe-detail-conn-room">{m.room}</span>}
-            </div>
+            </button>
           ))}
           {memberNodes.length > 20 && (
             <div className="globe-detail-more">+{memberNodes.length - 20} {ko ? '더' : 'more'}</div>
@@ -1042,6 +1044,13 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
     setSelectedIdx(prev => prev === idx ? null : idx);
   }, []);
 
+  // When clicking a member node inside ClusterDetailPanel → switch to nodes mode and select that node
+  const handlePickMember = useCallback((nodeId: string) => {
+    setDisplayMode('nodes');
+    const idx = graph.nodes.findIndex(n => n.id === nodeId);
+    if (idx >= 0) setSelectedIdx(idx);
+  }, [graph.nodes]);
+
 
   const canvasEl = contextLost ? (
     <div className="neural-globe-lost">
@@ -1100,6 +1109,7 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
                   width={panelWidth}
                   setWidth={setPanelWidth}
                   onClose={() => setSelectedIdx(null)}
+                  onPickMember={handlePickMember}
                 />
               ) : (
                 <DetailPanel
@@ -1183,6 +1193,7 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
             width={panelWidth}
             setWidth={setPanelWidth}
             onClose={() => setSelectedIdx(null)}
+            onPickMember={handlePickMember}
           />
         ) : (
           <DetailPanel

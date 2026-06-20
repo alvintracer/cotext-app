@@ -359,6 +359,19 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* Clickable member buttons */
+button.globe-detail-connection-btn {
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  width: 100%;
+}
+button.globe-detail-connection-btn:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .globe-detail-conn-label {
   flex: 1;
   overflow: hidden;

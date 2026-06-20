@@ -52,3 +52,14 @@
 - 저장하지 않은 정보가 있다면 그 이유
 - 다음 작업자가 먼저 확인해야 할 문서
 
+<!-- cotext:start -->
+## Cotext Context Pool
+
+This repository uses [Cotext](https://cotext-app.vercel.app) as a context engineering tool.
+
+**Start here:** Read `.cotext/COTEXT_GUIDE.md` for structure, block format, and the mandatory pull/push protocol.
+
+- Guide: `.cotext/COTEXT_GUIDE.md`
+- Index: `.cotext/INDEX.md`
+- Rooms: Each directory with `.cotext/cotext.md`
+<!-- cotext:end -->

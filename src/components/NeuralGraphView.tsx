@@ -123,7 +123,7 @@ export default function NeuralGraphView({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
   const [physics, setPhysics] = useState(true);
-  const [repulsion, setRepulsion] = useState(-220);
+  const [spread, setSpread] = useState(90); // link distance: how far apart connected nodes sit
   const [collapsed, setCollapsed] = useState(false);
   const [hover, setHover] = useState<GNode | null>(null);
   const [query, setQuery] = useState('');
@@ -303,8 +303,8 @@ export default function NeuralGraphView({
       return;
     }
     const sim = forceSimulation<GNode>(nodes)
-      .force('charge', forceManyBody().strength(repulsion))
-      .force('link', forceLink<GNode, GLink>(links).id((d) => d.id).distance(90).strength(0.55))
+      .force('charge', forceManyBody().strength(-220))
+      .force('link', forceLink<GNode, GLink>(links).id((d) => d.id).distance(spread).strength(0.55))
       .force('center', forceCenter(size.w / 2, size.h / 2))
       .force('collide', forceCollide<GNode>().radius((d) => (d.isCluster ? 26 + Math.min(20, (d.memberIds?.length ?? 0) * 1.5) : 22)));
     sim.on('tick', () => force((n) => (n + 1) & 0xffff));
@@ -312,14 +312,14 @@ export default function NeuralGraphView({
     return () => { sim.stop(); simRef.current = null; };
   }, [nodes, links, physics]);
 
-  // Update repulsion strength in real-time without rebuilding simulation
+  // Update link distance in real-time — only connected nodes are affected
   useEffect(() => {
     const sim = simRef.current;
     if (!sim) return;
-    const charge = sim.force('charge') as ReturnType<typeof forceManyBody> | null;
-    if (charge) charge.strength(repulsion);
-    if (physics) sim.alpha(0.15).restart();
-  }, [repulsion]);
+    const linkForce = sim.force('link') as ReturnType<typeof forceLink<GNode, GLink>> | null;
+    if (linkForce) linkForce.distance(spread);
+    if (physics) sim.alpha(0.2).restart();
+  }, [spread]);
 
   useEffect(() => {
     const sim = simRef.current;
@@ -610,18 +610,18 @@ export default function NeuralGraphView({
           >
             {physics ? <><Lightning size={13} /> {ko ? '물리 ON' : 'Physics on'}</> : <><Pause size={13} /> {ko ? '물리 OFF (고정)' : 'Physics off (pinned)'}</>}
           </button>
-          <div className="neural-graph-repulsion" title={ko ? '척력 조절' : 'Repulsion strength'}>
+          <div className="neural-graph-repulsion" title={ko ? '간격 조절 (엣지 연결 노드)' : 'Spread (edge-connected nodes)'}>
             <ArrowsOutCardinal size={12} />
             <input
               type="range"
               className="neural-graph-repulsion-slider"
-              min={-600}
-              max={-30}
-              step={10}
-              value={repulsion}
-              onChange={(e) => setRepulsion(Number(e.target.value))}
+              min={30}
+              max={300}
+              step={5}
+              value={spread}
+              onChange={(e) => setSpread(Number(e.target.value))}
             />
-            <span className="neural-graph-repulsion-val">{Math.abs(repulsion)}</span>
+            <span className="neural-graph-repulsion-val">{spread}</span>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={unpinAll} title={ko ? '모든 핀 해제' : 'Unpin all'}>
             <PushPinSlash size={13} /> {ko ? '핀 해제' : 'Unpin all'}

@@ -1822,11 +1822,20 @@ button:focus-visible {
 }
 .connect-warning-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
+}
+.connect-warning-row span {
+  flex: 1;
+  min-width: 200px;
 }
 .connect-warning-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
   flex-shrink: 0;
   padding: 6px 10px;
   border-radius: var(--radius-sm);
@@ -1836,6 +1845,7 @@ button:focus-visible {
   font-size: 11px;
   font-weight: var(--weight-semibold);
   cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
 }
 .connect-warning-cta:hover {
   background: color-mix(in srgb, var(--draft-bg) 65%, var(--surface));

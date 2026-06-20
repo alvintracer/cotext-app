@@ -27,7 +27,9 @@ type TabId = 'claude-code' | 'desktop' | 'web-agent' | 'http';
 
 const DEFAULT_API_URL =
   (import.meta.env.VITE_COTEXT_API_URL as string | undefined)
-  ?? 'https://YOUR-PROJECT.supabase.co/functions/v1/context-api';
+  ?? (import.meta.env.VITE_SUPABASE_URL
+    ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/context-api`
+    : 'https://YOUR-PROJECT.supabase.co/functions/v1/context-api');
 
 export default function ConnectMindSyncModal({
   open,

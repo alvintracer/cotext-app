@@ -18,9 +18,9 @@ When asked about a topic, first match against cluster names below, then fan out 
 
 ## Summary
 
-- Nodes: **48**
+- Nodes: **50**
 - Clusters: **14**
-- Edges: **132**
+- Edges: **134**
 
 ## Clusters
 
@@ -252,6 +252,8 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-sources-01-cotext-development-plan-summary` (Source Summary: 01_cotext-development-plan.md) | relates |
 | `w-log` (Agent Work Log) | → | `w-cotext-development-plan` (Cotext 개발 계획서 / 설계서) | relates |
 | `w-log` (Agent Work Log) | → | `w-stub-app-tsx` (App.tsx) | relates |
+| `w-log` (Agent Work Log) | → | `w-stub-src-components-connectmindsyncmodal-tsx` (src/components/ConnectMindSyncModal.tsx) | relates |
+| `w-log` (Agent Work Log) | → | `w-stub-src-index-css` (src/index.css) | relates |
 | `w-log` (Agent Work Log) | → | `w-stub-wikilink` (wikilink) | relates |
 
 ## Unclustered nodes
@@ -289,6 +291,8 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-prompts-save` | Save Prompt | `prompts/save.md` | `` |
 | `w-ai-sessions-conversations-2026-06-14-mcp-api-publish-handoff` | Session Handoff: MCP API & npm Publish | `AI-Sessions/conversations/2026-06-14-mcp-api-publish-handoff.md` | `` |
 | `w-ai-sessions-wiki-sources-01-cotext-development-plan-summary` | Source Summary: 01_cotext-development-plan.md | `AI-Sessions/wiki/sources/01_cotext-development-plan_summary.md` | `` |
+| `w-stub-src-components-connectmindsyncmodal-tsx` | src/components/ConnectMindSyncModal.tsx | `(unresolved)` | `` |
+| `w-stub-src-index-css` | src/index.css | `(unresolved)` | `` |
 | `w-template-manifest` | Template Manifest | `TEMPLATE_MANIFEST.md` | `` |
 | `w-stub-wikilink` | wikilink | `(unresolved)` | `` |
 | `w-stub-x` | X | `(unresolved)` | `` |

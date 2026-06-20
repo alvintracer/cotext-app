@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-20T06:22:26.432Z",
+  "updatedAt": "2026-06-20T07:03:58.004Z",
   "clusters": [
     {
       "id": "concept",
@@ -492,6 +492,22 @@
       "room": "(unresolved)",
       "blockTs": "",
       "label": "App.tsx",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-stub-src-components-connectmindsyncmodal-tsx",
+      "room": "(unresolved)",
+      "blockTs": "",
+      "label": "src/components/ConnectMindSyncModal.tsx",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-stub-src-index-css",
+      "room": "(unresolved)",
+      "blockTs": "",
+      "label": "src/index.css",
       "clusters": [],
       "source": "wiki"
     }
@@ -1286,6 +1302,18 @@
     {
       "from": "w-log",
       "to": "w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-stub-src-components-connectmindsyncmodal-tsx",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-stub-src-index-css",
       "type": "relates",
       "source": "wiki"
     }

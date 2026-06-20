@@ -1031,10 +1031,6 @@ export default function KnowledgeStudioPage() {
       <ConnectMindSyncModal
         open={connectOpen}
         onClose={() => setConnectOpen(false)}
-        onOpenApiKeys={() => {
-          if (!anchorWs) return;
-          navigate(`/workspace/${anchorWs.id}#api-keys`);
-        }}
         workspace={anchorWs ? {
           id: anchorWs.id,
           name: anchorWs.name,

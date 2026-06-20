@@ -1,7 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   X, Copy, Check, Terminal, CodeSimple, Robot, ChatText, Link as LinkIcon,
+  Key, Plus, Eye, EyeSlash, Trash,
 } from '@phosphor-icons/react';
+import { supabase } from '../lib/supabase/client';
+import { useAuth } from '../contexts/AuthContext';
 
 export interface ConnectMindSyncWorkspace {
   id: string;
@@ -15,7 +18,6 @@ interface Props {
   open: boolean;
   onClose: () => void;
   workspace?: ConnectMindSyncWorkspace | null;
-  onOpenApiKeys?: () => void;
   apiKey?: string;
   apiUrl?: string;
   language?: 'ko' | 'en';
@@ -31,18 +33,64 @@ export default function ConnectMindSyncModal({
   open,
   onClose,
   workspace,
-  onOpenApiKeys,
   apiKey,
   apiUrl,
   language = 'en',
 }: Props) {
+  const { user } = useAuth();
+  const url = apiUrl ?? DEFAULT_API_URL;
+  const repoLabel = workspace ? `${workspace.github_owner}/${workspace.github_repo}` : 'OWNER/REPO';
+
+  // Inline API key management
+  const [showKeyPanel, setShowKeyPanel] = useState(false);
+  const [keys, setKeys] = useState<{id:string; key:string; label:string; created_at:string}[]>([]);
+  const [keysLoading, setKeysLoading] = useState(false);
+  const [newLabel, setNewLabel] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [revealedId, setRevealedId] = useState<string|null>(null);
+  const [copiedKeyId, setCopiedKeyId] = useState<string|null>(null);
+
+  const fetchKeys = useCallback(async () => {
+    if (!workspace || !user) return;
+    setKeysLoading(true);
+    const { data } = await supabase
+      .from('api_keys')
+      .select('id, key, label, created_at')
+      .eq('workspace_id', workspace.id)
+      .is('revoked_at', null)
+      .order('created_at', { ascending: false });
+    setKeys(data || []);
+    setKeysLoading(false);
+  }, [workspace, user]);
+
+  useEffect(() => { if (showKeyPanel) fetchKeys(); }, [showKeyPanel, fetchKeys]);
+
+  const handleCreateKey = async () => {
+    if (!user || !workspace) return;
+    setCreating(true);
+    try {
+      await supabase.from('api_keys').insert({
+        workspace_id: workspace.id,
+        user_id: user.id,
+        label: newLabel || 'mindsync',
+        scopes: ['read', 'write'],
+      });
+      setNewLabel('');
+      await fetchKeys();
+    } finally { setCreating(false); }
+  };
+
+  const handleRevokeKey = async (id: string) => {
+    await supabase.from('api_keys').update({ revoked_at: new Date().toISOString() }).eq('id', id);
+    await fetchKeys();
+  };
+
+  const activeKey = keys.length > 0 ? keys[0].key : (apiKey || '');
+  const keyLabel = activeKey || 'ctx_xxxxxxxx';
+
   const ko = language === 'ko';
   const [tab, setTab] = useState<TabId>('claude-code');
   const [copied, setCopied] = useState<string | null>(null);
-
-  const url = apiUrl ?? DEFAULT_API_URL;
-  const repoLabel = workspace ? `${workspace.github_owner}/${workspace.github_repo}` : 'OWNER/REPO';
-  const keyLabel = apiKey || 'ctx_xxxxxxxx';
 
   const copy = (text: string, id: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -133,26 +181,64 @@ If the answer is not in the graph, say so plainly. Never invent.`,
         </div>
 
         <div className="modal-body connect-body">
-          {!apiKey && tab !== 'claude-code' && (
+          {!activeKey && tab !== 'claude-code' && (
             <div className="connect-warning">
               <div className="connect-warning-row">
                 <span>
                   {ko
-                    ? '아래의 원격 연결 방식은 Cotext API Key가 필요합니다. 워크스페이스의 API Keys 패널에서 키를 만든 뒤 다시 열면 실키 값으로 자동 채워집니다.'
-                    : 'The remote options below need a Cotext API key. Create one in the workspace API Keys panel and reopen this dialog to auto-fill the snippets.'}
+                    ? '아래의 원격 연결 방식은 Cotext API Key가 필요합니다. 아래에서 바로 발급할 수 있습니다.'
+                    : 'The remote options below need a Cotext API key. You can create one right here.'}
                 </span>
-                {onOpenApiKeys && workspace && (
+                {workspace && (
                   <button
                     className="connect-warning-cta"
-                    onClick={() => {
-                      onClose();
-                      onOpenApiKeys();
-                    }}
+                    onClick={() => setShowKeyPanel(p => !p)}
                   >
-                    {ko ? 'API Keys 열기' : 'Open API Keys'}
+                    <Key size={13} /> {showKeyPanel ? (ko ? '닫기' : 'Close') : (ko ? 'API Key 발급' : 'Create API Key')}
                   </button>
                 )}
               </div>
+              {showKeyPanel && (
+                <div className="connect-key-panel">
+                  <div className="connect-key-create">
+                    <input
+                      className="connect-key-input"
+                      placeholder={ko ? '키 이름 (선택)' : 'Key label (optional)'}
+                      value={newLabel}
+                      onChange={e => setNewLabel(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleCreateKey()}
+                    />
+                    <button className="connect-warning-cta" onClick={handleCreateKey} disabled={creating}>
+                      <Plus size={12} /> {creating ? '...' : (ko ? '발급' : 'Create')}
+                    </button>
+                  </div>
+                  {keysLoading ? (
+                    <p className="connect-key-loading">{ko ? '로딩...' : 'Loading...'}</p>
+                  ) : keys.length === 0 ? (
+                    <p className="connect-key-empty">{ko ? '아직 키가 없습니다' : 'No keys yet'}</p>
+                  ) : (
+                    <div className="connect-key-list">
+                      {keys.map(k => (
+                        <div key={k.id} className="connect-key-row">
+                          <span className="connect-key-label">{k.label}</span>
+                          <code className="connect-key-value">
+                            {revealedId === k.id ? k.key : `${k.key.slice(0, 8)}${'·'.repeat(12)}${k.key.slice(-4)}`}
+                          </code>
+                          <button className="connect-key-action" onClick={() => setRevealedId(revealedId === k.id ? null : k.id)}>
+                            {revealedId === k.id ? <EyeSlash size={12} /> : <Eye size={12} />}
+                          </button>
+                          <button className="connect-key-action" onClick={() => { navigator.clipboard.writeText(k.key); setCopiedKeyId(k.id); setTimeout(() => setCopiedKeyId(null), 1200); }}>
+                            {copiedKeyId === k.id ? <Check size={12} weight="bold" /> : <Copy size={12} />}
+                          </button>
+                          <button className="connect-key-action connect-key-delete" onClick={() => handleRevokeKey(k.id)}>
+                            <Trash size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

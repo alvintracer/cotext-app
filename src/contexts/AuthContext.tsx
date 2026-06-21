@@ -139,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         options: {
           scopes: 'repo,user:email',
           ...(Capacitor.isNativePlatform() && {
-            redirectTo: 'com.alvintracer.cotext://auth/callback',
+            redirectTo: 'com.cotext.app://auth/callback',
           }),
         },
       });

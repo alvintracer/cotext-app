@@ -1,4 +1,4 @@
-package com.alvintracer.cotext;
+package com.cotext.app;
 
 import android.os.Bundle;
 import android.view.View;

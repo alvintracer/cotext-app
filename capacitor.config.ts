@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.alvintracer.cotext',
+  appId: 'com.cotext.app',
   appName: 'cotext',
   webDir: 'dist'
 };

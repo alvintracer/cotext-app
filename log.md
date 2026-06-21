@@ -11,6 +11,7 @@ YYYY-MM-DD HH:mm | command | summary | linked files
 ```
 
 ## Log
+2026-06-21 | save | Android release signing and Play bundle flow documented: invalid launcher PNGs were regenerated, `keystore.properties`-based release signing was added, a local upload keystore was created, and signed `bundleRelease` output was verified. | [[AI-Sessions/wiki/dev-tasks/android-release-signing-and-bundle]], [[AI-Sessions/wiki/projects/cotext_mvp]]
 2026-06-21 | save | Landing public surface expanded with a pricing page, Terms/Privacy/Refund policy pages, managed-credit explanation tied to the live NOWPayments packs, and footer/top-nav links from the main landing page. | [[AI-Sessions/wiki/design/public-pricing-and-policy-surface]], [[AI-Sessions/wiki/projects/cotext_mvp]]
 2026-06-21 | save | NOWPayments managed billing rollout documented and promoted to wiki: hosted invoice checkout, IPN signature verification, workspace top-up order ledger, idempotent credit application RPC, and buy-credits UI in `ManagedCreditsPanel`. | [[AI-Sessions/wiki/design/managed-credits-billing-plan]], [[AI-Sessions/wiki/projects/cotext_mvp]]
 2026-06-21 | save | Managed model billing route revised for Korea-based constraints: replaced the earlier Stripe-first recommendation with `NOWPayments invoice + IPN webhook + Supabase Edge Function`, keeping fixed credit packs and workspace-scoped ledger settlement. | [[AI-Sessions/wiki/design/managed-credits-billing-plan]]

@@ -251,3 +251,14 @@ MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context
     - example workloads for MindSync extraction, managed agent chat, and shared team usage
   - Landing page footer now links to Terms of Service, Privacy Policy, and Refund Policy, and top navigation includes Pricing.
   - Shared marketing-page shell introduced in `src/components/site/MarketingShell.tsx`.
+- Android Play bundle signing fixed locally
+  - Root causes:
+    - launcher icons in `android/app/src/main/res/mipmap-*` were invalid `.png` resources with JPEG/JFIF headers
+    - release signing config was missing, so Play Console rejected the bundle as unsigned
+  - Fixes:
+    - regenerated valid PNG launcher assets from `public/icon-512x512.png`
+    - added `keystore.properties`-based release signing support in `android/app/build.gradle`
+    - added `.gitignore` rules for Android signing secrets and a `keystore.properties.example` template
+    - created a local upload keystore and verified signed bundling with `./gradlew clean` + `./gradlew bundleRelease`
+  - Output:
+    - signed bundle generated at `android/app/build/outputs/bundle/release/app-release.aab`

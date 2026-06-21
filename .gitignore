@@ -30,3 +30,8 @@ dist-ssr
 
 # Supabase local
 supabase/.temp/
+
+# Android signing
+android/keystore.properties
+android/*.jks
+android/*.keystore

@@ -18,9 +18,9 @@ When asked about a topic, first match against cluster names below, then fan out 
 
 ## Summary
 
-- Nodes: **52**
+- Nodes: **53**
 - Clusters: **14**
-- Edges: **141**
+- Edges: **144**
 
 ## Clusters
 
@@ -169,6 +169,7 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log` (2026-06-19 세션 작업 로그) | → | `w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan` (Cotext Knowledge Studio — GBrain-level 진화 수행 계획) | relates |
 | `w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log` (2026-06-19 세션 작업 로그) | → | `w-ai-sessions-wiki-projects-cotext-mvp` (Project: Cotext MVP) | relates |
 | `w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log` (2026-06-19 세션 작업 로그) | → | `w-ai-sessions-wiki-projects-mindsync-future-polish` (MindSync — 향후 비주얼·자동화 폴리시 (Jarvis vibe + ambient)) | relates |
+| `w-ai-sessions-wiki-dev-tasks-android-release-signing-and-bundle` (Dev Task: Android Release Signing and Bundle) | → | `w-ai-sessions-wiki-projects-cotext-mvp` (Project: Cotext MVP) | relates |
 | `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | → | `w-ai-sessions-wiki-projects-chatgpt-share-02-structure` (ChatGPT Share Pack 02 - Structure) | relates |
 | `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | → | `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | relates |
 | `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | → | `w-readme` (React + TypeScript + Vite) | relates |
@@ -216,6 +217,7 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-design-cotext-brand-and-landing` (Design: Cotext 브랜드 · 디자인 시스템 · 랜딩) | relates |
 | `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-design-managed-credits-billing-plan` (Managed Credits Billing Plan) | relates |
 | `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-design-public-pricing-and-policy-surface` (Design: Public Pricing and Policy Surface) | relates |
+| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-dev-tasks-android-release-signing-and-bundle` (Dev Task: Android Release Signing and Bundle) | relates |
 | `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration` (MindSync Studio v1.0.35–36 — 통합 리팩터링) | relates |
 | `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-errors-01-npm-bin-quirk-and-publish` (Error: npm bin field quirk and publish authorization) | relates |
 | `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | relates |
@@ -247,6 +249,7 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-design-managed-credits-billing-plan` (Managed Credits Billing Plan) | relates |
 | `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-design-public-pricing-and-policy-surface` (Design: Public Pricing and Policy Surface) | relates |
 | `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log` (2026-06-19 세션 작업 로그) | relates |
+| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-dev-tasks-android-release-signing-and-bundle` (Dev Task: Android Release Signing and Bundle) | relates |
 | `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration` (MindSync Studio v1.0.35–36 — 통합 리팩터링) | relates |
 | `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-errors-01-npm-bin-quirk-and-publish` (Error: npm bin field quirk and publish authorization) | relates |
 | `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | relates |
@@ -281,6 +284,7 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-ai-sessions-wiki-decisions-cotext-architecture-decisions` | Decisions: Cotext 아키텍처 핵심 결정 | `AI-Sessions/wiki/decisions/cotext-architecture-decisions.md` | `` |
 | `w-ai-sessions-wiki-design-cotext-brand-and-landing` | Design: Cotext 브랜드 · 디자인 시스템 · 랜딩 | `AI-Sessions/wiki/design/cotext-brand-and-landing.md` | `` |
 | `w-ai-sessions-wiki-design-public-pricing-and-policy-surface` | Design: Public Pricing and Policy Surface | `AI-Sessions/wiki/design/public-pricing-and-policy-surface.md` | `` |
+| `w-ai-sessions-wiki-dev-tasks-android-release-signing-and-bundle` | Dev Task: Android Release Signing and Bundle | `AI-Sessions/wiki/dev-tasks/android-release-signing-and-bundle.md` | `` |
 | `w-ai-sessions-wiki-errors-01-npm-bin-quirk-and-publish` | Error: npm bin field quirk and publish authorization | `AI-Sessions/wiki/errors/01_npm-bin-quirk-and-publish.md` | `` |
 | `w-prompts-first-setup` | First Setup Prompt | `prompts/first-setup.md` | `` |
 | `w-ai-sessions-raw-g-brain-reference` | g-brain-reference | `AI-Sessions/raw/g-brain-reference.md` | `` |

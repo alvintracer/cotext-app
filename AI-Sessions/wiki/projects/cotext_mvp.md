@@ -222,3 +222,32 @@ MVP 단계가 성공적으로 마무리되었으며, 다음 단계로는 Context
   - Existing workspaces were normalized to `billing_state='beta'`, `monthly_grant_credits=100`, `balance_credits=100`
   - Managed extraction now requires a workspace anchor, estimates credits from extracted text volume, and records a `managed_extract` ledger row after successful server extraction
   - Studio and workspace agent surfaces now show the live balance panel and refresh after a managed extraction finishes
+
+## 2026-06-21 Addendum
+
+- NOWPayments-based managed credit top-up implemented
+  - Stripe-first direction was dropped because it does not fit the current Korea-based operator constraint for this project
+  - New hosted checkout flow uses NOWPayments invoice URLs instead of browser-embedded card forms
+  - New Edge Function `nowpayments-create-invoice` creates fixed credit-pack invoices for the current workspace
+  - New Edge Function `nowpayments-ipn` receives external payment callbacks and verifies `x-nowpayments-sig` using `NOWPAYMENTS_IPN_SECRET`
+  - New SQL table `managed_credit_orders` stores provider order/invoice status separately from usage ledger
+  - New SQL RPC `apply_nowpayments_credit_order(...)` applies credit top-up idempotently when payment status reaches `finished`
+  - `ManagedCreditsPanel` now exposes fixed purchase packs and redirects the user to NOWPayments hosted checkout
+  - Remote DB schema was applied through Supabase Management API rather than broad `supabase db push`, because the older migration-history mismatch risk still exists
+  - Verification completed:
+    - `npm run build` passed
+    - `nowpayments-create-invoice` deployed
+    - `nowpayments-ipn` deployed with `--no-verify-jwt`
+    - remote verification confirmed `managed_credit_orders` table and `apply_nowpayments_credit_order(text,text,text,text,jsonb)` RPC exist
+- Public pricing + policy surface added for managed credits
+  - New public routes:
+    - `/pricing`
+    - `/terms`
+    - `/privacy`
+    - `/refund-policy`
+  - The pricing page now explains workspace-scoped managed credits in plain language, including:
+    - fixed credit packs from the live billing implementation
+    - current beta metering heuristic (`~1 credit / 12,000 input chars`, minimum 1 credit)
+    - example workloads for MindSync extraction, managed agent chat, and shared team usage
+  - Landing page footer now links to Terms of Service, Privacy Policy, and Refund Policy, and top navigation includes Pricing.
+  - Shared marketing-page shell introduced in `src/components/site/MarketingShell.tsx`.

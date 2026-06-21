@@ -266,12 +266,60 @@ export default function KnowledgeStudioPage() {
     };
     await saveGraphToWs(updated);
   }, [editorGraph, saveGraphToWs]);
+
+  // Body lookup for the node-detail panel: try the extraction result first
+  // (Studio-uploaded nodes), then for wiki-compiled nodes (`source: 'wiki'`,
+  // room is an .md path) fetch the markdown file from GitHub and strip
+  // frontmatter. Cached so flipping between nodes doesn't re-fetch.
+  const fetchNodeBody = useCallback(async (roomPath: string, blockTs: string): Promise<string | null> => {
+    const fromExtract = result?.blockTextByKey[`${roomPath}::${blockTs}`];
+    if (fromExtract) return fromExtract;
+    if (!roomPath || !roomPath.toLowerCase().endsWith('.md') || !anchorWs) return null;
+    const cached = wikiBodyCacheRef.current.get(roomPath);
+    if (cached !== undefined) return cached;
+    try {
+      const { content } = await githubApi.getRoomContent(
+        anchorWs.github_owner, anchorWs.github_repo, anchorWs.default_branch || 'main', roomPath,
+      );
+      // Strip YAML frontmatter (--- ... --- at top) so the body shows the actual content.
+      let body = content;
+      if (body.startsWith('---')) {
+        const end = body.indexOf('\n---', 3);
+        if (end !== -1) body = body.slice(body.indexOf('\n', end + 1) + 1);
+      }
+      const trimmed = body.trim();
+      wikiBodyCacheRef.current.set(roomPath, trimmed);
+      return trimmed;
+    } catch {
+      return null;
+    }
+  }, [result, anchorWs]);
+
+  // Reset the wiki body cache when the workspace changes (different repo = different files).
+  useEffect(() => { wikiBodyCacheRef.current.clear(); }, [anchorWs?.id]);
+
+  // "Open chat" / "Jump to block" from the NodePanel.
+  //   - wiki node (room ends with .md) → open the GitHub blob URL in a new tab
+  //   - extraction-imported node → no-op in Studio (no per-room chat context)
+  const handlePanelJump = useCallback((roomPath: string) => {
+    if (!anchorWs) return;
+    if (roomPath.toLowerCase().endsWith('.md')) {
+      const branch = anchorWs.default_branch || 'main';
+      const url = `https://github.com/${anchorWs.github_owner}/${anchorWs.github_repo}/blob/${branch}/${roomPath}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }, [anchorWs]);
+
   // Auto-merge after generate (only if anchor selected). Default on.
   const [autoMerge, setAutoMerge] = useState(true);
   const [autoStatus, setAutoStatus] = useState<string | null>(null);
   // "Save extracted text as MD room" — append all ready-source text as blocks
   // into a per-session room called `mindsync-imports/`. One push per file.
   const [textSavingState, setTextSavingState] = useState<{ done: number; total: number; error?: string } | null>(null);
+  // Wiki-node body cache. Wiki nodes (source: 'wiki') are markdown files in the
+  // workspace repo — Studio's `blockTextByKey` doesn't contain them, so we
+  // fetch the file from GitHub on demand and strip frontmatter for display.
+  const wikiBodyCacheRef = useRef<Map<string, string>>(new Map());
   // "How to connect" modal — shows MCP install commands per agent
   const [connectOpen, setConnectOpen] = useState(false);
   const [anchorApiKey, setAnchorApiKey] = useState<string>('');
@@ -995,6 +1043,7 @@ export default function KnowledgeStudioPage() {
                   theme={resolvedTheme}
                   language={language}
                   nodeTextById={result?.nodeTextById}
+                  getBlockText={fetchNodeBody}
                   onClose={() => {}}
                 />
               )}
@@ -1009,9 +1058,10 @@ export default function KnowledgeStudioPage() {
                 currentRoom=""
                 language={language}
                 focusNodeId={focusNodeId ?? undefined}
-                getBlockText={async (roomPath, blockTs) => result?.blockTextByKey[`${roomPath}::${blockTs}`] || null}
+                getBlockText={fetchNodeBody}
                 onClose={() => setViewMode('globe')}
-                onJump={() => {}}
+                onJump={() => { /* unused in Studio — currentRoom="" routes via onNavigateRoom */ }}
+                onNavigateRoom={(roomPath) => handlePanelJump(roomPath)}
                 {...(anchorWs ? {
                   onLinkEdge: handleEditorLinkEdge,
                   onUnlinkEdge: handleEditorUnlinkEdge,

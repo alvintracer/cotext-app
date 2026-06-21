@@ -142,6 +142,73 @@
 .agent-settings .input { font-size: var(--text-sm); }
 .agent-save { margin-top: 8px; justify-content: center; }
 .agent-byok { font-size: 10px; color: var(--text-dim); margin-top: 2px; text-align: center; }
+.agent-track-control {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.agent-track-slider {
+  position: absolute;
+  inset: 3px auto 3px 3px;
+  width: calc(50% - 3px);
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  transition: transform var(--duration-normal) var(--ease-default);
+}
+.agent-track-btn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+.agent-track-btn.active {
+  color: var(--accent-fg);
+}
+.agent-managed-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.agent-managed-note,
+.agent-managed-subnote {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+.agent-managed-note {
+  color: var(--text);
+}
+.agent-managed-subnote {
+  color: var(--text-muted);
+}
+.agent-managed-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: 11px;
+  color: var(--text-muted);
+}
 
 /* Messages */
 .agent-msgs {

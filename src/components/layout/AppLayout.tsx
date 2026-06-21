@@ -65,7 +65,7 @@ export default function AppLayout() {
     <div className="app-layout">
       <header className="app-header">
         <div className="app-header-left">
-          <button className="app-logo" onClick={() => navigate('/workspaces')}>
+          <button className="app-logo" onClick={() => navigate('/')}>
             <span className="app-logo-mark">:&gt;</span>
             <span className="app-logo-text">Cotext</span>
           </button>

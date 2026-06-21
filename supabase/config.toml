@@ -393,6 +393,9 @@ verify_jwt = false
 [functions.context-share]
 verify_jwt = false
 
+[functions.nowpayments-ipn]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

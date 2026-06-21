@@ -221,6 +221,9 @@ export default function LandingPage() {
             <a href="#github">{c.nav.github}</a>
             <a href="#context">{c.nav.context}</a>
             <a href="#how">{c.nav.how}</a>
+            <a className="lp-nav-link-button" onClick={() => navigate('/pricing')} style={{ cursor: 'pointer' }}>
+              {language === 'ko' ? '가격' : 'Pricing'}
+            </a>
           </div>
           <div className="lp-nav-right">
             <button
@@ -461,6 +464,10 @@ export default function LandingPage() {
             <a href="#capture">{c.nav.capture}</a>
             <a href="#github">{c.nav.github}</a>
             <a href="#context">{c.nav.context}</a>
+            <a onClick={() => navigate('/pricing')} style={{ cursor: 'pointer' }}>{language === 'ko' ? '가격' : 'Pricing'}</a>
+            <a onClick={() => navigate('/terms')} style={{ cursor: 'pointer' }}>{language === 'ko' ? '이용약관' : 'Terms of Service'}</a>
+            <a onClick={() => navigate('/privacy')} style={{ cursor: 'pointer' }}>{language === 'ko' ? '개인정보처리방침' : 'Privacy Policy'}</a>
+            <a onClick={() => navigate('/refund-policy')} style={{ cursor: 'pointer' }}>{language === 'ko' ? '환불정책' : 'Refund Policy'}</a>
             <a onClick={launch} style={{ cursor: 'pointer' }}>{c.launch}</a>
           </div>
           <p className="lp-footer-copy">{c.footerCopy}</p>

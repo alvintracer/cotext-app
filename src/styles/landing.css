@@ -104,6 +104,18 @@
   transition: color var(--duration-normal);
 }
 .lp-nav-links a:hover { color: var(--text); }
+.lp-nav-link-button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--duration-normal);
+}
+.lp-nav-link-button:hover { color: var(--text); }
 .lp-nav-right {
   display: flex;
   align-items: center;
@@ -848,6 +860,223 @@
   .lp-hero { padding-top: 56px; }
   .lp-section { padding-block: 56px; }
   .lp-cta { padding: 48px 20px; }
+}
+
+/* Site pages */
+.lp-site-nav-links {
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.lp-site-hero {
+  text-align: center;
+  padding-top: 80px;
+  padding-bottom: 30px;
+}
+.lp-site-hero h1 {
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  max-width: 14ch;
+  margin: 0 auto 18px;
+}
+.lp-site-main {
+  padding-bottom: 64px;
+}
+.lp-site-section {
+  margin-bottom: 26px;
+}
+.lp-site-section-head {
+  margin-bottom: 28px;
+}
+.lp-site-callout,
+.lp-site-panel,
+.lp-legal-card,
+.lp-pricing-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+.lp-site-callout {
+  border-radius: 24px;
+  padding: 28px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 16%, transparent), transparent 40%),
+    var(--surface);
+}
+.lp-site-callout-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: var(--weight-semibold);
+  color: var(--accent);
+  background: var(--accent-muted);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-full);
+  margin-bottom: 14px;
+}
+.lp-site-callout h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+.lp-site-callout p {
+  color: var(--text-muted);
+  line-height: 1.75;
+  margin: 0;
+}
+.lp-site-callout-note {
+  margin-top: 14px !important;
+  color: var(--text-dim) !important;
+  font-size: var(--text-sm);
+}
+.lp-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.lp-pricing-card {
+  border-radius: 22px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.lp-pricing-card.highlight {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: var(--shadow-lg), 0 12px 36px -28px var(--accent-glow);
+}
+.lp-pricing-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.lp-pricing-top strong {
+  display: block;
+  font-size: 1.15rem;
+}
+.lp-pricing-top span {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+}
+.lp-pricing-top em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: var(--weight-semibold);
+  color: var(--accent);
+  background: var(--accent-muted);
+  border-radius: var(--radius-full);
+  padding: 5px 10px;
+}
+.lp-pricing-price {
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.03em;
+}
+.lp-pricing-desc {
+  color: var(--text-muted);
+  line-height: 1.7;
+  margin: 0;
+}
+.lp-pricing-meter {
+  margin-top: auto;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+}
+.lp-pricing-btn {
+  width: 100%;
+  margin-top: 4px;
+}
+.lp-site-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.lp-site-panel {
+  border-radius: 22px;
+  padding: 24px;
+}
+.lp-site-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+.lp-site-panel h3 {
+  color: var(--text);
+  font-size: 1.1rem;
+}
+.lp-site-panel p {
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+.lp-site-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding-left: 18px;
+  color: var(--text);
+}
+.lp-site-list li {
+  line-height: 1.65;
+}
+.lp-site-faq {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 14px;
+}
+.lp-site-faq strong {
+  display: block;
+  margin-bottom: 6px;
+}
+.lp-legal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.lp-legal-card {
+  border-radius: 22px;
+  padding: 24px 26px;
+}
+.lp-legal-card h2 {
+  font-size: 1.2rem;
+  margin-bottom: 12px;
+}
+.lp-legal-card p {
+  color: var(--text-muted);
+  line-height: 1.8;
+  margin: 0 0 10px;
+}
+.lp-legal-card p:last-child {
+  margin-bottom: 0;
+}
+.lp-site-cta {
+  margin-top: 12px;
+}
+.lp-site-footer-links {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 860px) {
+  .lp-site-hero { padding-top: 56px; }
+  .lp-pricing-grid { grid-template-columns: 1fr; }
+  .lp-site-columns { grid-template-columns: 1fr; }
+  .lp-legal-card,
+  .lp-site-callout,
+  .lp-site-panel,
+  .lp-pricing-card { padding: 20px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

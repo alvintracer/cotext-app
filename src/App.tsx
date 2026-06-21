@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -17,6 +17,10 @@ import SharePage from './pages/SharePage';
 import KnowledgeStudioPage from './pages/KnowledgeStudioPage';
 import KnowledgeThinkPage from './pages/KnowledgeThinkPage';
 import MindSyncLandingPage from './pages/MindSyncLandingPage';
+import PricingPage from './pages/PricingPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
+import RefundPolicyPage from './pages/RefundPolicyPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,6 +57,54 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Paths we remember across app re-opens. We deliberately don't restore login,
+// landing, share/invite/callback flows — those should always start fresh.
+const RESTORABLE_PATTERNS = [
+  /^\/workspaces$/,
+  /^\/workspace\/[^/]+/,
+  /^\/mindsync\/studio$/,
+  /^\/mindsync\/think$/,
+];
+const isRestorablePath = (p: string) => RESTORABLE_PATTERNS.some((re) => re.test(p));
+
+const LAST_PATH_KEY = 'cotext-last-path';
+
+/**
+ * On cold mount, if we land on '/' and the last visited path was a real screen
+ * (workspace/mindsync), jump there once so phone re-opens don't dump the user
+ * back to the landing page. Logo clicks navigate to '/' AFTER mount, so they
+ * still work — this restore only fires once.
+ */
+function PathRestorer() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const restoredRef = useRef(false);
+
+  // One-shot restore on initial mount.
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    if (location.pathname !== '/') return;
+    try {
+      const saved = localStorage.getItem(LAST_PATH_KEY);
+      if (saved && isRestorablePath(saved) && saved !== location.pathname) {
+        navigate(saved, { replace: true });
+      }
+    } catch {
+      // localStorage unavailable (private mode etc.) — silently skip.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional once-on-mount
+  }, []);
+
+  // Save on every navigation to a restorable path.
+  useEffect(() => {
+    if (!isRestorablePath(location.pathname)) return;
+    try { localStorage.setItem(LAST_PATH_KEY, location.pathname); } catch { /* ignore */ }
+  }, [location.pathname]);
+
+  return null;
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth();
   const isNative = Capacitor.isNativePlatform();
@@ -77,6 +129,10 @@ function AppRoutes() {
         })()} replace /> : <LoginPage />}
       />
       <Route path="/mindsync" element={<MindSyncLandingPage />} />
+      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/refund-policy" element={<RefundPolicyPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route path="/invite/:code" element={<InvitePage />} />
       <Route path="/share/:token" element={<SharePage />} />
@@ -115,6 +171,7 @@ export default function App() {
         <LanguageProvider>
           <Router>
             <AuthProvider>
+              <PathRestorer />
               <AppRoutes />
             </AuthProvider>
           </Router>

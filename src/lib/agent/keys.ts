@@ -11,6 +11,7 @@ export interface AgentPref {
   provider: ProviderId;
   model: string;
   baseURL?: string; // only for custom / overridden
+  trackMode?: 'byok' | 'managed';
 }
 
 type KeyMap = Partial<Record<ProviderId, string>>;

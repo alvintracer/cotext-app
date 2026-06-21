@@ -1,11 +1,26 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  CodepenLogo, X, GearSix, PaperPlaneRight, Copy, Check, ArrowClockwise,
-  Warning, ArrowSquareOut, Plus, Wrench, SpinnerGap, MagicWand, Trash,
+  CodepenLogo,
+  X,
+  GearSix,
+  PaperPlaneRight,
+  Copy,
+  Check,
+  ArrowClockwise,
+  Warning,
+  ArrowSquareOut,
+  Plus,
+  Wrench,
+  SpinnerGap,
+  MagicWand,
+  Trash,
+  Key,
+  Lightning,
 } from '@phosphor-icons/react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { githubApi } from '../lib/supabase/functions';
+import ManagedCreditsPanel from './ManagedCreditsPanel';
+import { githubApi, managedAgentApi, type ManagedAgentChatResponse } from '../lib/supabase/functions';
 import { appendMessage } from '../lib/markdown/index';
 import { PROVIDERS, getProvider, formatCost } from '../lib/agent/models';
 import type { ProviderId, TokenUsage } from '../lib/agent/models';
@@ -14,29 +29,28 @@ import { runChat, runToolLoop } from '../lib/agent/providers';
 import '../styles/agent.css';
 
 interface PanelWorkspace {
+  id: string;
   github_owner: string;
   github_repo: string;
   default_branch: string;
   name: string;
+  cotext_folder_name?: string;
 }
+
 interface PanelRoom {
   path: string;
   cotext_file_path: string;
 }
+
 interface AgentPanelProps {
   open: boolean;
   onClose: () => void;
   workspace: PanelWorkspace;
   room: PanelRoom | null;
-  /** All rooms in the workspace — lets agent-mode read/list other rooms. */
   rooms?: PanelRoom[];
-  /** Called after an AI reply is appended to the room (so the chat view can refresh). */
   onSaved?: () => void;
-  /** "Fix with Agent": when nonce changes, auto-fill a restructure prompt with this text and send. */
   seed?: { text: string; nonce: number } | null;
-  /** Apply an AI reply to the room's LOCAL content (draft) — add, or replace the fixed origin block. */
   onApply?: (p: { text: string; source: string; replace: boolean }) => void;
-  /** Whether a fix-origin block exists to replace (enables the "Replace original" button). */
   canReplace?: boolean;
 }
 
@@ -44,51 +58,105 @@ interface Msg {
   role: 'user' | 'assistant';
   content: string;
   model?: string;
+  sourceId?: string;
   usage?: TokenUsage;
 }
 
 const STR = {
   en: {
-    title: 'Agents', settings: 'Settings', close: 'Close',
-    placeholder: 'Ask about this repo…', send: 'Send',
-    grounded: 'Grounded on', noRoom: 'No chat selected — answering without repo context',
-    thinking: 'Thinking…', copy: 'Copy', copied: 'Copied',
-    saveToChat: 'Save to chat', saved: 'Saved', saving: 'Saving…',
-    applyAdd: 'Add to chat', applyReplace: 'Replace original',
-    agentMode: 'Agent mode (tools)', agentModeOff: 'Agent mode: off',
-    proposalTitle: 'Agent wants to save to', approve: 'Approve & save', reject: 'Reject', working: 'Working…',
-    provider: 'Provider', model: 'Model', apiKey: 'API key', baseURL: 'Base URL',
-    save: 'Save', getKey: 'Get key', byok: 'BYOK — keys stay in this browser only',
-    needKey: 'Add an API key for this provider to start.', refresh: 'Reload context',
+    title: 'Agents',
+    settings: 'Settings',
+    close: 'Close',
+    placeholder: 'Ask about this repo...',
+    send: 'Send',
+    grounded: 'Grounded on',
+    noRoom: 'No chat selected - answering without repo context',
+    thinking: 'Thinking...',
+    copy: 'Copy',
+    saveToChat: 'Save to chat',
+    agentMode: 'Agent mode (tools)',
+    agentModeOff: 'Agent mode: off',
+    proposalTitle: 'Agent wants to save to',
+    approve: 'Approve & save',
+    reject: 'Reject',
+    working: 'Working...',
+    provider: 'Provider',
+    model: 'Model',
+    apiKey: 'API key',
+    baseURL: 'Base URL',
+    save: 'Save',
+    getKey: 'Get key',
+    byok: 'BYOK - keys stay in this browser only',
+    needKey: 'Add an API key for this provider to start.',
+    refresh: 'Reload context',
     empty: 'Every model here answers grounded on your repo. Pick a model, add your key, and ask.',
-    sourceNote: 'AI replies are tagged with the model (source). Copy to paste back into a chat.',
+    sourceNote: 'AI replies are tagged with the model source. Copy or save them back into chat.',
+    applyAdd: 'Add to chat',
+    applyReplace: 'Replace original',
+    myApiKey: 'My API Key',
+    cotextModel: 'Cotext Model',
+    managedNote: "Runs on Cotext's managed model. Workspace credits will be deducted.",
+    managedToolsNote: 'Managed mode currently supports direct chat only.',
+    keyMissing: 'key',
   },
   ko: {
-    title: '에이전트', settings: '설정', close: '닫기',
-    placeholder: '이 레포에 대해 물어보세요…', send: '전송',
-    grounded: '컨텍스트', noRoom: '선택된 챗 없음 — 레포 컨텍스트 없이 답변',
-    thinking: '생각 중…', copy: '복사', copied: '복사됨',
-    saveToChat: '챗에 저장', saved: '저장됨', saving: '저장 중…',
-    applyAdd: '챗에 추가', applyReplace: '원본 대체',
-    agentMode: '에이전트 모드 (도구)', agentModeOff: '에이전트 모드: 꺼짐',
-    proposalTitle: '에이전트가 저장하려는 곳', approve: '승인 후 저장', reject: '거절', working: '처리 중…',
-    provider: '제공자', model: '모델', apiKey: 'API 키', baseURL: 'Base URL',
-    save: '저장', getKey: '키 발급', byok: 'BYOK — 키는 이 브라우저에만 저장',
-    needKey: '시작하려면 이 제공자의 API 키를 입력하세요.', refresh: '컨텍스트 새로고침',
-    empty: '여기 모든 모델은 당신의 레포를 컨텍스트로 깔고 답합니다. 모델을 고르고 키를 넣고 물어보세요.',
-    sourceNote: 'AI 답변은 모델(source)로 태그됩니다. 복사해서 채팅에 다시 붙여넣으세요.',
+    title: '에이전트',
+    settings: '설정',
+    close: '닫기',
+    placeholder: '이 레포에 대해 물어보세요...',
+    send: '전송',
+    grounded: '컨텍스트',
+    noRoom: '선택된 채팅이 없어 레포 컨텍스트 없이 답변합니다',
+    thinking: '생각 중...',
+    copy: '복사',
+    saveToChat: '채팅에 저장',
+    agentMode: '에이전트 모드 (도구)',
+    agentModeOff: '에이전트 모드: 끔',
+    proposalTitle: '에이전트가 저장하려는 위치',
+    approve: '승인 후 저장',
+    reject: '취소',
+    working: '처리 중...',
+    provider: '제공자',
+    model: '모델',
+    apiKey: 'API 키',
+    baseURL: 'Base URL',
+    save: '저장',
+    getKey: '키 발급',
+    byok: 'BYOK - 키는 이 브라우저에만 저장됩니다',
+    needKey: '시작하려면 이 제공자의 API 키를 입력하세요.',
+    refresh: '컨텍스트 새로고침',
+    empty: '여기의 모든 모델은 레포 컨텍스트를 기반으로 답변합니다. 모델을 고르고 질문하세요.',
+    sourceNote: 'AI 답변은 모델 source 태그와 함께 저장됩니다.',
+    applyAdd: '채팅에 추가',
+    applyReplace: '원본 교체',
+    myApiKey: '내 API 키',
+    cotextModel: 'Cotext 모델',
+    managedNote: 'Cotext 관리형 모델로 실행됩니다. 워크스페이스 크레딧이 차감됩니다.',
+    managedToolsNote: '관리형 모드에서는 현재 일반 채팅만 지원합니다.',
+    keyMissing: '키 없음',
   },
 };
 
 const MAX_CONTEXT_CHARS = 60000;
 
-export default function AgentPanel({ open, onClose, workspace, room, rooms = [], onSaved, seed, onApply, canReplace }: AgentPanelProps) {
+export default function AgentPanel({
+  open,
+  onClose,
+  workspace,
+  room,
+  rooms = [],
+  onSaved,
+  seed,
+  onApply,
+  canReplace,
+}: AgentPanelProps) {
   const { user } = useAuth();
   const { language } = useLanguage();
   const currentAuthor = user?.user_metadata?.user_name || workspace.github_owner;
   const t = STR[language === 'ko' ? 'ko' : 'en'];
 
   const pref = getPref();
+  const [trackMode, setTrackMode] = useState<'byok' | 'managed'>(pref?.trackMode || 'byok');
   const [providerId, setProviderId] = useState<ProviderId>(pref?.provider || 'gemini');
   const [model, setModel] = useState(pref?.model || getProvider('gemini').defaultModel);
   const [baseURL, setBaseURL] = useState(pref?.baseURL || '');
@@ -108,22 +176,34 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
   const [context, setContext] = useState('');
   const [contextLoading, setContextLoading] = useState(false);
   const [agentMode, setAgentMode] = useState(false);
+  const [managedInfo, setManagedInfo] = useState<ManagedAgentChatResponse['managed'] | null>(null);
   const [proposal, setProposal] = useState<{ roomPath: string; content: string } | null>(null);
   const [approving, setApproving] = useState(false);
+  const [neuralSummary, setNeuralSummary] = useState('');
   const msgsRef = useRef<HTMLDivElement>(null);
 
   const provider = getProvider(providerId);
   const hasKey = !!getKey(providerId);
+  const llmReady = trackMode === 'managed' || hasKey;
   const effectiveBase = provider.editableBaseURL ? baseURL : provider.baseURL;
-  const agentCapable = true; // all providers support tool calling
+  const agentCapable = trackMode === 'byok';
 
-  // Load repo context for the current room
+  useEffect(() => {
+    if (trackMode === 'managed' && agentMode) setAgentMode(false);
+  }, [trackMode, agentMode]);
+
   const loadContext = useCallback(async () => {
-    if (!room) { setContext(''); return; }
+    if (!room) {
+      setContext('');
+      return;
+    }
     setContextLoading(true);
     try {
       const res = await githubApi.getRoomContent(
-        workspace.github_owner, workspace.github_repo, workspace.default_branch, room.cotext_file_path,
+        workspace.github_owner,
+        workspace.github_repo,
+        workspace.default_branch,
+        room.cotext_file_path,
       );
       setContext((res.content || '').slice(0, MAX_CONTEXT_CHARS));
     } catch {
@@ -134,66 +214,78 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
   }, [room, workspace]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch toggles loading flag
-    if (open) loadContext();
+    if (open) void loadContext();
   }, [open, loadContext]);
 
-  // Neural Link grounding (P5.3): load .cotext/neural.json + extract inline nodes
-  // from the current room's content, then build a compact textual summary that
-  // gets injected into the system prompt below.
-  const [neuralSummary, setNeuralSummary] = useState<string>('');
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset cache when panel/room changes
-    if (!open || !room) { setNeuralSummary(''); return; }
+    if (!open || !room) {
+      setNeuralSummary('');
+      return;
+    }
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
-        const folder = (workspace as PanelWorkspace & { cotext_folder_name?: string }).cotext_folder_name || '.cotext';
+        const folder = workspace.cotext_folder_name || '.cotext';
         const neuralPath = `${folder}/neural.json`;
         const res = await githubApi.getRoomContent(
-          workspace.github_owner, workspace.github_repo, workspace.default_branch, neuralPath,
+          workspace.github_owner,
+          workspace.github_repo,
+          workspace.default_branch,
+          neuralPath,
         );
         if (cancelled) return;
-        const summary = buildNeuralSummary(res.content || '', context, room.path);
-        setNeuralSummary(summary);
-      } catch { if (!cancelled) setNeuralSummary(''); }
+        setNeuralSummary(buildNeuralSummary(res.content || '', context, room.path));
+      } catch {
+        if (!cancelled) setNeuralSummary('');
+      }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [open, room, workspace, context]);
 
   useEffect(() => {
     msgsRef.current?.scrollTo({ top: msgsRef.current.scrollHeight, behavior: 'auto' });
   }, [messages, loading]);
 
-  // When provider changes, default the model & prefill key input
   const selectProvider = (id: ProviderId) => {
-    const p = getProvider(id);
+    const nextProvider = getProvider(id);
     setProviderId(id);
-    setModel(p.defaultModel);
-    setBaseURL(p.editableBaseURL ? baseURL : p.baseURL);
+    setModel(nextProvider.defaultModel);
+    setBaseURL(nextProvider.editableBaseURL ? baseURL : nextProvider.baseURL);
     setApiKeyInput('');
     setKeySaved(false);
   };
 
   const saveSettings = () => {
-    if (apiKeyInput.trim()) setKey(providerId, apiKeyInput.trim());
-    setPref({ provider: providerId, model, baseURL: provider.editableBaseURL ? baseURL : undefined });
+    if (trackMode === 'byok' && apiKeyInput.trim()) setKey(providerId, apiKeyInput.trim());
+    setPref({
+      provider: providerId,
+      model,
+      baseURL: provider.editableBaseURL ? baseURL : undefined,
+      trackMode,
+    });
     setApiKeyInput('');
     setKeySaved(true);
     setError('');
-    setTimeout(() => { setKeySaved(false); setShowSettings(false); }, 800);
+    setTimeout(() => {
+      setKeySaved(false);
+      setShowSettings(false);
+    }, 800);
   };
 
   const buildSystem = (): string => {
+    const sourceModel = trackMode === 'managed' ? (managedInfo?.model || 'managed-model') : model;
     const head =
       `You are an AI assistant embedded in Cotext, working with the user's GitHub repository as the single source of truth.\n` +
       `Repository: ${workspace.github_owner}/${workspace.github_repo}` +
-      (room ? `, current chat: ${room.path}` : '') + `.\n` +
-      `Ground every answer in the CONTEXT below. If the context doesn't cover something, say so plainly.\n` +
-      `When you produce content meant to be saved back, output clean Markdown. Your output is AI-generated; it will be tagged source:${model}.\n`;
+      (room ? `, current chat: ${room.path}` : '') +
+      `.\n` +
+      `Ground every answer in the CONTEXT below. If the context does not cover something, say so plainly.\n` +
+      `When you produce content meant to be saved back, output clean Markdown. Your output is AI-generated; it will be tagged source:${sourceModel}.\n`;
     const body = context
       ? `\n--- CONTEXT (${room?.path || 'repo'}) ---\n${context}\n--- END CONTEXT ---`
-      : `\n(No chat selected — answer without repo context.)`;
+      : `\n(No chat selected - answer without repo context.)`;
     const neural = neuralSummary
       ? `\n--- NEURAL LINK GRAPH ---\n${neuralSummary}\n--- END NEURAL ---`
       : '';
@@ -203,20 +295,47 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
   const send = useCallback(async () => {
     const text = input.trim();
     if (!text || loading) return;
-    if (!getKey(providerId)) { setShowSettings(true); setError(t.needKey); return; }
+    if (trackMode === 'byok' && !getKey(providerId)) {
+      setShowSettings(true);
+      setError(t.needKey);
+      return;
+    }
+
     setError('');
     setProposal(null);
     const next: Msg[] = [...messages, { role: 'user', content: text }];
     setMessages(next);
     setInput('');
     setLoading(true);
+
     try {
-      const sys = buildSystem();
+      const system = buildSystem();
       const convo = next.map((m) => ({ role: m.role, content: m.content }));
 
-      // ── Agent mode (tool loop) — all providers ──
+      if (trackMode === 'managed') {
+        setMessages((prev) => [...prev, { role: 'assistant', content: '', model: 'Cotext Model', sourceId: 'managed' }]);
+        const managed = await managedAgentApi.chat(workspace.id, system, convo);
+        setManagedInfo(managed.managed);
+        window.dispatchEvent(new CustomEvent('mindsync:managed-credits-updated', { detail: { workspaceId: workspace.id } }));
+        setMessages((prev) => {
+          const copy = [...prev];
+          const last = copy[copy.length - 1];
+          if (last && last.role === 'assistant') {
+            copy[copy.length - 1] = {
+              ...last,
+              content: managed.text || '(empty response)',
+              model: managed.managed.model,
+              sourceId: managed.managed.providerId,
+              usage: managed.usage,
+            };
+          }
+          return copy;
+        });
+        return;
+      }
+
       if (agentMode && agentCapable) {
-        setMessages((prev) => [...prev, { role: 'assistant', content: '', model }]);
+        setMessages((prev) => [...prev, { role: 'assistant', content: '', model, sourceId: providerId }]);
         let capturedUsage: TokenUsage | undefined;
         const turn = await runToolLoop({
           shape: provider.shape,
@@ -224,18 +343,25 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
           apiKey: getKey(providerId),
           model,
           fallbackModel: provider.fallbackModel,
-          system: sys,
+          system,
           messages: convo,
           executeRead,
           signal: undefined,
-          onUsage: (u) => { capturedUsage = u; },
+          onUsage: (usage) => {
+            capturedUsage = usage;
+          },
         });
         if (turn.kind === 'proposal') {
           setMessages((prev) => {
             const copy = [...prev];
             const last = copy[copy.length - 1];
             if (last && last.role === 'assistant') {
-              copy[copy.length - 1] = { ...last, content: `📝 ${turn.roomPath}\n\n${turn.content}`, usage: capturedUsage };
+              copy[copy.length - 1] = {
+                ...last,
+                content: `-> ${turn.roomPath}\n\n${turn.content}`,
+                usage: capturedUsage,
+                sourceId: providerId,
+              };
             }
             return copy;
           });
@@ -245,48 +371,60 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
             const copy = [...prev];
             const last = copy[copy.length - 1];
             if (last && last.role === 'assistant') {
-              copy[copy.length - 1] = { ...last, content: turn.text || '(empty response)', usage: capturedUsage };
+              copy[copy.length - 1] = {
+                ...last,
+                content: turn.text || '(empty response)',
+                usage: capturedUsage,
+                sourceId: providerId,
+              };
             }
             return copy;
           });
         }
       } else {
-        // Direct providers: stream tokens into a placeholder assistant message
         setStreaming(true);
-        setMessages((prev) => [...prev, { role: 'assistant', content: '', model }]);
+        setMessages((prev) => [...prev, { role: 'assistant', content: '', model, sourceId: providerId }]);
         let capturedUsage: TokenUsage | undefined;
         const full = await runChat({
           shape: provider.shape,
           baseURL: effectiveBase,
           apiKey: getKey(providerId),
           model,
-          system: sys,
+          system,
           messages: convo,
           onToken: (delta) => {
             setMessages((prev) => {
               const copy = [...prev];
               const last = copy[copy.length - 1];
-              if (last && last.role === 'assistant') copy[copy.length - 1] = { ...last, content: last.content + delta };
+              if (last && last.role === 'assistant') {
+                copy[copy.length - 1] = { ...last, content: last.content + delta };
+              }
               return copy;
             });
           },
-          onUsage: (u) => { capturedUsage = u; },
+          onUsage: (usage) => {
+            capturedUsage = usage;
+          },
         });
         setStreaming(false);
         setMessages((prev) => {
           const copy = [...prev];
           const last = copy[copy.length - 1];
           if (last && last.role === 'assistant' && !last.content) {
-            copy[copy.length - 1] = { ...last, content: full || '(empty response)', usage: capturedUsage };
+            copy[copy.length - 1] = {
+              ...last,
+              content: full || '(empty response)',
+              usage: capturedUsage,
+              sourceId: providerId,
+            };
           } else if (last && last.role === 'assistant') {
-            copy[copy.length - 1] = { ...last, usage: capturedUsage };
+            copy[copy.length - 1] = { ...last, usage: capturedUsage, sourceId: providerId };
           }
           return copy;
         });
       }
     } catch (e) {
       setStreaming(false);
-      // drop a trailing empty placeholder if streaming failed before any token
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         return last && last.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev;
@@ -295,52 +433,53 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input, loading, messages, provider, effectiveBase, providerId, model, context, room, workspace, agentMode]);
+  }, [input, loading, trackMode, providerId, t.needKey, messages, workspace.id, workspace.github_owner, workspace.github_repo, room, context, model, managedInfo?.model, neuralSummary, agentMode, agentCapable, provider.shape, provider.fallbackModel, effectiveBase]);
 
-  // "Fix with Agent": auto-fill a restructure prompt with the seeded text and send it.
   const autoSend = useRef(false);
   const seedNonce = seed?.nonce;
   useEffect(() => {
     if (!seed) return;
     const refinePrompt = language === 'ko'
-      ? `다음 메모를 이 레포의 맥락과 기존 지식에 근거해 정리·재구조화해줘. 의미는 보존하고, 제목/리스트 등 마크다운 구조를 복원·정리하고, 오탈자와 어색한 표현을 다듬어줘. 레포에 없는 사실은 지어내지 마. 결과는 깔끔한 마크다운으로만 출력해.\n\n---\n${seed.text}`
-      : `Restructure and clean up the note below, grounded in this repo's context and knowledge. Preserve meaning, restore/organize Markdown structure (headings/lists), fix typos and awkward phrasing. Don't invent facts not in the repo. Output clean Markdown only.\n\n---\n${seed.text}`;
-    /* eslint-disable react-hooks/set-state-in-effect -- prefill composer when a fix seed arrives */
+      ? `다음 메모를 이 레포의 맥락에 맞게 정리해 주세요. 의미는 유지하고, 제목/리스트 등 Markdown 구조를 복원하고, 오탈자와 어색한 표현을 다듬어 주세요. 레포에 없는 사실은 추가하지 말고 결과는 Markdown만 출력하세요.\n\n---\n${seed.text}`
+      : `Restructure and clean up the note below, grounded in this repo's context. Preserve meaning, restore Markdown structure, fix typos, and do not invent facts. Output Markdown only.\n\n---\n${seed.text}`;
     setShowSettings(false);
     setInput(refinePrompt);
-    /* eslint-enable react-hooks/set-state-in-effect */
     autoSend.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seedNonce]);
+  }, [seedNonce, language, seed]);
 
   useEffect(() => {
     if (autoSend.current && input.trim() && !loading) {
       autoSend.current = false;
-      send();
+      void send();
     }
   }, [input, loading, send]);
 
   const copyMsg = (idx: number, content: string) => {
-    navigator.clipboard.writeText(content);
+    void navigator.clipboard.writeText(content);
     setCopiedIdx(idx);
     setTimeout(() => setCopiedIdx(null), 1500);
   };
 
-  // Write an AI reply back into the room's cotext.md, tagged with source:<provider>
-  // Retries once on 409 conflict (SHA mismatch from concurrent edits).
-  const saveToChat = async (idx: number, content: string) => {
+  const saveToChat = async (idx: number, content: string, sourceId: string) => {
     if (!room || savingIdx !== null) return;
     setSavingIdx(idx);
     setError('');
     const attempt = async () => {
       const cur = await githubApi.getRoomContent(
-        workspace.github_owner, workspace.github_repo, workspace.default_branch, room.cotext_file_path,
+        workspace.github_owner,
+        workspace.github_repo,
+        workspace.default_branch,
+        room.cotext_file_path,
       );
-      const updated = appendMessage(cur.content || '', content, undefined, { source: providerId, author: currentAuthor });
+      const updated = appendMessage(cur.content || '', content, undefined, { source: sourceId, author: currentAuthor });
       await githubApi.pushRoom(
-        workspace.github_owner, workspace.github_repo, workspace.default_branch,
-        room.cotext_file_path, updated, cur.sha, `cotext: agent (${providerId}) note`,
+        workspace.github_owner,
+        workspace.github_repo,
+        workspace.default_branch,
+        room.cotext_file_path,
+        updated,
+        cur.sha,
+        `cotext: agent (${sourceId}) note`,
       );
     };
     try {
@@ -348,7 +487,6 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
         await attempt();
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        // Retry once on conflict (409 / SHA mismatch)
         if (msg.includes('409') || msg.toLowerCase().includes('conflict') || msg.toLowerCase().includes('sha')) {
           await attempt();
         } else {
@@ -357,7 +495,6 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
       }
       setSavedIdx(idx);
       setTimeout(() => setSavedIdx(null), 2000);
-      // Delay refresh so the UI doesn't flash/reset immediately
       setTimeout(() => onSaved?.(), 1500);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -369,7 +506,6 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
   const resolveRoom = (path: string): PanelRoom | null =>
     rooms.find((r) => r.path === path) || (room && room.path === path ? room : null) || room;
 
-  // Read-tool executor for agent mode (list_rooms / get_room). Writes go through approval.
   const executeRead = async (name: string, args: Record<string, unknown>): Promise<string> => {
     if (name === 'list_rooms') {
       const list = rooms.length ? rooms.map((r) => r.path) : room ? [room.path] : [];
@@ -379,10 +515,13 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
       const target = resolveRoom(String(args.room_path || ''));
       if (!target) return `Room not found: ${args.room_path}`;
       try {
-        const c = await githubApi.getRoomContent(
-          workspace.github_owner, workspace.github_repo, workspace.default_branch, target.cotext_file_path,
+        const contentRes = await githubApi.getRoomContent(
+          workspace.github_owner,
+          workspace.github_repo,
+          workspace.default_branch,
+          target.cotext_file_path,
         );
-        return (c.content || '(empty)').slice(0, 40000);
+        return (contentRes.content || '(empty)').slice(0, 40000);
       } catch (e) {
         return `Error reading room: ${e instanceof Error ? e.message : String(e)}`;
       }
@@ -393,19 +532,30 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
   const approveProposal = async () => {
     if (!proposal || approving) return;
     const target = resolveRoom(proposal.roomPath);
-    if (!target) { setError(`Room not found: ${proposal.roomPath}`); return; }
+    if (!target) {
+      setError(`Room not found: ${proposal.roomPath}`);
+      return;
+    }
     setApproving(true);
     setError('');
     try {
       const cur = await githubApi.getRoomContent(
-        workspace.github_owner, workspace.github_repo, workspace.default_branch, target.cotext_file_path,
+        workspace.github_owner,
+        workspace.github_repo,
+        workspace.default_branch,
+        target.cotext_file_path,
       );
       const updated = appendMessage(cur.content || '', proposal.content, undefined, { source: providerId, author: currentAuthor });
       await githubApi.pushRoom(
-        workspace.github_owner, workspace.github_repo, workspace.default_branch,
-        target.cotext_file_path, updated, cur.sha, `cotext: agent (${providerId}) auto-edit`,
+        workspace.github_owner,
+        workspace.github_repo,
+        workspace.default_branch,
+        target.cotext_file_path,
+        updated,
+        cur.sha,
+        `cotext: agent (${providerId}) auto-edit`,
       );
-      setMessages((prev) => [...prev, { role: 'assistant', content: `✓ ${target.path}\n\n${proposal.content}`, model }]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: `Saved to ${target.path}\n\n${proposal.content}`, model, sourceId: providerId }]);
       setProposal(null);
       onSaved?.();
     } catch (e) {
@@ -416,6 +566,10 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
   };
 
   if (!open) return null;
+
+  const modelBarLabel = trackMode === 'managed'
+    ? `Cotext Model - ${managedInfo?.providerId || 'managed'} / ${managedInfo?.model || 'server default'}`
+    : `${provider.label} - ${model || 'default'}`;
 
   return (
     <aside className="agent-panel">
@@ -434,20 +588,22 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
         </div>
       </div>
 
-      {/* Model bar */}
       <div className="agent-modelbar" onClick={() => setShowSettings((v) => !v)}>
-        <span className="agent-model-name">{provider.label} · {model || '—'}</span>
-
-        {!hasKey && <span className="agent-nokey"><Warning size={12} /> key</span>}
+        <span className="agent-model-name">{modelBarLabel}</span>
+        {trackMode === 'byok' && !hasKey && (
+          <span className="agent-nokey">
+            <Warning size={12} />
+            {t.keyMissing}
+          </span>
+        )}
       </div>
 
-      {/* Grounding indicator */}
       <div className="agent-ground">
         {room ? (
           <>
             <span className="agent-ground-dot" />
             {t.grounded}: <code>{room.path}</code>
-            <button className="icon-button agent-ground-refresh" onClick={loadContext} title={t.refresh}>
+            <button className="icon-button agent-ground-refresh" onClick={() => void loadContext()} title={t.refresh}>
               <ArrowClockwise size={13} className={contextLoading ? 'spin' : ''} />
             </button>
           </>
@@ -456,8 +612,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
         )}
       </div>
 
-      {/* Agent mode toggle */}
-      {agentCapable && (
+      {trackMode === 'byok' && agentCapable && (
         <div className="agent-mode-bar">
           <label className="agent-mode-toggle">
             <input type="checkbox" checked={agentMode} onChange={(e) => setAgentMode(e.target.checked)} />
@@ -469,48 +624,104 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
 
       {showSettings && (
         <div className="agent-settings">
-          <label className="agent-field-label">{t.provider}</label>
-          <select value={providerId} onChange={(e) => selectProvider(e.target.value as ProviderId)} className="input">
-            {PROVIDERS.map((p) => (
-              <option key={p.id} value={p.id}>{p.label}</option>
-            ))}
-          </select>
+          <div className="agent-track-control">
+            <div
+              className="agent-track-slider"
+              style={{ transform: trackMode === 'managed' ? 'translateX(100%)' : 'translateX(0)' }}
+            />
+            <button
+              type="button"
+              className={`agent-track-btn${trackMode === 'byok' ? ' active' : ''}`}
+              onClick={() => setTrackMode('byok')}
+            >
+              <Key size={14} />
+              {t.myApiKey}
+            </button>
+            <button
+              type="button"
+              className={`agent-track-btn${trackMode === 'managed' ? ' active' : ''}`}
+              onClick={() => setTrackMode('managed')}
+            >
+              <Lightning size={14} />
+              {t.cotextModel}
+            </button>
+          </div>
 
-          {provider.editableBaseURL && (
+          {trackMode === 'byok' && (
             <>
-              <label className="agent-field-label">{t.baseURL}</label>
-              <input className="input" value={baseURL} onChange={(e) => setBaseURL(e.target.value)}
-                placeholder="https://… /v1" />
+              <label className="agent-field-label">{t.provider}</label>
+              <select value={providerId} onChange={(e) => selectProvider(e.target.value as ProviderId)} className="input">
+                {PROVIDERS.map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </select>
+
+              {provider.editableBaseURL && (
+                <>
+                  <label className="agent-field-label">{t.baseURL}</label>
+                  <input
+                    className="input"
+                    value={baseURL}
+                    onChange={(e) => setBaseURL(e.target.value)}
+                    placeholder="https://.../v1"
+                  />
+                </>
+              )}
+
+              <label className="agent-field-label">{t.model}</label>
+              <input
+                className="input"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                list={`models-${providerId}`}
+                placeholder={provider.defaultModel}
+              />
+              <datalist id={`models-${providerId}`}>
+                {provider.models.map((m) => <option key={m} value={m} />)}
+              </datalist>
+
+              <label className="agent-field-label">
+                {t.apiKey}
+                {provider.keyUrl && (
+                  <a href={provider.keyUrl} target="_blank" rel="noreferrer" className="agent-getkey">
+                    {t.getKey} <ArrowSquareOut size={11} />
+                  </a>
+                )}
+              </label>
+              <input
+                className="input"
+                type="password"
+                value={apiKeyInput}
+                onChange={(e) => setApiKeyInput(e.target.value)}
+                placeholder={hasKey ? '******** (saved)' : provider.keyLabel}
+              />
+
+              <button className="btn btn-primary btn-sm agent-save" onClick={saveSettings}>
+                {keySaved ? <><Check size={14} /> {t.save}</> : t.save}
+              </button>
+              <p className="agent-byok">{t.byok}</p>
             </>
           )}
 
-          <label className="agent-field-label">{t.model}</label>
-          <input className="input" value={model} onChange={(e) => setModel(e.target.value)}
-            list={`models-${providerId}`} placeholder={provider.defaultModel} />
-          <datalist id={`models-${providerId}`}>
-            {provider.models.map((m) => <option key={m} value={m} />)}
-          </datalist>
-
-          <label className="agent-field-label">
-            {t.apiKey}
-            {provider.keyUrl && (
-              <a href={provider.keyUrl} target="_blank" rel="noreferrer" className="agent-getkey">
-                {t.getKey} <ArrowSquareOut size={11} />
-              </a>
-            )}
-          </label>
-          <input className="input" type="password" value={apiKeyInput}
-            onChange={(e) => setApiKeyInput(e.target.value)}
-            placeholder={hasKey ? '•••••••• (saved)' : provider.keyLabel} />
-
-          <button className="btn btn-primary btn-sm agent-save" onClick={saveSettings}>
-            {keySaved ? <><Check size={14} /> {t.save}</> : t.save}
-          </button>
-          <p className="agent-byok">{t.byok}</p>
+          {trackMode === 'managed' && (
+            <div className="agent-managed-block">
+              <p className="agent-managed-note">{t.managedNote}</p>
+              <p className="agent-managed-subnote">{t.managedToolsNote}</p>
+              {managedInfo && (
+                <div className="agent-managed-info">
+                  <span>{managedInfo.providerId} / {managedInfo.model}</span>
+                  <span>{managedInfo.chargedCredits} credits</span>
+                </div>
+              )}
+              <ManagedCreditsPanel workspaceId={workspace.id} compact />
+              <button className="btn btn-primary btn-sm agent-save" onClick={saveSettings}>
+                {keySaved ? <><Check size={14} /> {t.save}</> : t.save}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Messages */}
       <div className="agent-msgs" ref={msgsRef}>
         {messages.length === 0 && !loading && (
           <div className="agent-empty">
@@ -519,6 +730,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
             <p className="text-dim text-xs">{t.sourceNote}</p>
           </div>
         )}
+
         {messages.map((m, i) => (
           <div key={i} className={`agent-msg ${m.role}`}>
             {m.role === 'assistant' && (
@@ -526,20 +738,38 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
                 <span className="agent-source">source: {m.model}</span>
                 {room && onApply ? (
                   <>
-                    <button className="agent-add-btn" title={t.applyAdd}
-                      onClick={() => { onApply({ text: m.content, source: providerId, replace: false }); setSavedIdx(i); setTimeout(() => setSavedIdx(null), 1500); }}>
+                    <button
+                      className="agent-add-btn"
+                      title={t.applyAdd}
+                      onClick={() => {
+                        onApply({ text: m.content, source: m.sourceId || providerId, replace: false });
+                        setSavedIdx(i);
+                        setTimeout(() => setSavedIdx(null), 1500);
+                      }}
+                    >
                       {savedIdx === i ? <Check size={12} weight="bold" /> : <Plus size={12} weight="bold" />}
                     </button>
                     {canReplace && (
-                      <button className="agent-add-btn agent-replace-btn" title={t.applyReplace}
-                        onClick={() => { onApply({ text: m.content, source: providerId, replace: true }); setSavedIdx(i); setTimeout(() => setSavedIdx(null), 1500); }}>
+                      <button
+                        className="agent-add-btn agent-replace-btn"
+                        title={t.applyReplace}
+                        onClick={() => {
+                          onApply({ text: m.content, source: m.sourceId || providerId, replace: true });
+                          setSavedIdx(i);
+                          setTimeout(() => setSavedIdx(null), 1500);
+                        }}
+                      >
                         <MagicWand size={12} weight="bold" />
                       </button>
                     )}
                   </>
                 ) : room && (
-                  <button className="agent-add-btn" onClick={() => saveToChat(i, m.content)}
-                    disabled={savingIdx !== null} title={t.saveToChat}>
+                  <button
+                    className="agent-add-btn"
+                    onClick={() => void saveToChat(i, m.content, m.sourceId || providerId)}
+                    disabled={savingIdx !== null}
+                    title={t.saveToChat}
+                  >
                     {savedIdx === i ? <Check size={12} weight="bold" /> : savingIdx === i ? <SpinnerGap size={12} className="spin" /> : <Plus size={12} weight="bold" />}
                   </button>
                 )}
@@ -548,7 +778,9 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
                 </button>
               </div>
             )}
-            <div className="agent-msg-body">{m.content || '…'}</div>
+
+            <div className="agent-msg-body">{m.content || '...'}</div>
+
             {m.role === 'assistant' && (
               <div className="agent-msg-bottom-actions">
                 <button className="agent-bottom-btn" onClick={() => copyMsg(i, m.content)} title={t.copy}>
@@ -556,42 +788,67 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
                 </button>
                 {room && onApply ? (
                   <>
-                    <button className="agent-bottom-btn" title={t.applyAdd}
-                      onClick={() => { onApply({ text: m.content, source: providerId, replace: false }); setSavedIdx(i); setTimeout(() => setSavedIdx(null), 1500); }}>
+                    <button
+                      className="agent-bottom-btn"
+                      title={t.applyAdd}
+                      onClick={() => {
+                        onApply({ text: m.content, source: m.sourceId || providerId, replace: false });
+                        setSavedIdx(i);
+                        setTimeout(() => setSavedIdx(null), 1500);
+                      }}
+                    >
                       {savedIdx === i ? <Check size={12} /> : <Plus size={12} />}
                     </button>
                     {canReplace && (
-                      <button className="agent-bottom-btn agent-replace-btn" title={t.applyReplace}
-                        onClick={() => { onApply({ text: m.content, source: providerId, replace: true }); setSavedIdx(i); setTimeout(() => setSavedIdx(null), 1500); }}>
+                      <button
+                        className="agent-bottom-btn agent-replace-btn"
+                        title={t.applyReplace}
+                        onClick={() => {
+                          onApply({ text: m.content, source: m.sourceId || providerId, replace: true });
+                          setSavedIdx(i);
+                          setTimeout(() => setSavedIdx(null), 1500);
+                        }}
+                      >
                         <MagicWand size={12} />
                       </button>
                     )}
                   </>
                 ) : room && (
-                  <button className="agent-bottom-btn" onClick={() => saveToChat(i, m.content)}
-                    disabled={savingIdx !== null} title={t.saveToChat}>
+                  <button
+                    className="agent-bottom-btn"
+                    onClick={() => void saveToChat(i, m.content, m.sourceId || providerId)}
+                    disabled={savingIdx !== null}
+                    title={t.saveToChat}
+                  >
                     {savedIdx === i ? <Check size={12} /> : savingIdx === i ? <SpinnerGap size={12} className="spin" /> : <Plus size={12} />}
                   </button>
                 )}
-                <button className="agent-bottom-btn agent-delete-btn"
-                  onClick={() => setMessages(prev => prev.filter((_, idx) => idx !== i))} title="Delete">
+                <button
+                  className="agent-bottom-btn agent-delete-btn"
+                  onClick={() => setMessages((prev) => prev.filter((_, idx) => idx !== i))}
+                  title="Delete"
+                >
                   <Trash size={12} />
                 </button>
               </div>
             )}
+
             {m.role === 'assistant' && m.usage && (m.usage.inputTokens > 0 || m.usage.outputTokens > 0) && (
               <div className="agent-usage">
-                ⚡ {m.usage.inputTokens.toLocaleString()} in · {m.usage.outputTokens.toLocaleString()} out
-                {m.model && (() => { const c = formatCost(m.model!, m.usage!); return c ? ` · ${c}` : ''; })()}
+                {m.usage.inputTokens.toLocaleString()} in / {m.usage.outputTokens.toLocaleString()} out
+                {m.model && (() => {
+                  const cost = formatCost(m.model, m.usage!);
+                  return cost ? ` - ${cost}` : '';
+                })()}
               </div>
             )}
           </div>
         ))}
+
         {loading && !streaming && <div className="agent-msg assistant"><div className="agent-msg-body text-dim">{t.thinking}</div></div>}
         {error && <div className="agent-error"><Warning size={14} /> {error}</div>}
       </div>
 
-      {/* Proposal approval card */}
       {proposal && (
         <div className="agent-proposal">
           <div className="agent-proposal-header">
@@ -600,7 +857,7 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
           </div>
           <pre className="agent-proposal-preview">{proposal.content}</pre>
           <div className="agent-proposal-actions">
-            <button className="btn btn-primary btn-sm" onClick={approveProposal} disabled={approving}>
+            <button className="btn btn-primary btn-sm" onClick={() => void approveProposal()} disabled={approving}>
               {approving ? t.working : t.approve}
             </button>
             <button className="btn btn-ghost btn-sm" onClick={() => setProposal(null)}>{t.reject}</button>
@@ -608,17 +865,21 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
         </div>
       )}
 
-      {/* Input */}
       <div className="agent-input-bar">
         <textarea
           className="agent-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              void send();
+            }
+          }}
           placeholder={t.placeholder}
           rows={1}
         />
-        <button className="agent-send" onClick={send} disabled={loading || !input.trim()} title={t.send}>
+        <button className="agent-send" onClick={() => void send()} disabled={loading || !input.trim() || !llmReady} title={t.send}>
           <PaperPlaneRight size={16} weight="fill" />
         </button>
       </div>
@@ -626,50 +887,54 @@ export default function AgentPanel({ open, onClose, workspace, room, rooms = [],
   );
 }
 
-// Build a small, agent-friendly summary of the Neural Link graph (P5.3).
-// Goals: stay under ~1.5KB. Include:
-//   - repo-wide cluster index (id, name, member count)
-//   - current room's nodes (label, clusters, ts) — these are most relevant to context
-//   - edges touching those nodes (with related node labels)
-// Keeps the system prompt grounded without blowing token budget.
 function buildNeuralSummary(neuralJson: string, roomContent: string, currentRoom: string): string {
   if (!neuralJson.trim()) return '';
-  type C = { id: string; name: string };
-  type E = { from: string; to: string; type?: string };
-  let g: { clusters?: C[]; edges?: E[] };
-  try { g = JSON.parse(neuralJson); } catch { return ''; }
-  const clusters = g.clusters ?? [];
-  const edges = g.edges ?? [];
+  type Cluster = { id: string; name: string };
+  type Edge = { from: string; to: string; type?: string };
+  let graph: { clusters?: Cluster[]; edges?: Edge[] };
+  try {
+    graph = JSON.parse(neuralJson);
+  } catch {
+    return '';
+  }
 
-  // Parse inline nodes from THIS room's content (we don't have other rooms here)
+  const clusters = graph.clusters ?? [];
+  const edges = graph.edges ?? [];
   type InlineNode = { id: string; label: string; clusters: string[]; ts: string };
   const myNodes: InlineNode[] = [];
-  let curTs: string | null = null;
+  let currentTs: string | null = null;
+
   for (const line of roomContent.split('\n')) {
-    const tsM = line.match(/^##\s+(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
-    if (tsM) { curTs = tsM[1]; continue; }
-    const nM = line.match(/^<!--\s*node:\s*(.*?)\s*-->\s*$/);
-    if (nM && curTs) {
-      const body = nM[1];
-      const idM = body.match(/\bid=(\S+)/);
-      const lM = body.match(/\blabel="([^"]*)"/);
-      const cM = body.match(/\bclusters=\[([^\]]*)\]/);
-      if (idM) myNodes.push({
-        id: idM[1],
-        label: lM ? lM[1] : '',
-        clusters: cM ? cM[1].split(',').map((s) => s.trim()).filter(Boolean) : [],
-        ts: curTs,
-      });
+    const tsMatch = line.match(/^##\s+(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+    if (tsMatch) {
+      currentTs = tsMatch[1];
+      continue;
+    }
+    const nodeMatch = line.match(/^<!--\s*node:\s*(.*?)\s*-->\s*$/);
+    if (nodeMatch && currentTs) {
+      const body = nodeMatch[1];
+      const idMatch = body.match(/\bid=(\S+)/);
+      const labelMatch = body.match(/\blabel="([^"]*)"/);
+      const clustersMatch = body.match(/\bclusters=\[([^\]]*)\]/);
+      if (idMatch) {
+        myNodes.push({
+          id: idMatch[1],
+          label: labelMatch ? labelMatch[1] : '',
+          clusters: clustersMatch ? clustersMatch[1].split(',').map((s) => s.trim()).filter(Boolean) : [],
+          ts: currentTs,
+        });
+      }
     }
   }
 
   if (clusters.length === 0 && myNodes.length === 0) return '';
 
-  const nameOfCluster = (id: string) => clusters.find((c) => c.id === id)?.name ?? id;
-  const lines: string[] = [];
-  lines.push('Use this graph to identify thought clusters and explicit relationships.');
-  lines.push('Same cluster = implicit relation. Explicit edge = stronger claim.');
-  lines.push('');
+  const clusterName = (id: string) => clusters.find((cluster) => cluster.id === id)?.name ?? id;
+  const lines: string[] = [
+    'Use this graph to identify thought clusters and explicit relationships.',
+    'Same cluster means implicit relation. Explicit edge means a stronger relation.',
+    '',
+  ];
 
   if (clusters.length > 0) {
     lines.push(`Clusters in repo: ${clusters.map((c) => `${c.name} [${c.id}]`).slice(0, 20).join(', ')}`);
@@ -678,22 +943,22 @@ function buildNeuralSummary(neuralJson: string, roomContent: string, currentRoom
   if (myNodes.length > 0) {
     lines.push('');
     lines.push(`Nodes in this chat (${currentRoom}):`);
-    for (const n of myNodes.slice(0, 30)) {
-      const cstr = n.clusters.length ? ` · clusters:[${n.clusters.map(nameOfCluster).join(', ')}]` : '';
-      lines.push(`- [${n.id}] ${n.label || '(no label)'}${cstr} · block:${n.ts}`);
+    for (const node of myNodes.slice(0, 30)) {
+      const clusterText = node.clusters.length ? ` | clusters:[${node.clusters.map(clusterName).join(', ')}]` : '';
+      lines.push(`- [${node.id}] ${node.label || '(no label)'}${clusterText} | block:${node.ts}`);
     }
   }
 
-  const myIds = new Set(myNodes.map((n) => n.id));
-  const touching = edges.filter((e) => myIds.has(e.from) || myIds.has(e.to));
-  if (touching.length > 0) {
+  const myIds = new Set(myNodes.map((node) => node.id));
+  const touchingEdges = edges.filter((edge) => myIds.has(edge.from) || myIds.has(edge.to));
+  if (touchingEdges.length > 0) {
     lines.push('');
     lines.push('Explicit edges touching these nodes:');
-    for (const e of touching.slice(0, 20)) {
-      lines.push(`- ${e.from} -[${e.type ?? 'relates'}]-> ${e.to}`);
+    for (const edge of touchingEdges.slice(0, 20)) {
+      lines.push(`- ${edge.from} -[${edge.type ?? 'relates'}]-> ${edge.to}`);
     }
   }
 
   const out = lines.join('\n');
-  return out.length > 1500 ? out.slice(0, 1500) + '\n…(truncated)' : out;
+  return out.length > 1500 ? `${out.slice(0, 1500)}\n...(truncated)` : out;
 }

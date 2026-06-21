@@ -3595,6 +3595,74 @@ button:focus-visible {
   gap: 6px;
 }
 
+.managed-credit-packs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.managed-credit-packs-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.managed-credit-packs-head strong {
+  font-size: 0.88rem;
+}
+
+.managed-credit-packs-head span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.managed-credit-pack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.managed-credit-pack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.managed-credit-pack-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.managed-credit-pack-top strong {
+  font-size: 0.88rem;
+}
+
+.managed-credit-pack-top span {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--accent);
+}
+
+.managed-credit-pack p {
+  margin: 0;
+  min-height: 2.6em;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.managed-credit-buy {
+  justify-content: center;
+}
+
 .managed-credits-ledger {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

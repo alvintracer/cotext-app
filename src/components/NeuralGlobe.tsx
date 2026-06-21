@@ -127,6 +127,10 @@ interface NeuralGlobeProps {
   onClose: () => void;
   language: string;
   nodeTextById?: Record<string, string>;
+  /** Async body lookup for wiki nodes whose content lives in a markdown file rather than
+   *  the synchronous `nodeTextById` map (which only holds Studio-extracted blocks).
+   *  Same signature the 2D NeuralGraphView uses, so a single callback serves both. */
+  getBlockText?: (roomPath: string, blockTs: string) => Promise<string | null>;
   /** Render inline inside a container instead of a fixed full-screen overlay. */
   embedded?: boolean;
   /** Light / dark visual theme. Defaults to dark. */
@@ -767,21 +771,46 @@ function easeOutBack(t: number): number {
 }
 
 /* ── Detail Panel (HTML overlay) ────────────────────────── */
-function DetailPanel({ info, graph, clusterMap, ko, nodeTextById, width, setWidth, onClose }: {
+function DetailPanel({ info, graph, clusterMap, ko, nodeTextById, getBlockText, width, setWidth, onClose, onPickNode }: {
   info: SelectedInfo;
   graph: NeuralGraph;
   clusterMap: Map<string, number>;
   ko: boolean;
   nodeTextById?: Record<string, string>;
+  /** Async body fallback (wiki nodes whose markdown file lives in the repo). */
+  getBlockText?: (roomPath: string, blockTs: string) => Promise<string | null>;
   width: number;
   setWidth: (px: number) => void;
   onClose: () => void;
+  /** Clicking a connection row picks that node (parity with the 2D editor). */
+  onPickNode?: (nodeId: string) => void;
 }) {
   const { node, connectedEdges, connectedNodes } = info;
   const clusters = node.clusters
     .map(cid => graph.clusters.find(c => c.id === cid))
     .filter(Boolean) as Cluster[];
-  const text = nodeTextById?.[node.id];
+  const syncText = nodeTextById?.[node.id];
+
+  // Async body for wiki nodes (markdown files in the repo). Only fetches when
+  // there's no synchronous text and a callback is wired. Resets on node swap.
+  const [asyncBody, setAsyncBody] = useState<string | null>(null);
+  const [asyncLoading, setAsyncLoading] = useState(false);
+  useEffect(() => {
+    if (syncText || !getBlockText || !node.room) {
+      setAsyncBody(null);
+      return;
+    }
+    let cancelled = false;
+    setAsyncLoading(true);
+    setAsyncBody(null);
+    getBlockText(node.room, node.blockTs).then((txt) => {
+      if (cancelled) return;
+      setAsyncBody(txt ?? '');
+      setAsyncLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [node.id, node.room, node.blockTs, syncText, getBlockText]);
+  const text = syncText ?? asyncBody;
 
   return (
     <div className="globe-detail-panel" style={{ width }}>
@@ -811,11 +840,13 @@ function DetailPanel({ info, graph, clusterMap, ko, nodeTextById, width, setWidt
         </div>
       )}
 
-      {/* Block text */}
-      {text && (
+      {/* Block text — sync (nodeTextById) wins over async (wiki file fetch). */}
+      {(text || asyncLoading) && (
         <div className="globe-detail-section">
           <div className="globe-detail-section-title">{ko ? '본문' : 'Content'}</div>
-          <div className="globe-detail-text">{text.length > 300 ? text.slice(0, 300) + '…' : text}</div>
+          <div className="globe-detail-text">
+            {asyncLoading ? (ko ? '불러오는 중…' : 'Loading…') : text}
+          </div>
         </div>
       )}
 
@@ -845,8 +876,15 @@ function DetailPanel({ info, graph, clusterMap, ko, nodeTextById, width, setWidt
               if (!otherNode) return null;
               const typeLabel = edge.type ? (GLOBE_EDGE_LABEL[edge.type]?.[ko ? 'ko' : 'en'] ?? edge.type) : '';
               const showRoom = otherNode.room && otherNode.room !== node.room;
+              const clickable = !!onPickNode;
+              const RowTag = clickable ? 'button' : 'div';
               return (
-                <div key={i} className="globe-detail-connection">
+                <RowTag
+                  key={i}
+                  className={`globe-detail-connection${clickable ? ' globe-detail-connection-btn' : ''}`}
+                  onClick={clickable ? () => onPickNode!(otherNode.id) : undefined}
+                  type={clickable ? 'button' : undefined}
+                >
                   <ArrowRight size={10} />
                   <span className="globe-detail-conn-label">{otherNode.label}</span>
                   {typeLabel && <span className="globe-detail-conn-type">{typeLabel}</span>}
@@ -856,7 +894,7 @@ function DetailPanel({ info, graph, clusterMap, ko, nodeTextById, width, setWidt
                     </span>
                   )}
                   {showRoom && <span className="globe-detail-conn-room">{otherNode.room}</span>}
-                </div>
+                </RowTag>
               );
             })}
             {connectedEdges.length > 10 && (
@@ -967,7 +1005,7 @@ function ClusterDetailPanel({ info, graph, clusterMap, ko, width, setWidth, onCl
 }
 
 /* ── Exported component ─────────────────────────────────── */
-export default function NeuralGlobe({ graph, onClose, language, nodeTextById, embedded = false, theme = 'dark', idle = false, onIdleClick }: NeuralGlobeProps) {
+export default function NeuralGlobe({ graph, onClose, language, nodeTextById, getBlockText, embedded = false, theme = 'dark', idle = false, onIdleClick }: NeuralGlobeProps) {
   const ko = language === 'ko';
   const tokens = useMemo(() => themeTokens(theme), [theme]);
   const [contextLost, setContextLost] = useState(false);
@@ -1051,6 +1089,21 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
     if (idx >= 0) setSelectedIdx(idx);
   }, [graph.nodes]);
 
+  // When clicking a connection inside DetailPanel → select that node (stay in current mode).
+  // Cluster super-nodes have synthetic `__cluster__*` ids; we strip and resolve to the
+  // real cluster index when in clusters mode.
+  const handlePickConnection = useCallback((nodeId: string) => {
+    if (displayMode === 'clusters') {
+      const clusterId = nodeId.replace(/^__cluster__/, '');
+      const built = buildClusterGraph(graph);
+      const idx = built.nodes.findIndex(n => n.id === `__cluster__${clusterId}`);
+      if (idx >= 0) setSelectedIdx(idx);
+      return;
+    }
+    const idx = graph.nodes.findIndex(n => n.id === nodeId);
+    if (idx >= 0) setSelectedIdx(idx);
+  }, [graph, displayMode]);
+
 
   const canvasEl = contextLost ? (
     <div className="neural-globe-lost">
@@ -1118,8 +1171,10 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, em
                   clusterMap={clusterMap}
                   ko={ko}
                   nodeTextById={nodeTextById}
+                  getBlockText={getBlockText}
                   width={panelWidth}
                   setWidth={setPanelWidth}
+                  onPickNode={handlePickConnection}
                   onClose={() => setSelectedIdx(null)}
                 />
               )

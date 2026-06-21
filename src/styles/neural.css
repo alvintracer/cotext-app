@@ -265,8 +265,21 @@
   background: var(--accent-muted);
   padding: 1px 6px;
   border-radius: var(--radius-full);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
-.link-row-room { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
+.link-row-room {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-left: auto;
+  padding-left: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 45%;
+  flex-shrink: 1;
+}
 .link-row-remove {
   display: inline-flex;
   border: none;
@@ -738,9 +751,19 @@
   text-align: left;
   font-size: var(--text-sm);
   color: var(--text);
+  flex-wrap: nowrap;       /* keep all chips inline; truncation handles overflow */
+  min-width: 0;            /* let children shrink past intrinsic width */
+  width: 100%;
 }
 .neural-graph-edge-row:hover { background: var(--surface-2); }
-.neural-graph-edge-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.neural-graph-edge-row > svg { flex-shrink: 0; }
+.neural-graph-edge-label {
+  flex: 1 1 auto;
+  min-width: 0;            /* mandatory for ellipsis inside flex */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .neural-graph-jump { align-self: flex-start; margin-top: 8px; }
 

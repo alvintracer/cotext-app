@@ -51,7 +51,9 @@
 
 - [[AI-Sessions/wiki/design/cotext-architecture-overview]] — 전체 아키텍처 구조도 (Wiki→Graph→Sync 3계층 흐름, npm 명령, 파일 맵)
 - [[AI-Sessions/wiki/design/cotext-brand-and-landing]]
+- [[AI-Sessions/wiki/design/managed-credits-billing-plan]] ??managed model ?щ젅?딆쟾 寃곗젣 紐⑤뱢 理쒖냼 援ы쁽 寃쎈줈
 
+- [[AI-Sessions/wiki/design/public-pricing-and-policy-surface]] ??public pricing routes, policy pages, managed-credit explanation
 ## Sources
 
 - [[AI-Sessions/wiki/sources/01_cotext-development-plan_summary]]

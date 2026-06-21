@@ -1011,7 +1011,12 @@ function NodePanel({ node, graph, clusterList, palette, currentRoom, blockText, 
       )}
 
       <button className="btn btn-primary btn-sm neural-graph-jump" onClick={onJump}>
-        <ArrowSquareOut size={13} /> {node.room === currentRoom ? (ko ? '이 블록으로 이동' : 'Jump to block') : (ko ? '챗 열기' : 'Open chat')}
+        <ArrowSquareOut size={13} />{' '}
+        {node.room === currentRoom
+          ? (ko ? '이 블록으로 이동' : 'Jump to block')
+          : node.room?.toLowerCase().endsWith('.md')
+            ? (ko ? '파일 열기' : 'Open file')
+            : (ko ? '챗 열기' : 'Open chat')}
       </button>
     </div>
   );

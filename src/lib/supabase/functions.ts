@@ -127,6 +127,45 @@ export interface ManagedKnowledgeExtractResponse {
   };
 }
 
+export interface ManagedAgentChatResponse {
+  ok: boolean;
+  managed: {
+    providerId: string;
+    model: string;
+    billingMode: string;
+    requestChars: number;
+    chargedCredits: number;
+    chargeSkipped?: boolean;
+    chargeError?: string | null;
+    balance?: {
+      balanceCredits: number;
+      reservedCredits: number;
+      lifetimeUsedCredits: number;
+      monthlyGrantCredits: number;
+      billingState: string;
+      updatedAt: string;
+      transactionId?: string | null;
+    } | null;
+  };
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+  };
+  text: string;
+}
+
+export interface ManagedCreditInvoiceResponse {
+  ok: boolean;
+  orderId: string;
+  invoiceId: string;
+  invoiceUrl: string;
+  status: string;
+  credits: number;
+  priceAmount: number;
+  priceCurrency: string;
+  packId: string;
+}
+
 export const managedKnowledgeApi = {
   /**
    * Managed extraction via SSE streaming.
@@ -225,6 +264,73 @@ export const managedKnowledgeApi = {
 
       pump();
     });
+  },
+};
+
+export const managedAgentApi = {
+  async chat(
+    workspaceId: string,
+    system: string,
+    messages: Array<{ role: string; content: string }>,
+  ): Promise<ManagedAgentChatResponse> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not authenticated');
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const url = `${supabaseUrl}/functions/v1/agent-chat-managed`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        workspace_id: workspaceId,
+        system,
+        messages,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) {
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+    return data as ManagedAgentChatResponse;
+  },
+};
+
+export const managedBillingApi = {
+  async createInvoice(
+    workspaceId: string,
+    packId: string,
+    urls?: { successUrl?: string; cancelUrl?: string },
+  ): Promise<ManagedCreditInvoiceResponse> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not authenticated');
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const url = `${supabaseUrl}/functions/v1/nowpayments-create-invoice`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        workspace_id: workspaceId,
+        pack_id: packId,
+        success_url: urls?.successUrl,
+        cancel_url: urls?.cancelUrl,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) {
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+    return data as ManagedCreditInvoiceResponse;
   },
 };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -130,6 +130,38 @@ export default function WorkspaceDetailPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- loadRooms synchronizes external data for the selected workspace
     loadRooms();
   }, [loadRooms]);
+
+  // Restore last opened chat (per workspace) once rooms have loaded.
+  // Ref-guarded so it fires once per workspace switch — not every time
+  // rooms refresh (which would otherwise clobber the user's deselection).
+  const roomRestoreDoneRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!workspaceId || rooms.length === 0) return;
+    if (roomRestoreDoneRef.current === workspaceId) return;
+    roomRestoreDoneRef.current = workspaceId;
+    try {
+      const savedId = localStorage.getItem(`cotext-last-room-${workspaceId}`);
+      if (savedId) {
+        const found = rooms.find((r) => r.id === savedId);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring user's last chat on re-entry
+        if (found) setSelectedRoom(found);
+      }
+    } catch {
+      // localStorage unavailable — silently skip.
+    }
+  }, [workspaceId, rooms]);
+
+  // Persist the active chat so it survives app re-opens / browser sessions.
+  useEffect(() => {
+    if (!workspaceId) return;
+    try {
+      if (selectedRoom) {
+        localStorage.setItem(`cotext-last-room-${workspaceId}`, selectedRoom.id);
+      }
+      // Note: don't remove on deselect — user might just close the app while
+      // the room is open; we want to come back to it next time.
+    } catch { /* ignore */ }
+  }, [workspaceId, selectedRoom]);
 
   // Load teammates
   useEffect(() => {

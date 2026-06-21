@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Bank, ClockCounterClockwise, Coins } from '@phosphor-icons/react';
+import { ArrowSquareOut, Bank, ClockCounterClockwise, Coins, SpinnerGap } from '@phosphor-icons/react';
 import { supabase } from '../lib/supabase/client';
 import { useLanguage } from '../contexts/LanguageContext';
+import { MANAGED_CREDIT_PACKS } from '../lib/billing/packs';
+import { managedBillingApi } from '../lib/supabase/functions';
 
 interface Props {
   workspaceId: string;
@@ -38,6 +40,8 @@ export default function ManagedCreditsPanel({ workspaceId, compact = false, refr
   const [balance, setBalance] = useState<ManagedCreditBalance | null>(null);
   const [transactions, setTransactions] = useState<ManagedCreditTransaction[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [purchasingPackId, setPurchasingPackId] = useState<string | null>(null);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const load = useCallback(async (cancelledRef?: { current: boolean }) => {
     setLoading(true);
@@ -73,7 +77,6 @@ export default function ManagedCreditsPanel({ workspaceId, compact = false, refr
 
   useEffect(() => {
     const cancelled = { current: false };
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- load() synchronizes panel state from Supabase
     void load(cancelled);
     return () => {
       cancelled.current = true;
@@ -91,6 +94,29 @@ export default function ManagedCreditsPanel({ workspaceId, compact = false, refr
     return () => window.removeEventListener('mindsync:managed-credits-updated', onRefresh as EventListener);
   }, [load, workspaceId]);
 
+  const handleBuy = useCallback(async (packId: string) => {
+    setPurchasingPackId(packId);
+    setPurchaseError(null);
+    try {
+      const current = new URL(window.location.href);
+      const successUrl = new URL(current.toString());
+      successUrl.searchParams.set('billing', 'success');
+      const cancelUrl = new URL(current.toString());
+      cancelUrl.searchParams.set('billing', 'cancel');
+
+      const invoice = await managedBillingApi.createInvoice(workspaceId, packId, {
+        successUrl: successUrl.toString(),
+        cancelUrl: cancelUrl.toString(),
+      });
+
+      window.location.assign(invoice.invoiceUrl);
+    } catch (e) {
+      setPurchaseError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPurchasingPackId(null);
+    }
+  }, [workspaceId]);
+
   return (
     <section className={`managed-credits-panel ${compact ? 'compact' : ''}`}>
       <div className="managed-credits-header">
@@ -98,8 +124,8 @@ export default function ManagedCreditsPanel({ workspaceId, compact = false, refr
           <h3><Coins size={18} /> {ko ? 'Managed Credits' : 'Managed Credits'}</h3>
           <p>
             {ko
-              ? 'Track B managed 추출의 잔액과 최근 사용 내역입니다. 서버 추출 성공 시 workspace 기준으로 크레딧이 차감됩니다.'
-              : 'Balance and recent usage for Track B managed extraction. Successful server-side runs deduct credits per workspace.'}
+              ? '관리형 모델 사용량과 최근 크레딧 변동 내역입니다. 충전은 NOWPayments 결제 페이지에서 진행됩니다.'
+              : 'Balance and recent managed-credit activity. Top-ups open a NOWPayments hosted checkout page.'}
           </p>
         </div>
       </div>
@@ -108,7 +134,7 @@ export default function ManagedCreditsPanel({ workspaceId, compact = false, refr
         <div className="managed-credits-empty">{ko ? '불러오는 중...' : 'Loading...'}</div>
       ) : error ? (
         <div className="managed-credits-empty">
-          {ko ? '크레딧 테이블을 읽지 못했습니다.' : 'Credit tables could not be read.'}
+          {ko ? '크레딧 정보를 읽지 못했습니다.' : 'Credit tables could not be read.'}
           <small>{error}</small>
         </div>
       ) : (
@@ -135,6 +161,41 @@ export default function ManagedCreditsPanel({ workspaceId, compact = false, refr
           <div className="managed-credits-meta">
             <span><Bank size={14} /> {ko ? '월 기본 제공' : 'Monthly grant'}: {fmtCredits(balance?.monthly_grant_credits)}</span>
             <span><ClockCounterClockwise size={14} /> {ko ? '최근 갱신' : 'Updated'}: {balance?.updated_at ? new Date(balance.updated_at).toLocaleString() : '-'}</span>
+          </div>
+
+          <div className="managed-credit-packs">
+            <div className="managed-credit-packs-head">
+              <strong>{ko ? '크레딧 충전' : 'Buy credits'}</strong>
+              <span>{ko ? '카드 또는 크립토 결제를 위해 NOWPayments로 이동합니다.' : 'Redirects to NOWPayments for card or crypto checkout.'}</span>
+            </div>
+            <div className="managed-credit-pack-grid">
+              {MANAGED_CREDIT_PACKS.map((pack) => (
+                <article key={pack.id} className="managed-credit-pack">
+                  <div className="managed-credit-pack-top">
+                    <strong>{pack.label}</strong>
+                    <span>{fmtCredits(pack.credits)} credits</span>
+                  </div>
+                  <p>{pack.description}</p>
+                  <button
+                    className="btn btn-primary btn-sm managed-credit-buy"
+                    onClick={() => void handleBuy(pack.id)}
+                    disabled={purchasingPackId !== null}
+                  >
+                    {purchasingPackId === pack.id ? (
+                      <><SpinnerGap size={14} className="spin" /> {ko ? '이동 중...' : 'Opening...'}</>
+                    ) : (
+                      <><ArrowSquareOut size={14} /> ${pack.priceAmount}</>
+                    )}
+                  </button>
+                </article>
+              ))}
+            </div>
+            {purchaseError && (
+              <div className="managed-credits-empty">
+                {ko ? '결제 페이지를 열지 못했습니다.' : 'Could not open the payment page.'}
+                <small>{purchaseError}</small>
+              </div>
+            )}
           </div>
 
           <div className="managed-credits-ledger">

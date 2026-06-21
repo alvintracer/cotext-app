@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-20T07:08:20.460Z",
+  "updatedAt": "2026-06-21T08:41:19.164Z",
   "clusters": [
     {
       "id": "concept",
@@ -210,6 +210,22 @@
       "room": "AI-Sessions/wiki/design/cotext-brand-and-landing.md",
       "blockTs": "",
       "label": "Design: Cotext 브랜드 · 디자인 시스템 · 랜딩",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-design-managed-credits-billing-plan",
+      "room": "AI-Sessions/wiki/design/managed-credits-billing-plan.md",
+      "blockTs": "",
+      "label": "Managed Credits Billing Plan",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-design-public-pricing-and-policy-surface",
+      "room": "AI-Sessions/wiki/design/public-pricing-and-policy-surface.md",
+      "blockTs": "",
+      "label": "Design: Public Pricing and Policy Surface",
       "clusters": [],
       "source": "wiki"
     },
@@ -784,6 +800,24 @@
       "source": "wiki"
     },
     {
+      "from": "w-ai-sessions-wiki-design-public-pricing-and-policy-surface",
+      "to": "w-ai-sessions-wiki-design-cotext-brand-and-landing",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-design-public-pricing-and-policy-surface",
+      "to": "w-ai-sessions-wiki-design-managed-credits-billing-plan",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-design-public-pricing-and-policy-surface",
+      "to": "w-ai-sessions-wiki-projects-cotext-mvp",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
       "from": "w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log",
       "to": "w-ai-sessions-wiki-projects-cotext-mvp",
       "type": "relates",
@@ -1115,6 +1149,18 @@
     },
     {
       "from": "w-index",
+      "to": "w-ai-sessions-wiki-design-managed-credits-billing-plan",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
+      "to": "w-ai-sessions-wiki-design-public-pricing-and-policy-surface",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-index",
       "to": "w-ai-sessions-wiki-sources-01-cotext-development-plan-summary",
       "type": "relates",
       "source": "wiki"
@@ -1169,6 +1215,24 @@
     },
     {
       "from": "w-log",
+      "to": "w-ai-sessions-wiki-design-public-pricing-and-policy-surface",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-projects-cotext-mvp",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
+      "to": "w-ai-sessions-wiki-design-managed-credits-billing-plan",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-log",
       "to": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
       "type": "relates",
       "source": "wiki"
@@ -1182,12 +1246,6 @@
     {
       "from": "w-log",
       "to": "w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration",
-      "type": "relates",
-      "source": "wiki"
-    },
-    {
-      "from": "w-log",
-      "to": "w-ai-sessions-wiki-projects-cotext-mvp",
       "type": "relates",
       "source": "wiki"
     },

@@ -18,9 +18,9 @@ When asked about a topic, first match against cluster names below, then fan out 
 
 ## Summary
 
-- Nodes: **50**
+- Nodes: **52**
 - Clusters: **14**
-- Edges: **134**
+- Edges: **141**
 
 ## Clusters
 
@@ -162,6 +162,9 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-ai-sessions-wiki-design-cotext-architecture-overview` (Cotext 전체 아키텍처 — Wiki → Graph → Sync 흐름) | → | `w-stub-wikilink` (wikilink) | relates |
 | `w-ai-sessions-wiki-design-cotext-architecture-overview` (Cotext 전체 아키텍처 — Wiki → Graph → Sync 흐름) | → | `w-stub-x` (X) | relates |
 | `w-ai-sessions-wiki-design-cotext-brand-and-landing` (Design: Cotext 브랜드 · 디자인 시스템 · 랜딩) | → | `w-ai-sessions-wiki-projects-cotext-mvp` (Project: Cotext MVP) | relates |
+| `w-ai-sessions-wiki-design-public-pricing-and-policy-surface` (Design: Public Pricing and Policy Surface) | → | `w-ai-sessions-wiki-design-cotext-brand-and-landing` (Design: Cotext 브랜드 · 디자인 시스템 · 랜딩) | relates |
+| `w-ai-sessions-wiki-design-public-pricing-and-policy-surface` (Design: Public Pricing and Policy Surface) | → | `w-ai-sessions-wiki-design-managed-credits-billing-plan` (Managed Credits Billing Plan) | relates |
+| `w-ai-sessions-wiki-design-public-pricing-and-policy-surface` (Design: Public Pricing and Policy Surface) | → | `w-ai-sessions-wiki-projects-cotext-mvp` (Project: Cotext MVP) | relates |
 | `w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log` (2026-06-19 세션 작업 로그) | → | `w-ai-sessions-wiki-decisions-cotext-architecture-decisions` (Decisions: Cotext 아키텍처 핵심 결정) | relates |
 | `w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log` (2026-06-19 세션 작업 로그) | → | `w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan` (Cotext Knowledge Studio — GBrain-level 진화 수행 계획) | relates |
 | `w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log` (2026-06-19 세션 작업 로그) | → | `w-ai-sessions-wiki-projects-cotext-mvp` (Project: Cotext MVP) | relates |
@@ -211,6 +214,8 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture` (MindSync 지식 동기화 아키텍처 (Wiki → Graph 컴파일 모델)) | relates |
 | `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-design-cotext-architecture-overview` (Cotext 전체 아키텍처 — Wiki → Graph → Sync 흐름) | relates |
 | `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-design-cotext-brand-and-landing` (Design: Cotext 브랜드 · 디자인 시스템 · 랜딩) | relates |
+| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-design-managed-credits-billing-plan` (Managed Credits Billing Plan) | relates |
+| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-design-public-pricing-and-policy-surface` (Design: Public Pricing and Policy Surface) | relates |
 | `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration` (MindSync Studio v1.0.35–36 — 통합 리팩터링) | relates |
 | `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-errors-01-npm-bin-quirk-and-publish` (Error: npm bin field quirk and publish authorization) | relates |
 | `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | relates |
@@ -239,6 +244,8 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-decisions-cotext-architecture-decisions` (Decisions: Cotext 아키텍처 핵심 결정) | relates |
 | `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture` (MindSync 지식 동기화 아키텍처 (Wiki → Graph 컴파일 모델)) | relates |
 | `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-design-cotext-brand-and-landing` (Design: Cotext 브랜드 · 디자인 시스템 · 랜딩) | relates |
+| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-design-managed-credits-billing-plan` (Managed Credits Billing Plan) | relates |
+| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-design-public-pricing-and-policy-surface` (Design: Public Pricing and Policy Surface) | relates |
 | `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log` (2026-06-19 세션 작업 로그) | relates |
 | `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration` (MindSync Studio v1.0.35–36 — 통합 리팩터링) | relates |
 | `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-errors-01-npm-bin-quirk-and-publish` (Error: npm bin field quirk and publish authorization) | relates |
@@ -273,6 +280,7 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko` | Cotext와 Neural Link, 그리고 세컨드 브레인 방향성 | `AI-Sessions/wiki/concepts/cotext-neural-link-second-brain-ko.md` | `` |
 | `w-ai-sessions-wiki-decisions-cotext-architecture-decisions` | Decisions: Cotext 아키텍처 핵심 결정 | `AI-Sessions/wiki/decisions/cotext-architecture-decisions.md` | `` |
 | `w-ai-sessions-wiki-design-cotext-brand-and-landing` | Design: Cotext 브랜드 · 디자인 시스템 · 랜딩 | `AI-Sessions/wiki/design/cotext-brand-and-landing.md` | `` |
+| `w-ai-sessions-wiki-design-public-pricing-and-policy-surface` | Design: Public Pricing and Policy Surface | `AI-Sessions/wiki/design/public-pricing-and-policy-surface.md` | `` |
 | `w-ai-sessions-wiki-errors-01-npm-bin-quirk-and-publish` | Error: npm bin field quirk and publish authorization | `AI-Sessions/wiki/errors/01_npm-bin-quirk-and-publish.md` | `` |
 | `w-prompts-first-setup` | First Setup Prompt | `prompts/first-setup.md` | `` |
 | `w-ai-sessions-raw-g-brain-reference` | g-brain-reference | `AI-Sessions/raw/g-brain-reference.md` | `` |
@@ -281,6 +289,7 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-stub-link` | link | `(unresolved)` | `` |
 | `w-stub-links` | links | `(unresolved)` | `` |
 | `w-prompts-lint` | Lint Prompt | `prompts/lint.md` | `` |
+| `w-ai-sessions-wiki-design-managed-credits-billing-plan` | Managed Credits Billing Plan | `AI-Sessions/wiki/design/managed-credits-billing-plan.md` | `` |
 | `w-stub-name` | name | `(unresolved)` | `` |
 | `w-start-here` | Obsidian AI 업무 위키 템플릿 | `START_HERE.md` | `` |
 | `w-ai-sessions-wiki-projects-cotext-knowledge-studio` | Project Note: Cotext Knowledge Studio | `AI-Sessions/wiki/projects/cotext-knowledge-studio.md` | `` |

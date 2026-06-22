@@ -455,7 +455,9 @@ export default function WorkspaceDetailPage() {
                 <span className="team-member-name">{mate.display_name || mate.github_username}</span>
               </div>
             ))}
-            {teammates.length === 0 && (
+            {/* Owner always sees the invite button; non-owners only see it if the
+                team is empty (helps them prompt the inviter when something looks off). */}
+            {(workspace.user_id === user?.id || teammates.length === 0) && (
               <button
                 className="btn btn-ghost btn-xs team-invite-btn"
                 onClick={() => {

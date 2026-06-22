@@ -5,7 +5,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: './',
+  // Absolute base — required so that deep links (/invite/CODE, /workspace/ID,
+  // /share/TOKEN) resolve asset URLs correctly. Relative `'./'` would expand to
+  // `/invite/assets/...` and 404, leaving a blank page.
+  // Capacitor 6+ default androidScheme=`https` serves WebView from
+  // `https://localhost/`, so absolute paths still work in the native app.
+  base: '/',
   server: {
     port: process.env.PORT ? Number(process.env.PORT) : 5173,
   },

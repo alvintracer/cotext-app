@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-22T12:49:38.408Z",
+  "updatedAt": "2026-06-22T12:54:14.039Z",
   "clusters": [
     {
       "id": "concept",
@@ -390,6 +390,38 @@
       "source": "wiki"
     },
     {
+      "id": "w-license",
+      "room": "LICENSE.md",
+      "blockTs": "",
+      "label": "License",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-readme",
+      "room": "README.md",
+      "blockTs": "",
+      "label": "React + TypeScript + Vite",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-start-here",
+      "room": "START_HERE.md",
+      "blockTs": "",
+      "label": "Obsidian AI 업무 위키 템플릿",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
+      "id": "w-template-manifest",
+      "room": "TEMPLATE_MANIFEST.md",
+      "blockTs": "",
+      "label": "Template Manifest",
+      "clusters": [],
+      "source": "wiki"
+    },
+    {
       "id": "w-cotext-development-plan",
       "room": "cotext-development-plan.md",
       "blockTs": "",
@@ -402,14 +434,6 @@
       "room": "index.md",
       "blockTs": "",
       "label": "AI Agent Wiki Index",
-      "clusters": [],
-      "source": "wiki"
-    },
-    {
-      "id": "w-license",
-      "room": "LICENSE.md",
-      "blockTs": "",
-      "label": "License",
       "clusters": [],
       "source": "wiki"
     },
@@ -458,30 +482,6 @@
       "room": "prompts/save.md",
       "blockTs": "",
       "label": "Save Prompt",
-      "clusters": [],
-      "source": "wiki"
-    },
-    {
-      "id": "w-readme",
-      "room": "README.md",
-      "blockTs": "",
-      "label": "React + TypeScript + Vite",
-      "clusters": [],
-      "source": "wiki"
-    },
-    {
-      "id": "w-start-here",
-      "room": "START_HERE.md",
-      "blockTs": "",
-      "label": "Obsidian AI 업무 위키 템플릿",
-      "clusters": [],
-      "source": "wiki"
-    },
-    {
-      "id": "w-template-manifest",
-      "room": "TEMPLATE_MANIFEST.md",
-      "blockTs": "",
-      "label": "Template Manifest",
       "clusters": [],
       "source": "wiki"
     },

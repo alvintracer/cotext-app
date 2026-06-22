@@ -1261,7 +1261,7 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
               ) : null}
               {/* Neural Link node badge + cluster chips */}
               {block.node && (
-                <span className="node-badge" title={ko ? '뉴럴 링크 노드' : 'Neural Link node'}>
+                <span className="node-badge" title={ko ? '뉴런 노드' : 'Neuron node'}>
                   <Graph size={10} weight="bold" /> {block.node.label || (ko ? '노드' : 'node')}
                 </span>
               )}
@@ -1982,7 +1982,7 @@ function NeuralSearchModal({ workspace, language, onClose, onPick }: {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content neural-search" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3><Graph size={18} /> {ko ? '뉴럴 검색 — 레포 전체' : 'Neural search — across repos'}</h3>
+          <h3><Graph size={18} /> {ko ? '뉴런 검색 — 레포 전체' : 'Neuron search — across repos'}</h3>
           <button className="icon-button" onClick={onClose}><X size={16} /></button>
         </div>
         <div className="modal-body">

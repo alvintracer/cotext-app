@@ -1229,7 +1229,7 @@ export default function NeuralGlobe({ graph, onClose, language, nodeTextById, ge
       <div className="neural-globe-header">
         <div className="neural-globe-title">
           <div className="globe-icon" />
-          <span>{ko ? '뉴럴 글로브' : 'Neural Globe'}</span>
+          <span>{ko ? '마인드싱크 글로브' : 'MindSync Globe'}</span>
         </div>
         <button className="neural-globe-close" onClick={onClose} title="Close">
           <X size={18} />

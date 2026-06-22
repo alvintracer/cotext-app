@@ -7,7 +7,7 @@ import { MANAGED_CREDIT_PACKS } from '../lib/billing/packs';
 const COPY = {
   en: {
     eyebrow: 'Managed model pricing',
-    title: 'Simple workspace credits for managed Cotext AI',
+    title: 'Simple workspace AI credits for Cotext · MindSync',
     description:
       'Use your own API key if you want, or run on Cotext-managed models with workspace credits. Pricing is designed to be understandable before a team spends money.',
     betaBadge: 'Current beta metering',
@@ -16,7 +16,7 @@ const COPY = {
       'Managed extraction and managed agent chat are currently metered at roughly 1 credit per 12,000 input characters, with a minimum of 1 credit per run. Actual usage can vary as prompts, files, and server-side metering evolve.',
     monthlyGrant: 'Current beta workspaces are initialized with a 100-credit monthly grant in-product.',
     packsTitle: 'Credit packs',
-    packsBody: 'Top-ups are purchased per workspace and settled through NOWPayments hosted checkout.',
+    packsBody: 'Credit top-ups are purchased per workspace.',
     popular: 'Most balanced',
     packCta: 'Launch workspace',
     useCasesTitle: 'What can credits be used for?',
@@ -41,7 +41,7 @@ const COPY = {
   },
   ko: {
     eyebrow: '관리형 모델 요금',
-    title: 'Cotext 관리형 AI를 위한 단순한 워크스페이스 크레딧',
+    title: 'Cotext · MindSync를 위한 간편한 워크스페이스 AI용 크레딧',
     description:
       '원하면 BYOK로 직접 붙이고, 필요하면 Cotext 관리형 모델을 워크스페이스 크레딧으로 사용할 수 있습니다. 팀이 비용을 쓰기 전에 구조가 먼저 이해되도록 설계했습니다.',
     betaBadge: '현재 베타 과금 기준',
@@ -50,11 +50,11 @@ const COPY = {
       '관리형 추출과 관리형 에이전트 채팅은 현재 입력 문자 약 12,000자당 1크레딧, 최소 실행당 1크레딧 기준으로 계산됩니다. 실제 사용량은 프롬프트 구성, 파일 양, 서버 과금 로직 변경에 따라 달라질 수 있습니다.',
     monthlyGrant: '현재 베타 워크스페이스는 앱 내부에서 월 100크레딧 기본 지급 상태로 초기화됩니다.',
     packsTitle: '크레딧 팩',
-    packsBody: '충전은 워크스페이스 단위로 이루어지며 NOWPayments 호스팅 결제로 정산됩니다.',
+    packsBody: '크레딧 충전은 워크스페이스 단위로 이루어집니다.',
     popular: '가장 무난한 선택',
     packCta: '워크스페이스 열기',
     useCasesTitle: '크레딧으로 할 수 있는 일',
-    useCasesBody: '같은 워크스페이스 잔액을 여러 관리형 AI 기능이 함께 사용합니다.',
+    useCasesBody: '같은 워크스페이스 크레딧을 Cotext, MindSync 내 여러 AI 기능이 함께 사용합니다.',
     useCase1Title: 'MindSync 지식망 추출',
     useCase1Body: '워드, PPT, PDF, HWP/HWPX, TXT 등 지원 문서를 올리고 텍스트를 추출한 뒤 첫 지식망을 자동 생성합니다.',
     useCase2Title: '근거 기반 에이전트 채팅',

@@ -586,7 +586,7 @@ export default function NeuralGraphView({
     >
       <div className="modal-content neural-graph" onClick={(e) => e.stopPropagation()}>
         <div className="neural-graph-toolbar">
-          <div className="neural-graph-title">{ko ? '뉴럴 링크 그래프' : 'Neural Link graph'}</div>
+          <div className="neural-graph-title">{ko ? '마인드싱크 그래프' : 'MindSync graph'}</div>
           <div className="neural-graph-search">
             <MagnifyingGlass size={13} />
             <input

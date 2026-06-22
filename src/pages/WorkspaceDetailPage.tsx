@@ -168,10 +168,10 @@ export default function WorkspaceDetailPage() {
     let cancelled = false;
     (async () => {
       try {
-        await githubApi.getRoomContent(
+        const res = await githubApi.getRoomContent(
           workspace.github_owner, workspace.github_repo, workspace.default_branch || 'main', 'CLAUDE.md',
         );
-        if (!cancelled) setWikiPresent(true);
+        if (!cancelled) setWikiPresent(!!res.sha);
       } catch {
         if (!cancelled) setWikiPresent(false);
       }

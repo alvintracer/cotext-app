@@ -93,21 +93,31 @@ export default function InvitePage() {
     loadInvite();
   }, [code]);
 
-  // Check if user already has this repo connected
+  // "Already connected" means: the user is ALREADY A MEMBER of the inviter's
+  // workspace for this repo — not merely that the user happens to have their
+  // own clone registered. Previously we checked `workspaces.user_id = me`,
+  // which short-circuited the invite-accept flow for anyone who'd ever opened
+  // the repo themselves — so they ended up sitting in their own (un-shared)
+  // workspace and never appeared on the inviter's team list.
   useEffect(() => {
     if (!user || !invite) return;
 
     const checkExisting = async () => {
+      // workspace_members RLS: each user only sees their own memberships, so
+      // this naturally restricts to checking the caller. Join workspaces to
+      // make sure the membership is in a workspace OWNED by the inviter
+      // (i.e. the same workspace `accept_workspace_invite` would put us in).
       const { data } = await supabase
-        .from('workspaces')
-        .select('id')
+        .from('workspace_members')
+        .select('workspace_id, workspaces!inner(id, github_owner, github_repo, user_id)')
         .eq('user_id', user.id)
-        .eq('github_owner', invite.github_owner)
-        .eq('github_repo', invite.github_repo)
+        .eq('workspaces.github_owner', invite.github_owner)
+        .eq('workspaces.github_repo', invite.github_repo)
+        .eq('workspaces.user_id', invite.created_by)
         .limit(1);
 
       if (data && data.length > 0) {
-        setExistingWorkspaceId(data[0].id);
+        setExistingWorkspaceId(data[0].workspace_id);
         setState('already_connected');
       }
     };

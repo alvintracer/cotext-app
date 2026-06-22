@@ -4049,6 +4049,52 @@ button:focus-visible {
   line-height: 1.7;
 }
 
+/* ── Merge mode ─────────────────────────────────────────── */
+.timeline-merge-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.timeline-merge-info {
+  flex: 1;
+  font-size: var(--text-sm);
+  color: var(--text);
+  font-weight: var(--weight-medium);
+}
+.timeline-merge-checkbox {
+  position: absolute;
+  top: 13px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  z-index: 1;
+}
+.timeline-merge-checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.timeline-block.merge-mode {
+  padding-left: 42px;
+}
+.timeline-block.merge-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+.timeline-block { position: relative; }
+
 .timeline-edit {
   display: flex;
   flex-direction: column;
@@ -4085,6 +4131,91 @@ button:focus-visible {
 .timeline-content h3 {
   font-weight: 600;
   margin: 8px 0 4px;
+}
+
+/* react-markdown rendered block — tight spacing tuned for chat density. */
+.timeline-md p { margin: 0 0 6px; }
+.timeline-md p:last-child { margin-bottom: 0; }
+.timeline-md h1,
+.timeline-md h2,
+.timeline-md h3,
+.timeline-md h4 {
+  font-weight: 600;
+  margin: 10px 0 4px;
+  line-height: 1.35;
+}
+.timeline-md h1 { font-size: 1.2em; }
+.timeline-md h2 { font-size: 1.1em; }
+.timeline-md h3 { font-size: 1.02em; }
+.timeline-md ul,
+.timeline-md ol {
+  margin: 4px 0 8px;
+  padding-left: 1.4em;
+}
+.timeline-md li { margin: 2px 0; }
+.timeline-md li > ul,
+.timeline-md li > ol { margin: 2px 0; }
+.timeline-md li > p { margin: 0; }
+.timeline-md blockquote {
+  margin: 6px 0;
+  padding: 4px 12px;
+  border-left: 3px solid var(--border);
+  color: var(--text-muted);
+}
+.timeline-md pre {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  overflow-x: auto;
+  margin: 8px 0;
+  font-size: 0.85em;
+}
+.timeline-md pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+.timeline-md code {
+  background: var(--surface-2);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+}
+.timeline-md table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 0.9em;
+}
+.timeline-md th,
+.timeline-md td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+}
+.timeline-md th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.timeline-md hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 10px 0;
+}
+.timeline-md a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  text-underline-offset: 2px;
+}
+.timeline-md a:hover {
+  text-decoration-color: var(--accent);
+}
+.timeline-md img {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+  margin: 6px 0;
+  border: 1px solid var(--border);
 }
 
 .timeline-content code {
@@ -5439,6 +5570,16 @@ button:focus-visible {
   border-radius: 50%;
   border: 1px solid var(--border);
   flex-shrink: 0;
+}
+
+.team-member-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface-2));
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .team-member-name {

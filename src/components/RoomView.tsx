@@ -11,7 +11,9 @@ import type { Workspace } from '../types/workspace';
 import MorphingComposer from './MorphingComposer';
 import CommitBar from './CommitBar';
 import CotextEditor from './CotextEditor';
-import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X, PencilSimple, CodepenLogo, ArrowDown, Graph, Tag, Plus, MagnifyingGlass, LinkSimple, ArrowSquareOut, Brain } from '@phosphor-icons/react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X, PencilSimple, CodepenLogo, ArrowDown, Graph, Tag, Plus, MagnifyingGlass, LinkSimple, ArrowSquareOut, Brain, Stack } from '@phosphor-icons/react';
 import { generateCotextGuide, generateCotextIndex, generateAgentsPointerBlock, upsertPointerBlock } from '../lib/contextGuide';
 import {
   nodifyBlock, removeNodeFromBlock, parseNodeComment,
@@ -475,6 +477,85 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
       if (!skipping) result.push(line);
     }
     handleContentChange(result.join('\n').replace(/\n{3,}/g, '\n\n'));
+  }, [content, handleContentChange]);
+
+  // Merge multiple blocks into the earliest selected one.
+  //   - anchor = earliest timestamp among the selected set; keeps its `## TS`
+  //     header and `<!-- source: ... -->` provenance tag.
+  //   - other selected blocks' BODIES are appended to the anchor (one blank
+  //     line separator); their headers + source tags are dropped.
+  //   - other selected blocks are then removed entirely.
+  // Single-block selection is a no-op (nothing to merge into).
+  const handleMergeBlocks = useCallback((timestamps: string[]) => {
+    const tsSet = new Set(timestamps);
+    if (tsSet.size < 2) return;
+
+    type B = { ts: string; header: string; metaLines: string[]; bodyLines: string[] };
+    const blocks: B[] = [];
+    const preamble: string[] = []; // anything before the first `## TS`
+    let current: B | null = null;
+    let metaPhaseClosed = false;
+
+    for (const line of content.split('\n')) {
+      const tsMatch = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+      if (tsMatch) {
+        if (current) blocks.push(current);
+        current = { ts: tsMatch[1], header: line, metaLines: [], bodyLines: [] };
+        metaPhaseClosed = false;
+        continue;
+      }
+      if (!current) {
+        preamble.push(line);
+        continue;
+      }
+      const isMeta = !!parseBlockMeta(line);
+      if (isMeta && !metaPhaseClosed) {
+        current.metaLines.push(line);
+      } else {
+        // First non-meta line closes the meta phase; everything after is body.
+        metaPhaseClosed = true;
+        current.bodyLines.push(line);
+      }
+    }
+    if (current) blocks.push(current);
+
+    const selected = blocks.filter((b) => tsSet.has(b.ts));
+    if (selected.length < 2) return;
+    // Earliest timestamp wins (string compare works for `YYYY-MM-DD HH:mm`).
+    selected.sort((a, b) => a.ts.localeCompare(b.ts));
+    const anchor = selected[0];
+    const others = selected.slice(1);
+
+    // Append each other block's body to the anchor, separated by a blank line.
+    const trimTrailing = (lines: string[]) => {
+      const out = [...lines];
+      while (out.length && out[out.length - 1].trim() === '') out.pop();
+      return out;
+    };
+    const trimLeading = (lines: string[]) => {
+      const out = [...lines];
+      while (out.length && out[0].trim() === '') out.shift();
+      return out;
+    };
+    const anchorBody = trimTrailing(anchor.bodyLines);
+    for (const o of others) {
+      const otherBody = trimLeading(trimTrailing(o.bodyLines));
+      if (otherBody.length === 0) continue;
+      if (anchorBody.length > 0) anchorBody.push('');
+      anchorBody.push(...otherBody);
+    }
+    anchor.bodyLines = anchorBody;
+
+    // Rebuild content, dropping the non-anchor selected blocks.
+    const survivingBlocks = blocks.filter((b) => !tsSet.has(b.ts) || b.ts === anchor.ts);
+    const out: string[] = [...preamble];
+    for (const b of survivingBlocks) {
+      if (out.length > 0 && out[out.length - 1].trim() !== '') out.push('');
+      out.push(b.header);
+      out.push(...b.metaLines);
+      if (b.bodyLines.length > 0) out.push(...b.bodyLines);
+    }
+    handleContentChange(out.join('\n').replace(/\n{3,}/g, '\n\n'));
   }, [content, handleContentChange]);
 
   const handleChangeBlockSource = useCallback((blockTimestamp: string, newSource: string) => {
@@ -1075,6 +1156,7 @@ ${filteredContent}
               onFixWithAgent={onFixWithAgent}
               onDeleteBlock={handleDeleteBlock}
               onEditBlock={handleUpdateBlock}
+              onMergeBlocks={handleMergeBlocks}
               onChangeSource={handleChangeBlockSource}
             />
             {showScrollBtn && (
@@ -1141,7 +1223,7 @@ ${filteredContent}
 }
 
 // Simple timeline renderer
-function TimelineView({ content, remoteContent, workspace, room, graph, onDeleteBlock, onEditBlock, onChangeSource, onFixWithAgent, onNodify, onRemoveNode, onLinkNode, onJump, onNavigateRoom, onOpenCluster, onToMindSync }: {
+function TimelineView({ content, remoteContent, workspace, room, graph, onDeleteBlock, onEditBlock, onMergeBlocks, onChangeSource, onFixWithAgent, onNodify, onRemoveNode, onLinkNode, onJump, onNavigateRoom, onOpenCluster, onToMindSync }: {
   content: string;
   remoteContent: string;
   workspace: Workspace;
@@ -1149,6 +1231,7 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
   graph?: NeuralGraph;
   onDeleteBlock?: (timestamp: string) => void;
   onEditBlock?: (timestamp: string, nextBody: string) => void;
+  onMergeBlocks?: (timestamps: string[]) => void;
   onChangeSource?: (timestamp: string, newSource: string) => void;
   onFixWithAgent?: (text: string, timestamp: string) => void;
   onNodify?: (timestamp: string, meta: InlineNodeMeta | null) => void;
@@ -1165,6 +1248,26 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const [editingTs, setEditingTs] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
+  // Merge mode: when active, every timestamped block shows a checkbox.
+  // Selected blocks get merged into the earliest one (anchor) on confirm.
+  const [mergeMode, setMergeMode] = useState(false);
+  const [mergeSelected, setMergeSelected] = useState<Set<string>>(new Set());
+  const cancelMerge = useCallback(() => {
+    setMergeMode(false);
+    setMergeSelected(new Set());
+  }, []);
+  const toggleMergeBlock = useCallback((ts: string) => {
+    setMergeSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(ts)) next.delete(ts); else next.add(ts);
+      return next;
+    });
+  }, []);
+  const confirmMerge = useCallback(() => {
+    if (mergeSelected.size < 2 || !onMergeBlocks) return;
+    onMergeBlocks([...mergeSelected]);
+    cancelMerge();
+  }, [mergeSelected, onMergeBlocks, cancelMerge]);
   type Block = { lines: string[]; rawLines: string[]; rawText: string; isPushed: boolean; timestamp?: string; source?: string; author?: string; node?: InlineNodeMeta };
 
   function readBlocks(src: string): Block[] {
@@ -1231,12 +1334,41 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
 
   return (
     <div className="timeline">
+      {mergeMode && (
+        <div className="timeline-merge-bar">
+          <Stack size={14} />
+          <span className="timeline-merge-info">
+            {ko
+              ? `${mergeSelected.size}개 선택 — 가장 이른 블록 아래로 합쳐집니다`
+              : `${mergeSelected.size} selected — will merge into the earliest block`}
+          </span>
+          <button className="btn btn-ghost btn-sm" onClick={cancelMerge}>
+            {ko ? '취소' : 'Cancel'}
+          </button>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={confirmMerge}
+            disabled={mergeSelected.size < 2}
+          >
+            {ko ? '머지' : 'Merge'}
+          </button>
+        </div>
+      )}
       {blocks.map((block, i) => (
         <div
           key={i}
-          className={`timeline-block ${block.isPushed ? 'pushed' : 'draft'}`}
+          className={`timeline-block ${block.isPushed ? 'pushed' : 'draft'} ${mergeMode && block.timestamp ? 'merge-mode' : ''} ${mergeMode && block.timestamp && mergeSelected.has(block.timestamp) ? 'merge-selected' : ''}`}
           data-block-ts={block.timestamp}
         >
+          {mergeMode && block.timestamp && (
+            <label className="timeline-merge-checkbox" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={mergeSelected.has(block.timestamp)}
+                onChange={() => toggleMergeBlock(block.timestamp!)}
+              />
+            </label>
+          )}
           {block.timestamp && (
             <div className="timeline-timestamp">
               <Clock size={12} />
@@ -1317,6 +1449,19 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
                         >
                           <PencilSimple size={13} />
                           <span>{ko ? '수정' : 'Edit'}</span>
+                        </button>
+                      )}
+                      {onMergeBlocks && (
+                        <button
+                          className="draft-menu-item"
+                          onClick={() => {
+                            setOpenMenu(null);
+                            setMergeMode(true);
+                            setMergeSelected(new Set([block.timestamp!]));
+                          }}
+                        >
+                          <Stack size={13} />
+                          <span>{ko ? '머지' : 'Merge'}</span>
                         </button>
                       )}
                       {block.node && onLinkNode && (
@@ -1494,47 +1639,44 @@ function RelatedStrip({ graph, nodeId, room, ko, clusterName, onJump, onNavigate
   );
 }
 
-// Render a block's content with inline images loaded from GitHub
+// Render a block's content as proper markdown via react-markdown + remark-gfm.
+// Lists, numbered lists, headings, tables, strikethrough, autolinks, fenced code
+// all render correctly — the previous hand-rolled simpleMarkdownToHtml couldn't
+// handle numbered/nested lists, so structured notes looked like one big wall of text.
+//
+// Images with relative `./assets/...` paths (private-repo assets) are routed through
+// GitHubImage via a custom `img` component override; other images render normally.
 function BlockContent({ text, workspace, room }: { text: string; workspace: Workspace; room: Room }) {
-  // Split text into segments: regular text and image references
-  const segments: Array<{ type: 'text' | 'image'; content: string; alt?: string; assetPath?: string }> = [];
-  const imageRegex = /!\[([^\]]*)\]\(\.\/(assets\/[^)]+)\)/g;
-  let lastIndex = 0;
-  let match;
-
-  while ((match = imageRegex.exec(text)) !== null) {
-    // Text before this image
-    if (match.index > lastIndex) {
-      segments.push({ type: 'text', content: text.slice(lastIndex, match.index) });
-    }
-    segments.push({ type: 'image', content: match[0], alt: match[1], assetPath: match[2] });
-    lastIndex = match.index + match[0].length;
-  }
-  // Remaining text
-  if (lastIndex < text.length) {
-    segments.push({ type: 'text', content: text.slice(lastIndex) });
-  }
-
+  const basePath = room.cotext_file_path.replace(/[^/]+$/, '');
   return (
-    <>
-      {segments.map((seg, i) => {
-        if (seg.type === 'image' && seg.assetPath) {
-          const basePath = room.cotext_file_path.replace(/[^/]+$/, '');
-          const fullAssetPath = `${basePath}${seg.assetPath}`;
-          return (
-            <GitHubImage
-              key={i}
-              owner={workspace.github_owner}
-              repo={workspace.github_repo}
-              branch={workspace.default_branch}
-              path={fullAssetPath}
-              alt={seg.alt || seg.assetPath.split('/').pop() || 'image'}
-            />
-          );
-        }
-        return <span key={i} dangerouslySetInnerHTML={{ __html: simpleMarkdownToHtml(seg.content) }} />;
-      })}
-    </>
+    <div className="timeline-md">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          img: ({ src, alt }) => {
+            if (typeof src === 'string' && /^\.\/assets\//.test(src)) {
+              const assetPath = src.replace(/^\.\//, '');
+              return (
+                <GitHubImage
+                  owner={workspace.github_owner}
+                  repo={workspace.github_repo}
+                  branch={workspace.default_branch}
+                  path={`${basePath}${assetPath}`}
+                  alt={alt || assetPath.split('/').pop() || 'image'}
+                />
+              );
+            }
+            return <img src={src} alt={alt} loading="lazy" />;
+          },
+          // Keep links opening in a new tab — chat is the user's working surface.
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+          ),
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
   );
 }
 
@@ -1594,29 +1736,6 @@ function GitHubImage({ owner, repo, branch, path, alt }: {
       <span className="image-caption">{alt}</span>
     </div>
   );
-}
-
-// Helper: simple markdown to HTML (text only, no images - images handled by BlockContent)
-function simpleMarkdownToHtml(md: string): string {
-  let html = md
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // Absolute URL images (public)
-    .replace(/!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g, '<div class="timeline-image"><img alt="$1" src="$2" loading="lazy" /></div>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/((<li>.*<\/li>))/gs, '<ul>$1</ul>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br/>');
-
-  return `<p>${html}</p>`;
 }
 
 // Helper: file to base64

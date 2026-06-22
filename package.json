@@ -41,7 +41,9 @@
     "pdfjs-dist": "^6.0.227",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.17.0",
+    "remark-gfm": "^4.0.1",
     "tesseract.js": "^7.0.0",
     "three": "^0.184.0",
     "turndown": "^7.2.4"

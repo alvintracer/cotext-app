@@ -25,8 +25,8 @@ interface TreeItem {
 
 interface Teammate {
   user_id: string;
-  display_name: string;
-  github_username: string;
+  display_name: string | null;
+  github_username: string | null;
 }
 
 function generateInviteCode(): string {
@@ -36,6 +36,11 @@ function generateInviteCode(): string {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return code;
+}
+
+function getAvatarInitial(name?: string | null): string {
+  const trimmed = (name || '').trim();
+  return trimmed ? trimmed.charAt(0).toUpperCase() : '?';
 }
 
 export default function WorkspaceDetailPage() {
@@ -312,6 +317,24 @@ export default function WorkspaceDetailPage() {
     return r.path.toLowerCase().includes(q) || (r.name && r.name.toLowerCase().includes(q));
   });
 
+  const renderTeammateAvatar = useCallback((mate: Teammate) => {
+    const label = mate.display_name || mate.github_username || 'Unknown';
+    if (mate.github_username) {
+      return (
+        <img
+          src={`https://github.com/${mate.github_username}.png?size=24`}
+          alt=""
+          className="team-member-avatar"
+        />
+      );
+    }
+    return (
+      <div className="team-member-avatar team-member-avatar-fallback" aria-hidden="true">
+        {getAvatarInitial(label)}
+      </div>
+    );
+  }, []);
+
   if (!workspace) {
     return (
       <div className="loading-state">
@@ -447,12 +470,8 @@ export default function WorkspaceDetailPage() {
             {/* Teammates */}
             {teammates.map((mate) => (
               <div key={mate.user_id} className="team-member">
-                <img
-                  src={`https://github.com/${mate.github_username}.png?size=24`}
-                  alt=""
-                  className="team-member-avatar"
-                />
-                <span className="team-member-name">{mate.display_name || mate.github_username}</span>
+                {renderTeammateAvatar(mate)}
+                <span className="team-member-name">{mate.display_name || mate.github_username || 'Unknown member'}</span>
               </div>
             ))}
             {/* Owner always sees the invite button; non-owners only see it if the

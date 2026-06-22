@@ -56,6 +56,17 @@ async function seedEmptyRepoWithContentsApi(
   return createdPaths
 }
 
+async function getRepoDefaultBranch(token: string, owner: string, repo: string) {
+  const res = await fetch(`${GH}/repos/${owner}/${repo}`, {
+    headers: ghHeaders(token),
+  })
+  if (!res.ok) return null
+  const data = await res.json()
+  return typeof data.default_branch === 'string' && data.default_branch
+    ? data.default_branch
+    : null
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -78,10 +89,19 @@ Deno.serve(async (req) => {
     const { token } = await getWorkspaceGitHubToken(authHeader, owner, repo)
     await ensureRepoExists(token, owner, repo)
 
+    let targetBranch = branch
+    const repoDefaultBranch = await getRepoDefaultBranch(token, owner, repo)
+
     // 1. Get current HEAD of branch
-    const refRes = await fetch(`${GH}/repos/${owner}/${repo}/git/ref/heads/${branch}`, {
+    let refRes = await fetch(`${GH}/repos/${owner}/${repo}/git/ref/heads/${targetBranch}`, {
       headers: ghHeaders(token),
     })
+    if (!refRes.ok && refRes.status === 404 && repoDefaultBranch && repoDefaultBranch !== targetBranch) {
+      targetBranch = repoDefaultBranch
+      refRes = await fetch(`${GH}/repos/${owner}/${repo}/git/ref/heads/${targetBranch}`, {
+        headers: ghHeaders(token),
+      })
+    }
     let parentSha: string | null = null
     let baseTreeSha: string | null = null
     if (refRes.ok) {
@@ -97,7 +117,7 @@ Deno.serve(async (req) => {
       }
     } else if (refRes.status !== 404 && refRes.status !== 409) {
       const err = await refRes.text()
-      return new Response(JSON.stringify({ error: `Cannot read branch ${branch}: ${refRes.status} ${err}` }), {
+      return new Response(JSON.stringify({ error: `Cannot read branch ${targetBranch}: ${refRes.status} ${err}` }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
@@ -143,14 +163,14 @@ Deno.serve(async (req) => {
     // branch/HEAD exists yet. Fall back to the Contents API to create the first
     // commit(s), then later pushes can use the git database path normally.
     if (!parentSha) {
-      const createdPaths = await seedEmptyRepoWithContentsApi(token, owner, repo, branch, filesToCreate)
+      const createdPaths = await seedEmptyRepoWithContentsApi(token, owner, repo, targetBranch, filesToCreate)
       return new Response(JSON.stringify({
         ok: true,
         created: createdPaths.length,
         skipped: skipped.length,
         created_paths: createdPaths,
         skipped_paths: skipped,
-        message: `Wiki initialized in an empty repo: ${createdPaths.length} files created, ${skipped.length} skipped.`,
+        message: `Wiki initialized in an empty repo on ${targetBranch}: ${createdPaths.length} files created, ${skipped.length} skipped.`,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
@@ -190,6 +210,17 @@ Deno.serve(async (req) => {
     })
     if (!treeRes.ok) {
       const err = await treeRes.text()
+      if (treeRes.status === 404) {
+        const createdPaths = await seedEmptyRepoWithContentsApi(token, owner, repo, targetBranch, filesToCreate)
+        return new Response(JSON.stringify({
+          ok: true,
+          created: createdPaths.length,
+          skipped: skipped.length,
+          created_paths: createdPaths,
+          skipped_paths: skipped,
+          message: `Wiki initialized via safe fallback on ${targetBranch}: ${createdPaths.length} files created, ${skipped.length} skipped.`,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
       return new Response(JSON.stringify({ error: `Tree creation failed: ${treeRes.status} ${err}` }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
@@ -214,7 +245,7 @@ Deno.serve(async (req) => {
     const commit = await commitRes.json()
 
     // 7. Update/create ref.
-    const updateUrl = `${GH}/repos/${owner}/${repo}/git/refs/heads/${branch}`
+    const updateUrl = `${GH}/repos/${owner}/${repo}/git/refs/heads/${targetBranch}`
     const updRes = await fetch(updateUrl, {
       method: 'PATCH', headers: ghHeaders(token),
       body: JSON.stringify({ sha: commit.sha, force: false }),

@@ -38,6 +38,17 @@ async function storeGitHubToken(userId: string, providerToken: string) {
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' });
 
+    // Keep the public profile hydrated too — teammate list uses `profiles`,
+    // while chat authorship can come from block metadata / auth metadata.
+    await supabase
+      .from('profiles')
+      .upsert({
+        id: userId,
+        display_name: ghUser?.name || ghUser?.login || null,
+        github_username: ghUser?.login || null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' });
+
     console.log('[Auth] GitHub token stored for user', userId);
   } catch (err) {
     console.error('[Auth] Failed to store GitHub token:', err);

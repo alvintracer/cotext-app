@@ -5529,6 +5529,86 @@ button:focus-visible {
   margin-top: auto;
 }
 
+.wiki-init-banner {
+  display: grid;
+  gap: 10px;
+  margin: 8px 16px 12px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--surface)) 0%, var(--surface) 100%);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.wiki-init-banner-body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.wiki-init-banner-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.wiki-init-banner-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+}
+
+.wiki-init-banner-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wiki-init-banner-copy strong {
+  font-size: 0.86rem;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.wiki-init-banner-kicker {
+  font-size: 0.7rem;
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.wiki-init-banner p {
+  margin: 0;
+  font-size: 0.77rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.wiki-init-banner-actions {
+  display: flex;
+}
+
+.wiki-init-banner-actions .btn {
+  justify-content: center;
+}
+
+.wiki-init-banner-msg {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  padding-top: 2px;
+  border-top: 1px dashed color-mix(in srgb, var(--accent) 18%, var(--border));
+}
+
 .sidebar-team-header {
   display: flex;
   align-items: center;

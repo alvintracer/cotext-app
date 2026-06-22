@@ -463,22 +463,34 @@ export default function WorkspaceDetailPage() {
         {wikiPresent === false && (
           <div className="wiki-init-banner">
             <div className="wiki-init-banner-body">
-              <strong>{language === 'ko' ? 'MindSync wiki 초기화' : 'Initialize MindSync wiki'}</strong>
+              <div className="wiki-init-banner-head">
+                <span className="wiki-init-banner-icon">
+                  <FolderPlus size={14} weight="bold" />
+                </span>
+                <div className="wiki-init-banner-copy">
+                  <strong>{language === 'ko' ? 'MindSync wiki 초기화' : 'Initialize MindSync wiki'}</strong>
+                  <span className="wiki-init-banner-kicker">
+                    {language === 'ko' ? '로컬 클론 없이 바로 셋업' : 'Set it up without a local clone'}
+                  </span>
+                </div>
+              </div>
               <p>
                 {language === 'ko'
                   ? '이 레포에 wiki 구조(CLAUDE.md, AI-Sessions/*, 자동 컴파일 Action)가 없습니다. 한 번 누르면 모두 셋업됩니다.'
                   : 'This repo has no wiki structure (CLAUDE.md, AI-Sessions/*, auto-compile Action) yet. One click sets it all up.'}
               </p>
             </div>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={handleInitWiki}
-              disabled={wikiInitBusy}
-            >
-              {wikiInitBusy
-                ? (language === 'ko' ? '셋업 중...' : 'Setting up...')
-                : (language === 'ko' ? 'wiki 셋업' : 'Set up wiki')}
-            </button>
+            <div className="wiki-init-banner-actions">
+              <button
+                className="btn btn-primary btn-sm btn-full"
+                onClick={handleInitWiki}
+                disabled={wikiInitBusy}
+              >
+                {wikiInitBusy
+                  ? (language === 'ko' ? '셋업 중...' : 'Setting up...')
+                  : (language === 'ko' ? 'wiki 셋업' : 'Set up wiki')}
+              </button>
+            </div>
             {wikiInitMsg && <div className="wiki-init-banner-msg">{wikiInitMsg}</div>}
           </div>
         )}

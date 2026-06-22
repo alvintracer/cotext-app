@@ -105,28 +105,41 @@ function PathRestorer() {
   return null;
 }
 
+// Consume pending post-login / invite-redirect — used by both `/login` and the
+// web `/` route after Supabase OAuth lands us on Site URL (no redirectTo).
+function consumePendingRedirect(): string | null {
+  try {
+    const r = localStorage.getItem('cotext-post-login-redirect') || localStorage.getItem('cotext-invite-redirect');
+    if (r && r.startsWith('/')) {
+      localStorage.removeItem('cotext-post-login-redirect');
+      localStorage.removeItem('cotext-invite-redirect');
+      return r;
+    }
+  } catch { /* localStorage unavailable */ }
+  return null;
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth();
   const isNative = Capacitor.isNativePlatform();
 
+  // Web `/` route: OAuth callback lands here (Site URL fallback) with the
+  // session hash. Once user is set and we have a pending invite-redirect,
+  // jump there instead of rendering the landing page.
+  const webRootElement = (() => {
+    if (user && !loading) {
+      const r = consumePendingRedirect();
+      if (r) return <Navigate to={r} replace />;
+    }
+    return <LandingPage />;
+  })();
+
   return (
     <Routes>
-      <Route path="/" element={isNative ? (user && !loading ? <Navigate to="/workspaces" replace /> : <LoginPage />) : <LandingPage />} />
+      <Route path="/" element={isNative ? (user && !loading ? <Navigate to="/workspaces" replace /> : <LoginPage />) : webRootElement} />
       <Route
         path="/login"
-        element={user && !loading ? <Navigate to={(() => {
-          try {
-            const r = localStorage.getItem('cotext-post-login-redirect') || localStorage.getItem('cotext-invite-redirect');
-            if (r && r.startsWith('/')) {
-              localStorage.removeItem('cotext-post-login-redirect');
-              localStorage.removeItem('cotext-invite-redirect');
-              return r;
-            }
-          } catch {
-            // Ignore invalid local redirect state and fall back to the default route.
-          }
-          return '/workspaces';
-        })()} replace /> : <LoginPage />}
+        element={user && !loading ? <Navigate to={consumePendingRedirect() ?? '/workspaces'} replace /> : <LoginPage />}
       />
       <Route path="/mindsync" element={<MindSyncLandingPage />} />
       <Route path="/pricing" element={<PricingPage />} />

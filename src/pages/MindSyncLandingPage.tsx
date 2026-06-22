@@ -14,6 +14,11 @@ import {
   Sun,
   Moon,
   Monitor,
+  Terminal,
+  GitBranch,
+  Sparkle,
+  Check,
+  Copy,
 } from '@phosphor-icons/react';
 
 import { useTheme } from '../contexts/ThemeContext';
@@ -67,6 +72,38 @@ const CONTENT = {
     ctaSectionBtn: 'MindSync 시작하기',
     ctaSectionLink: 'Cotext 워크스페이스도 둘러보기',
 
+    // ── Build paths section (knowledge graph creation guide) ──
+    buildTitle: '내 지식그래프 만드는 3가지 길',
+    buildDesc: '로컬 레포 · Cotext 워크스페이스 · 파일 업로드 — 상황에 맞게 고르세요',
+
+    pathALabel: '로컬 + npx',
+    pathATitle: '내 컴퓨터의 레포에 셋업',
+    pathADesc: '깃 레포가 로컬에 있다면 한 줄로 wiki 구조 + push 자동컴파일까지 완성. Claude Code · Codex 같은 IDE 에이전트가 CLAUDE.md를 자동으로 읽음.',
+    pathACmd: 'npx cotext init',
+    pathANote: '※ 이후 push 시마다 .github/workflows가 .cotext/neural.json을 자동 재생성',
+
+    pathBLabel: 'Cotext 1-click',
+    pathBTitle: '브라우저에서 클릭만으로 셋업',
+    pathBDesc: '깃 레포가 로컬에 없어도 됩니다. 워크스페이스 열고 사이드바 "wiki 셋업" 버튼 → GitHub에 한 커밋으로 시드 파일 + workflow yml 전부 푸시.',
+    pathBCmd: '워크스페이스 → wiki 셋업',
+    pathBNote: '※ 비파괴적 — 기존 파일은 건너뜀',
+
+    pathCLabel: 'Studio 업로드',
+    pathCTitle: '파일을 올려서 AI가 직접 추출',
+    pathCDesc: 'wiki 구조를 거치지 않고 PDF/DOCX/PPT 등을 바로 올리면 LLM이 노드·엣지·클러스터를 추출해서 워크스페이스 그래프에 머지.',
+    pathCCmd: 'MindSync Studio → 파일 드롭',
+    pathCNote: '※ wiki 컴파일 결과와 같은 .cotext/neural.json에 합쳐짐',
+
+    structureTitle: '셋업하면 만들어지는 것',
+    structureDesc: '레포 구조 + 자동 컴파일 워크플로 + 그래프 (push 후)',
+
+    cmdsTitle: 'npm 명령어 한눈에',
+    cmdInit: '구조 시드 파일 + 워크플로 + 첫 컴파일',
+    cmdCompile: '마크다운 → 지식그래프 재생성',
+    cmdCheck: '그래프가 최신인지 검사 (CI/lint)',
+    cmdEnrich: 'LLM이 의미 엣지 추론해서 덧붙임 (BYOK)',
+    cmdCopy: '복사',
+
     footerText: 'MindSync is part of ',
     footerLink: 'Cotext',
   },
@@ -114,6 +151,38 @@ const CONTENT = {
     ctaSectionBtn: 'Start MindSync',
     ctaSectionLink: 'Also explore Cotext workspaces',
 
+    // ── Build paths section ──
+    buildTitle: 'Three ways to build your knowledge graph',
+    buildDesc: 'Local repo · Cotext workspace · file upload — pick the one that fits',
+
+    pathALabel: 'Local + npx',
+    pathATitle: 'Scaffold a repo on your machine',
+    pathADesc: "If you have the repo cloned locally, one command sets up the wiki structure plus the push-time auto-compile. IDE agents like Claude Code & Codex auto-read CLAUDE.md.",
+    pathACmd: 'npx cotext init',
+    pathANote: '※ Every push triggers the workflow to regenerate .cotext/neural.json',
+
+    pathBLabel: 'Cotext 1-click',
+    pathBTitle: 'Set it up from the browser',
+    pathBDesc: 'No local clone needed. Open the workspace, click "Set up wiki" in the sidebar — all seed files + workflow yml land in one GitHub commit.',
+    pathBCmd: 'Workspace → Set up wiki',
+    pathBNote: '※ Non-destructive — skips files that already exist',
+
+    pathCLabel: 'Studio upload',
+    pathCTitle: 'AI extracts directly from files',
+    pathCDesc: 'Skip the wiki layer entirely — drop PDFs/DOCX/PPTs and an LLM extracts nodes, edges, and clusters and merges them into the workspace graph.',
+    pathCCmd: 'MindSync Studio → drop files',
+    pathCNote: '※ Same .cotext/neural.json the wiki path produces',
+
+    structureTitle: 'What gets created',
+    structureDesc: 'Repo structure + auto-compile workflow + graph (after first push)',
+
+    cmdsTitle: 'npm commands at a glance',
+    cmdInit: 'Seed structure files + workflow + first compile',
+    cmdCompile: 'Recompile wiki markdown → knowledge graph',
+    cmdCheck: 'Check whether the graph is stale (CI/lint)',
+    cmdEnrich: 'LLM-inferred semantic edges (BYOK)',
+    cmdCopy: 'Copy',
+
     footerText: 'MindSync is part of ',
     footerLink: 'Cotext',
   },
@@ -131,6 +200,14 @@ export default function MindSyncLandingPage() {
     navigator.clipboard.writeText('npx @cotext/mcp start');
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Per-command copy state for the cheatsheet.
+  const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
+  const copyCmd = (cmd: string) => {
+    navigator.clipboard.writeText(cmd);
+    setCopiedCmd(cmd);
+    setTimeout(() => setCopiedCmd(null), 1500);
   };
 
   const scrollToHow = () => {
@@ -253,6 +330,111 @@ export default function MindSyncLandingPage() {
               {c.step3Subtitle}
             </p>
             <p>{c.step3Desc}</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Section 1.5: Build your knowledge graph (3 paths) ── */}
+      <section className="msl-section msl-build">
+        <h2 className="msl-section-title">{c.buildTitle}</h2>
+        <p className="msl-section-desc">{c.buildDesc}</p>
+
+        <div className="msl-paths">
+          {/* Path A — Local + npx */}
+          <div className="msl-path msl-path-a">
+            <div className="msl-path-head">
+              <Terminal size={20} />
+              <span className="msl-path-label">A · {c.pathALabel}</span>
+            </div>
+            <h3>{c.pathATitle}</h3>
+            <p>{c.pathADesc}</p>
+            <div className="msl-path-cmd">
+              <code>{c.pathACmd}</code>
+              <button onClick={() => copyCmd(c.pathACmd)} aria-label="copy">
+                {copiedCmd === c.pathACmd ? <Check size={12} weight="bold" /> : <Copy size={12} />}
+              </button>
+            </div>
+            <p className="msl-path-note">{c.pathANote}</p>
+          </div>
+
+          {/* Path B — Cotext 1-click */}
+          <div className="msl-path msl-path-b">
+            <div className="msl-path-head">
+              <Sparkle size={20} weight="fill" />
+              <span className="msl-path-label">B · {c.pathBLabel}</span>
+            </div>
+            <h3>{c.pathBTitle}</h3>
+            <p>{c.pathBDesc}</p>
+            <div className="msl-path-cmd msl-path-cmd-click">
+              <span>{c.pathBCmd}</span>
+              <ArrowRight size={12} />
+            </div>
+            <p className="msl-path-note">{c.pathBNote}</p>
+          </div>
+
+          {/* Path C — Studio upload */}
+          <div className="msl-path msl-path-c">
+            <div className="msl-path-head">
+              <FileArrowUp size={20} />
+              <span className="msl-path-label">C · {c.pathCLabel}</span>
+            </div>
+            <h3>{c.pathCTitle}</h3>
+            <p>{c.pathCDesc}</p>
+            <div className="msl-path-cmd msl-path-cmd-click">
+              <span>{c.pathCCmd}</span>
+              <ArrowRight size={12} />
+            </div>
+            <p className="msl-path-note">{c.pathCNote}</p>
+          </div>
+        </div>
+
+        {/* Structure visualization */}
+        <div className="msl-structure">
+          <div className="msl-structure-head">
+            <GitBranch size={16} />
+            <strong>{c.structureTitle}</strong>
+            <span>{c.structureDesc}</span>
+          </div>
+          <pre className="msl-structure-tree">
+{`your-repo/
+├── CLAUDE.md              ← AI agent operating rules
+├── AGENTS.md              ← shared multi-agent contract
+├── START_HERE.md          ← 1-min orientation
+├── index.md  ·  log.md    ← wiki map + work log
+├── AI-Sessions/
+│   ├── raw/               ← immutable source material
+│   ├── conversations/     ← session handoffs
+│   └── wiki/              ← sources · concepts · decisions
+│                            errors · projects · design · dev-tasks
+├── prompts/               ← save · ingest · query · lint
+├── .github/workflows/
+│   └── neural-compile.yml ← auto-compile on every push
+└── .cotext/               ← auto-generated (don't edit)
+    ├── neural.json        ← canonical knowledge graph
+    └── NEURAL_INDEX.md    ← human + MCP readable index`}
+          </pre>
+        </div>
+
+        {/* Commands cheatsheet */}
+        <div className="msl-cmds">
+          <div className="msl-cmds-head">
+            <Terminal size={14} /> <strong>{c.cmdsTitle}</strong>
+          </div>
+          <div className="msl-cmds-list">
+            {[
+              { cmd: 'npx cotext init', desc: c.cmdInit },
+              { cmd: 'npx cotext compile', desc: c.cmdCompile },
+              { cmd: 'npx cotext check', desc: c.cmdCheck },
+              { cmd: 'npx cotext enrich', desc: c.cmdEnrich },
+            ].map(({ cmd, desc }) => (
+              <div key={cmd} className="msl-cmd-row">
+                <code>{cmd}</code>
+                <span className="msl-cmd-desc">{desc}</span>
+                <button onClick={() => copyCmd(cmd)} title={c.cmdCopy} aria-label={c.cmdCopy}>
+                  {copiedCmd === cmd ? <Check size={12} weight="bold" /> : <Copy size={12} />}
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       </section>

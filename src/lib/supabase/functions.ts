@@ -94,6 +94,23 @@ export const neuralApi = {
   },
 };
 
+// Workspace wiki initialization — scaffolds the LLM-wiki structure server-side
+// for users who connected the repo via Cotext without ever cloning it locally.
+// Same templates as `npx cotext init`, committed in one atomic GitHub commit.
+export const wikiInitApi = {
+  init(owner: string, repo: string, branch = 'main', force = false) {
+    return invokeFunction<{
+      ok: boolean;
+      created: number;
+      skipped: number;
+      created_paths: string[];
+      skipped_paths: string[];
+      commit_sha?: string;
+      message: string;
+    }>('workspace-init-wiki', { owner, repo, branch, force });
+  },
+};
+
 export interface ManagedKnowledgeExtractResponse {
   ok: boolean;
   managed: {

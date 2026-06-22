@@ -1,23 +1,10 @@
-/**
- * `cotext init` — scaffold the LLM-wiki structure in a workspace (port of scripts/wiki-init.ts).
- *
- * Non-destructive: existing files are skipped unless `--force`.
- *  - Creates 10 directories with .gitkeep so empty ones are committable.
- *  - Drops 11 seed files (CLAUDE/AGENTS/START_HERE/index/log + prompts/*).
- *  - Optionally runs `cotext compile` at the end (skip with --no-compile).
- */
+// SYNC SOURCE: packages/cotext-cli/src/init.ts — keep these constants in lockstep.
+// When the template changes there, paste the same content here so server-side init
+// (`workspace-init-wiki` Edge Function) and the local CLI produce identical output.
+//
+// Placeholders: `%TODAY%` is substituted server-side with the current ISO date.
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { runNeuralCompile } from './neural-compile.js';
-
-export interface InitArgs {
-  root: string;
-  force: boolean;
-  compile: boolean;
-}
-
-const DIRS = [
+export const SEED_DIRS = [
   'AI-Sessions/raw',
   'AI-Sessions/conversations',
   'AI-Sessions/wiki/sources',
@@ -30,9 +17,11 @@ const DIRS = [
   'prompts',
 ];
 
-const TODAY = new Date().toISOString().slice(0, 10);
+export const SEED_FILES: Record<string, string> = {
+  // Directory placeholders (.gitkeep). Mirrors the CLI which creates these so
+  // git tracks the empty folders before the user adds real content.
+  ...Object.fromEntries(SEED_DIRS.map((d) => [`${d}/.gitkeep`, ''])),
 
-const FILES: Record<string, string> = {
   'CLAUDE.md': `# CLAUDE.md
 
 이 파일은 AI 에이전트가 이 저장소에서 일할 때 따르는 업무 규약입니다.
@@ -140,7 +129,7 @@ tags: [a, b]
 형식: \`YYYY-MM-DD | command | summary | linked files\`
 
 ## Log
-${TODAY} | save | LLM-wiki 구조 온보딩(cotext init) | [[START_HERE]], [[CLAUDE]]
+%TODAY% | save | LLM-wiki 구조 온보딩 (Cotext workspace init) | [[START_HERE]], [[CLAUDE]]
 `,
 
   'TEMPLATE_MANIFEST.md': `# Template Manifest
@@ -152,6 +141,7 @@ ${TODAY} | save | LLM-wiki 구조 온보딩(cotext init) | [[START_HERE]], [[CLA
 - \`AI-Sessions/raw|conversations|wiki/*\` — 자료 / 인수인계 / 지식
 - \`prompts/*\` — save / ingest / query / lint / first-setup 명령 프롬프트
 - \`.cotext/neural.json\`, \`.cotext/NEURAL_INDEX.md\` — 자동 생성 지식그래프
+- \`.github/workflows/neural-compile.yml\` — push 시 자동 컴파일
 `,
 
   'prompts/first-setup.md': `# first-setup
@@ -243,37 +233,3 @@ jobs:
           fi
 `,
 };
-
-function writeFileSafe(abs: string, content: string, force: boolean): 'created' | 'skipped' {
-  if (fs.existsSync(abs) && !force) return 'skipped';
-  fs.mkdirSync(path.dirname(abs), { recursive: true });
-  fs.writeFileSync(abs, content, 'utf-8');
-  return 'created';
-}
-
-export function runInit(args: InitArgs): number {
-  let created = 0;
-  let skipped = 0;
-
-  for (const dir of DIRS) {
-    const keep = path.join(args.root, dir, '.gitkeep');
-    const r = writeFileSafe(keep, '', args.force);
-    if (r === 'created') created++; else skipped++;
-  }
-
-  for (const [rel, content] of Object.entries(FILES)) {
-    const r = writeFileSafe(path.join(args.root, rel), content, args.force);
-    console.log(`  ${r === 'created' ? '+' : '·'} ${rel}${r === 'skipped' ? ' (exists, skipped)' : ''}`);
-    if (r === 'created') created++; else skipped++;
-  }
-
-  console.log(`[cotext init] ${created} created, ${skipped} skipped (use --force to overwrite).`);
-
-  if (args.compile) {
-    console.log('[cotext init] compiling knowledge graph...');
-    runNeuralCompile({ root: args.root, outDir: path.join(args.root, '.cotext'), check: false, repoLabel: 'cotext-wiki' });
-  }
-
-  console.log('[cotext init] ✓ done. Next: add material to AI-Sessions/raw/, then ingest → save → commit.');
-  return 0;
-}

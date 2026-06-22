@@ -538,3 +538,231 @@
     transform: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Build section — 3 paths to create the knowledge graph
+   ═══════════════════════════════════════════════════════════ */
+.msl-build {
+  padding: 80px 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.msl-paths {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin: 40px 0 56px;
+}
+
+@media (max-width: 900px) {
+  .msl-paths {
+    grid-template-columns: 1fr;
+  }
+}
+
+.msl-path {
+  padding: 24px 22px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.msl-path:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.msl-path h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  line-height: 1.35;
+}
+.msl-path > p {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0;
+  flex: 1;
+}
+
+.msl-path-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.msl-path-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--accent);
+}
+.msl-path-b .msl-path-head { color: #a855f7; }
+.msl-path-b .msl-path-label { color: #a855f7; }
+.msl-path-c .msl-path-head { color: #06b6d4; }
+.msl-path-c .msl-path-label { color: #06b6d4; }
+
+.msl-path-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 4px;
+}
+.msl-path-cmd code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--text);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.msl-path-cmd button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+}
+.msl-path-cmd button:hover { color: var(--accent); }
+.msl-path-cmd-click {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--accent) 25%, var(--border));
+  font-family: var(--font-sans);
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.msl-path-cmd-click span { flex: 1; }
+
+.msl-path-note {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+/* ── Structure tree ── */
+.msl-structure {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+.msl-structure-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.msl-structure-head strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.msl-structure-head span {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.msl-structure-tree {
+  margin: 0;
+  padding: 20px 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  line-height: 1.7;
+  color: var(--text);
+  overflow-x: auto;
+  background: transparent;
+  white-space: pre;
+}
+
+/* ── Commands cheatsheet ── */
+.msl-cmds {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.msl-cmds-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.msl-cmds-head strong { color: var(--text); font-weight: 600; }
+.msl-cmds-list {
+  display: flex;
+  flex-direction: column;
+}
+.msl-cmd-row {
+  display: grid;
+  grid-template-columns: 220px 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.msl-cmd-row:last-child { border-bottom: none; }
+.msl-cmd-row code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.msl-cmd-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.msl-cmd-row button {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+}
+.msl-cmd-row button:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+@media (max-width: 720px) {
+  .msl-build { padding: 56px 16px; }
+  .msl-cmd-row {
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+  }
+  .msl-cmd-row code { grid-column: 1 / -1; }
+  .msl-cmd-desc {
+    grid-column: 1;
+    font-size: 0.78rem;
+  }
+}

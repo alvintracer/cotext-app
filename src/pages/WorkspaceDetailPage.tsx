@@ -4,7 +4,7 @@ import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase/client';
-import { githubApi } from '../lib/supabase/functions';
+import { githubApi, wikiInitApi } from '../lib/supabase/functions';
 import type { Room } from '../types/room';
 import RoomView from '../components/RoomView';
 import ApiKeyManager from '../components/ApiKeyManager';
@@ -155,6 +155,48 @@ export default function WorkspaceDetailPage() {
       // localStorage unavailable — silently skip.
     }
   }, [workspaceId, rooms]);
+
+  // Wiki initialization state — `null` = unknown / loading, `true` = present, `false` = not yet.
+  // Detected by probing for CLAUDE.md (a unique wiki seed file). If absent, we surface
+  // an "Initialize MindSync wiki" button so users can scaffold without cloning locally.
+  const [wikiPresent, setWikiPresent] = useState<boolean | null>(null);
+  const [wikiInitBusy, setWikiInitBusy] = useState(false);
+  const [wikiInitMsg, setWikiInitMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!workspace) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await githubApi.getRoomContent(
+          workspace.github_owner, workspace.github_repo, workspace.default_branch || 'main', 'CLAUDE.md',
+        );
+        if (!cancelled) setWikiPresent(true);
+      } catch {
+        if (!cancelled) setWikiPresent(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [workspace]);
+
+  const handleInitWiki = useCallback(async () => {
+    if (!workspace) return;
+    setWikiInitBusy(true);
+    setWikiInitMsg(null);
+    try {
+      const res = await wikiInitApi.init(
+        workspace.github_owner, workspace.github_repo, workspace.default_branch || 'main', false,
+      );
+      setWikiPresent(true);
+      setWikiInitMsg(language === 'ko'
+        ? `✓ ${res.created}개 시드 파일 생성 · ${res.skipped}개 스킵. push 시 .cotext/neural.json이 자동 생성됩니다.`
+        : `✓ Created ${res.created} seed files (${res.skipped} skipped). The next push auto-builds .cotext/neural.json.`);
+    } catch (err) {
+      setWikiInitMsg(err instanceof Error ? err.message : String(err));
+    } finally {
+      setWikiInitBusy(false);
+    }
+  }, [workspace, language]);
 
   // Persist the active chat so it survives app re-opens / browser sessions.
   useEffect(() => {
@@ -414,6 +456,32 @@ export default function WorkspaceDetailPage() {
             <span>{t('sidebar.newChat')}</span>
           </button>
         </div>
+
+        {/* Wiki init banner — only when the repo has no CLAUDE.md (wiki not yet scaffolded).
+            Lets users who connected the repo via Cotext (no local clone) bootstrap the
+            MindSync wiki structure with one click. Non-destructive on the server side. */}
+        {wikiPresent === false && (
+          <div className="wiki-init-banner">
+            <div className="wiki-init-banner-body">
+              <strong>{language === 'ko' ? 'MindSync wiki 초기화' : 'Initialize MindSync wiki'}</strong>
+              <p>
+                {language === 'ko'
+                  ? '이 레포에 wiki 구조(CLAUDE.md, AI-Sessions/*, 자동 컴파일 Action)가 없습니다. 한 번 누르면 모두 셋업됩니다.'
+                  : 'This repo has no wiki structure (CLAUDE.md, AI-Sessions/*, auto-compile Action) yet. One click sets it all up.'}
+              </p>
+            </div>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleInitWiki}
+              disabled={wikiInitBusy}
+            >
+              {wikiInitBusy
+                ? (language === 'ko' ? '셋업 중...' : 'Setting up...')
+                : (language === 'ko' ? 'wiki 셋업' : 'Set up wiki')}
+            </button>
+            {wikiInitMsg && <div className="wiki-init-banner-msg">{wikiInitMsg}</div>}
+          </div>
+        )}
 
         <div className="room-list">
           {loadingRooms ? (

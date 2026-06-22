@@ -26,6 +26,36 @@ const ghHeaders = (token: string) => ({
   'Content-Type': 'application/json',
 })
 
+async function seedEmptyRepoWithContentsApi(
+  token: string,
+  owner: string,
+  repo: string,
+  branch: string,
+  files: Array<{ path: string; content: string }>,
+) {
+  const createdPaths: string[] = []
+  for (const file of files) {
+    const bytes = new TextEncoder().encode(file.content)
+    const binString = Array.from(bytes, (b) => String.fromCharCode(b)).join('')
+    const b64 = btoa(binString)
+    const res = await fetch(`${GH}/repos/${owner}/${repo}/contents/${file.path}`, {
+      method: 'PUT',
+      headers: ghHeaders(token),
+      body: JSON.stringify({
+        message: `cotext: seed ${file.path}`,
+        content: b64,
+        branch,
+      }),
+    })
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(`Initial file creation failed for ${file.path}: ${res.status} ${err}`)
+    }
+    createdPaths.push(file.path)
+  }
+  return createdPaths
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -109,6 +139,21 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
+    // Empty repos can 404 on the low-level git/trees bootstrap path because no
+    // branch/HEAD exists yet. Fall back to the Contents API to create the first
+    // commit(s), then later pushes can use the git database path normally.
+    if (!parentSha) {
+      const createdPaths = await seedEmptyRepoWithContentsApi(token, owner, repo, branch, filesToCreate)
+      return new Response(JSON.stringify({
+        ok: true,
+        created: createdPaths.length,
+        skipped: skipped.length,
+        created_paths: createdPaths,
+        skipped_paths: skipped,
+        message: `Wiki initialized in an empty repo: ${createdPaths.length} files created, ${skipped.length} skipped.`,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
     // 4. Create blobs for each new file (base64 content for unicode safety).
     const blobShas = new Map<string, string>()
     for (const { path, content } of filesToCreate) {
@@ -170,29 +215,15 @@ Deno.serve(async (req) => {
 
     // 7. Update/create ref.
     const updateUrl = `${GH}/repos/${owner}/${repo}/git/refs/heads/${branch}`
-    if (parentSha) {
-      const updRes = await fetch(updateUrl, {
-        method: 'PATCH', headers: ghHeaders(token),
-        body: JSON.stringify({ sha: commit.sha, force: false }),
+    const updRes = await fetch(updateUrl, {
+      method: 'PATCH', headers: ghHeaders(token),
+      body: JSON.stringify({ sha: commit.sha, force: false }),
+    })
+    if (!updRes.ok) {
+      const err = await updRes.text()
+      return new Response(JSON.stringify({ error: `Ref update failed: ${updRes.status} ${err}` }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
-      if (!updRes.ok) {
-        const err = await updRes.text()
-        return new Response(JSON.stringify({ error: `Ref update failed: ${updRes.status} ${err}` }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
-      }
-    } else {
-      // First commit on an empty repo — create the ref instead of updating.
-      const createRes = await fetch(`${GH}/repos/${owner}/${repo}/git/refs`, {
-        method: 'POST', headers: ghHeaders(token),
-        body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: commit.sha }),
-      })
-      if (!createRes.ok) {
-        const err = await createRes.text()
-        return new Response(JSON.stringify({ error: `Ref creation failed: ${createRes.status} ${err}` }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
-      }
     }
 
     return new Response(JSON.stringify({

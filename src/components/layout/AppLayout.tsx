@@ -46,7 +46,7 @@ export default function AppLayout() {
         supabase.auth.signInWithOAuth({
           provider: 'github',
           options: {
-            scopes: 'repo,user:email',
+            scopes: 'repo,user:email,workflow',
             ...(Capacitor.isNativePlatform() && {
               redirectTo: 'com.cotext.app://auth/callback',
             }),

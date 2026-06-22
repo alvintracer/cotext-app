@@ -34,6 +34,8 @@ async function seedEmptyRepoWithContentsApi(
   files: Array<{ path: string; content: string }>,
 ) {
   const createdPaths: string[] = []
+  const skippedPaths: string[] = []
+  const warnings: string[] = []
   for (const file of files) {
     const bytes = new TextEncoder().encode(file.content)
     const binString = Array.from(bytes, (b) => String.fromCharCode(b)).join('')
@@ -49,11 +51,16 @@ async function seedEmptyRepoWithContentsApi(
     })
     if (!res.ok) {
       const err = await res.text()
+      if ((res.status === 403 || res.status === 404) && file.path.startsWith('.github/workflows/')) {
+        skippedPaths.push(file.path)
+        warnings.push('Workflow file was skipped. Reconnect GitHub with workflow scope to enable auto-compile.')
+        continue
+      }
       throw new Error(`Initial file creation failed for ${file.path}: ${res.status} ${err}`)
     }
     createdPaths.push(file.path)
   }
-  return createdPaths
+  return { createdPaths, skippedPaths, warnings }
 }
 
 async function getRepoDefaultBranch(token: string, owner: string, repo: string) {
@@ -163,14 +170,17 @@ Deno.serve(async (req) => {
     // branch/HEAD exists yet. Fall back to the Contents API to create the first
     // commit(s), then later pushes can use the git database path normally.
     if (!parentSha) {
-      const createdPaths = await seedEmptyRepoWithContentsApi(token, owner, repo, targetBranch, filesToCreate)
+      const { createdPaths, skippedPaths, warnings } = await seedEmptyRepoWithContentsApi(token, owner, repo, targetBranch, filesToCreate)
       return new Response(JSON.stringify({
         ok: true,
         created: createdPaths.length,
-        skipped: skipped.length,
+        skipped: skipped.length + skippedPaths.length,
         created_paths: createdPaths,
-        skipped_paths: skipped,
-        message: `Wiki initialized in an empty repo on ${targetBranch}: ${createdPaths.length} files created, ${skipped.length} skipped.`,
+        skipped_paths: [...skipped, ...skippedPaths],
+        warnings,
+        message: warnings.length > 0
+          ? `Wiki initialized on ${targetBranch}, but workflow setup was skipped. Reconnect GitHub with workflow scope, then run wiki setup again.`
+          : `Wiki initialized in an empty repo on ${targetBranch}: ${createdPaths.length} files created, ${skipped.length} skipped.`,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
@@ -211,14 +221,17 @@ Deno.serve(async (req) => {
     if (!treeRes.ok) {
       const err = await treeRes.text()
       if (treeRes.status === 404) {
-        const createdPaths = await seedEmptyRepoWithContentsApi(token, owner, repo, targetBranch, filesToCreate)
+        const { createdPaths, skippedPaths, warnings } = await seedEmptyRepoWithContentsApi(token, owner, repo, targetBranch, filesToCreate)
         return new Response(JSON.stringify({
           ok: true,
           created: createdPaths.length,
-          skipped: skipped.length,
+          skipped: skipped.length + skippedPaths.length,
           created_paths: createdPaths,
-          skipped_paths: skipped,
-          message: `Wiki initialized via safe fallback on ${targetBranch}: ${createdPaths.length} files created, ${skipped.length} skipped.`,
+          skipped_paths: [...skipped, ...skippedPaths],
+          warnings,
+          message: warnings.length > 0
+            ? `Wiki initialized on ${targetBranch}, but workflow setup was skipped. Reconnect GitHub with workflow scope, then run wiki setup again.`
+            : `Wiki initialized via safe fallback on ${targetBranch}: ${createdPaths.length} files created, ${skipped.length} skipped.`,
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
       return new Response(JSON.stringify({ error: `Tree creation failed: ${treeRes.status} ${err}` }), {

@@ -33,7 +33,7 @@ async function storeGitHubToken(userId: string, providerToken: string) {
         user_id: userId,
         github_username: ghUser?.login || null,
         access_token_encrypted: providerToken,
-        token_scope: 'repo,user:email',
+        token_scope: 'repo,user:email,workflow',
         connected_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' });
@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
-          scopes: 'repo,user:email',
+          scopes: 'repo,user:email,workflow',
           ...(Capacitor.isNativePlatform() && {
             redirectTo: 'com.cotext.app://auth/callback',
           }),

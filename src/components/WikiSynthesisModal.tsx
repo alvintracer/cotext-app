@@ -13,16 +13,17 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { X, Sparkle, Check, Spinner as Loader2, PencilSimple, Tag } from '@phosphor-icons/react';
+import { X, Sparkle, Check, Spinner as Loader2, PencilSimple, Tag, Brain } from '@phosphor-icons/react';
 import { synthesizeWikiDocs, composeWikiDoc, wikiPath, type WikiProposal, type WikiCategory } from '../lib/knowledge/wikiSynthesize';
-import { wikiBatchApi, githubApi } from '../lib/supabase/functions';
-import { getKey, getPref } from '../lib/agent/keys';
-import { getProvider, type ProviderId } from '../lib/agent/models';
+import { wikiBatchApi, wikiSynthesizeApi, githubApi } from '../lib/supabase/functions';
+import { getKey } from '../lib/agent/keys';
+import { PROVIDERS, getProvider, type ProviderId } from '../lib/agent/models';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   workspace: {
+    id?: string;
     github_owner: string;
     github_repo: string;
     default_branch?: string | null;
@@ -33,6 +34,12 @@ interface Props {
   roomLabel: string;
   language: 'ko' | 'en';
 }
+
+// "managed" is a synthetic provider id meaning "Cotext Model (server-side LLM)".
+// Real providers come from PROVIDERS in models.ts.
+type ModelChoice =
+  | { kind: 'byok'; providerId: ProviderId; model: string }
+  | { kind: 'managed' };
 
 type Phase = 'idle' | 'analyzing' | 'review' | 'pushing' | 'done' | 'error';
 
@@ -61,6 +68,17 @@ export default function WikiSynthesisModal({
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [pushResult, setPushResult] = useState<{ created: number; skipped: number; commit_sha?: string } | null>(null);
 
+  // Model picker. Lists configured BYOK providers (those with a key set in
+  // localStorage) + Cotext Model (managed). User can switch per synthesis run.
+  const availableProviders = useMemo(
+    () => PROVIDERS.filter((p) => getKey(p.id).trim().length > 0),
+    [open], // recompute when modal re-opens (keys may have changed)
+  );
+  const [choice, setChoice] = useState<ModelChoice>(() => {
+    const first = availableProviders[0];
+    return first ? { kind: 'byok', providerId: first.id, model: first.defaultModel } : { kind: 'managed' };
+  });
+
   // Reset state whenever the modal opens.
   useEffect(() => {
     if (!open) return;
@@ -76,18 +94,6 @@ export default function WikiSynthesisModal({
   const merged = useMemo(() => proposals.map((p, i) => ({ ...p, ...(edits[i] || {}) } as WikiProposal)), [proposals, edits]);
 
   const handleAnalyze = useCallback(async () => {
-    const pref = getPref();
-    const providerId: ProviderId = (pref?.provider as ProviderId) || 'gemini';
-    const provider = getProvider(providerId);
-    const model = pref?.model || provider.defaultModel;
-    const apiKey = getKey(providerId);
-    if (!apiKey) {
-      setErrorMsg(ko
-        ? `${providerId.toUpperCase()} API 키가 필요합니다. AgentPanel에서 키를 설정한 뒤 다시 시도하세요.`
-        : `${providerId.toUpperCase()} API key required. Set one in AgentPanel and retry.`);
-      setPhase('error');
-      return;
-    }
     setPhase('analyzing');
     setErrorMsg(null);
     try {
@@ -100,10 +106,32 @@ export default function WikiSynthesisModal({
         existingIndex = res.content;
       } catch { /* missing index is fine — first synthesis run */ }
 
-      const docs = await synthesizeWikiDocs({
-        providerId, model, apiKey, roomContent, existingIndex,
-        repoLabel, roomLabel,
-      });
+      let docs: WikiProposal[];
+      if (choice.kind === 'managed') {
+        if (!workspace.id) throw new Error('workspace_id missing — managed mode requires a saved workspace');
+        const res = await wikiSynthesizeApi.managed({
+          workspace_id: workspace.id,
+          room_content: roomContent,
+          existing_index: existingIndex,
+          repo_label: repoLabel,
+          room_label: roomLabel,
+        });
+        docs = res.proposals as WikiProposal[];
+      } else {
+        const apiKey = getKey(choice.providerId);
+        if (!apiKey) {
+          throw new Error(ko
+            ? `${choice.providerId.toUpperCase()} API 키가 없습니다. AgentPanel에서 설정 후 재시도.`
+            : `${choice.providerId.toUpperCase()} API key missing. Set it in AgentPanel and retry.`);
+        }
+        docs = await synthesizeWikiDocs({
+          providerId: choice.providerId,
+          model: choice.model,
+          apiKey,
+          roomContent, existingIndex,
+          repoLabel, roomLabel,
+        });
+      }
       setProposals(docs);
       setSelected(new Set(docs.map((_, i) => i))); // default: all selected
       setPhase(docs.length === 0 ? 'done' : 'review');
@@ -111,7 +139,7 @@ export default function WikiSynthesisModal({
       setErrorMsg(err instanceof Error ? err.message : String(err));
       setPhase('error');
     }
-  }, [ko, workspace.github_owner, workspace.github_repo, branch, repoLabel, roomLabel, roomContent]);
+  }, [ko, workspace.id, workspace.github_owner, workspace.github_repo, branch, repoLabel, roomLabel, roomContent, choice]);
 
   const handlePush = useCallback(async () => {
     const picks = merged.filter((_, i) => selected.has(i));
@@ -175,7 +203,68 @@ export default function WikiSynthesisModal({
                   ? '이 채팅의 메모들을 분석해서 wiki 문서로 정리할 후보를 제안합니다. 확인·수정 후 선택한 것만 GitHub에 푸시됩니다.'
                   : 'AI analyzes this room\'s captures and proposes wiki docs. You review, edit, pick — only selected docs are pushed to GitHub.'}
               </p>
-              <button className="btn btn-primary" onClick={handleAnalyze}>
+
+              {/* Model picker — lists BYOK providers with keys + managed Cotext Model. */}
+              <div className="wiki-synth-picker">
+                <label className="wiki-synth-picker-label">
+                  {ko ? '분석 모델' : 'Model'}
+                </label>
+                <div className="wiki-synth-picker-row">
+                  <select
+                    className="wiki-synth-select"
+                    value={choice.kind === 'managed' ? 'managed' : `byok:${choice.providerId}`}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === 'managed') {
+                        setChoice({ kind: 'managed' });
+                      } else {
+                        const providerId = v.slice('byok:'.length) as ProviderId;
+                        const provider = getProvider(providerId);
+                        setChoice({ kind: 'byok', providerId, model: provider.defaultModel });
+                      }
+                    }}
+                  >
+                    {availableProviders.map((p) => (
+                      <option key={p.id} value={`byok:${p.id}`}>{p.label} (BYOK)</option>
+                    ))}
+                    <option value="managed">
+                      {ko ? 'Cotext Model — 크레딧 차감' : 'Cotext Model — uses credits'}
+                    </option>
+                  </select>
+                  {choice.kind === 'byok' && (
+                    <select
+                      className="wiki-synth-select"
+                      value={choice.model}
+                      onChange={(e) => setChoice({ ...choice, model: e.target.value })}
+                    >
+                      {getProvider(choice.providerId).models.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                {availableProviders.length === 0 && choice.kind === 'byok' && (
+                  <p className="wiki-synth-picker-hint">
+                    {ko
+                      ? '※ BYOK 키가 없습니다. AgentPanel에서 키를 추가하거나 Cotext Model을 선택하세요.'
+                      : '※ No BYOK keys set. Add one in AgentPanel or pick Cotext Model.'}
+                  </p>
+                )}
+                {choice.kind === 'managed' && (
+                  <p className="wiki-synth-picker-hint">
+                    <Brain size={11} weight="fill" />{' '}
+                    {ko
+                      ? '서버 모델 (요청 크기에 비례해 크레딧이 차감됩니다)'
+                      : 'Server-side model (credits debited proportional to request size)'}
+                  </p>
+                )}
+              </div>
+
+              <button
+                className="btn btn-primary"
+                onClick={handleAnalyze}
+                disabled={availableProviders.length === 0 && choice.kind === 'byok'}
+              >
                 <Sparkle size={14} weight="fill" /> {ko ? '분석 시작' : 'Start analysis'}
               </button>
             </div>

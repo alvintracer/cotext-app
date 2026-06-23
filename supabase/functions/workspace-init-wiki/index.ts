@@ -16,6 +16,10 @@ interface InitRequest {
   repo?: string;
   branch?: string;
   force?: boolean;
+  /** Selective overwrite — list of specific paths to force even if `force=false`.
+   *  Used to repair drift in a single file (e.g. workflow yml) without re-pushing
+   *  the whole scaffold. */
+  force_paths?: string[];
 }
 
 const GH = 'https://api.github.com'
@@ -86,7 +90,8 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({})) as InitRequest
-    const { owner, repo, branch = 'main', force = false } = body
+    const { owner, repo, branch = 'main', force = false, force_paths = [] } = body
+    const forcePathSet = new Set(force_paths)
     if (!owner || !repo) {
       return new Response(JSON.stringify({ error: 'owner and repo are required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -148,7 +153,8 @@ Deno.serve(async (req) => {
     const filesToCreate: Array<{ path: string; content: string }> = []
     const skipped: string[] = []
     for (const [path, rawContent] of Object.entries(SEED_FILES)) {
-      if (!force && existingPaths.has(path)) {
+      const allowOverwrite = force || forcePathSet.has(path)
+      if (!allowOverwrite && existingPaths.has(path)) {
         skipped.push(path)
         continue
       }

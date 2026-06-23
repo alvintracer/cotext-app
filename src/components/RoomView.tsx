@@ -63,6 +63,10 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
   const [copiedPack, setCopiedPack] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showWikiSynth, setShowWikiSynth] = useState(false);
+  // When non-null, WikiSynthesisModal opens with this content subset instead of
+  // the whole cotext.md — used when the user picks specific blocks via the
+  // selection bar and clicks "Wiki로 정리".
+  const [wikiSynthSubset, setWikiSynthSubset] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [shareExpiry, setShareExpiry] = useState<string>('24h');
   const [shareCreating, setShareCreating] = useState(false);
@@ -1010,10 +1014,10 @@ ${filteredContent}
       {/* Wiki synthesis modal */}
       <WikiSynthesisModal
         open={showWikiSynth}
-        onClose={() => setShowWikiSynth(false)}
+        onClose={() => { setShowWikiSynth(false); setWikiSynthSubset(null); }}
         workspace={workspace}
-        roomContent={content}
-        roomLabel={room.path}
+        roomContent={wikiSynthSubset ?? content}
+        roomLabel={wikiSynthSubset ? `${room.path} (selected blocks)` : room.path}
         language={language === 'ko' ? 'ko' : 'en'}
       />
 
@@ -1177,6 +1181,24 @@ ${filteredContent}
               onDeleteBlock={handleDeleteBlock}
               onEditBlock={handleUpdateBlock}
               onMergeBlocks={handleMergeBlocks}
+              onSynthesizeBlocks={(timestamps) => {
+                // Build a minimal cotext.md subset containing only the selected
+                // blocks (with their headers + source meta intact) and open the
+                // synthesis modal against that text.
+                const tsSet = new Set(timestamps);
+                const lines = content.split('\n');
+                const subset: string[] = [];
+                let keep = false;
+                for (const line of lines) {
+                  const m = line.match(/^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+                  if (m) {
+                    keep = tsSet.has(m[1]);
+                  }
+                  if (keep) subset.push(line);
+                }
+                setWikiSynthSubset(subset.join('\n').trim() || content);
+                setShowWikiSynth(true);
+              }}
               onChangeSource={handleChangeBlockSource}
             />
             {showScrollBtn && (
@@ -1243,7 +1265,7 @@ ${filteredContent}
 }
 
 // Simple timeline renderer
-function TimelineView({ content, remoteContent, workspace, room, graph, onDeleteBlock, onEditBlock, onMergeBlocks, onChangeSource, onFixWithAgent, onNodify, onRemoveNode, onLinkNode, onJump, onNavigateRoom, onOpenCluster, onToMindSync }: {
+function TimelineView({ content, remoteContent, workspace, room, graph, onDeleteBlock, onEditBlock, onMergeBlocks, onSynthesizeBlocks, onChangeSource, onFixWithAgent, onNodify, onRemoveNode, onLinkNode, onJump, onNavigateRoom, onOpenCluster, onToMindSync }: {
   content: string;
   remoteContent: string;
   workspace: Workspace;
@@ -1252,6 +1274,8 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
   onDeleteBlock?: (timestamp: string) => void;
   onEditBlock?: (timestamp: string, nextBody: string) => void;
   onMergeBlocks?: (timestamps: string[]) => void;
+  /** Selected blocks → open Wiki synthesis with just those captures. */
+  onSynthesizeBlocks?: (timestamps: string[]) => void;
   onChangeSource?: (timestamp: string, newSource: string) => void;
   onFixWithAgent?: (text: string, timestamp: string) => void;
   onNodify?: (timestamp: string, meta: InlineNodeMeta | null) => void;
@@ -1359,16 +1383,31 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
           <Stack size={14} />
           <span className="timeline-merge-info">
             {ko
-              ? `${mergeSelected.size}개 선택 — 가장 이른 블록 아래로 합쳐집니다`
-              : `${mergeSelected.size} selected — will merge into the earliest block`}
+              ? `${mergeSelected.size}개 선택 — 머지하거나 Wiki로 정리하세요`
+              : `${mergeSelected.size} selected — merge or synthesize to wiki`}
           </span>
           <button className="btn btn-ghost btn-sm" onClick={cancelMerge}>
             {ko ? '취소' : 'Cancel'}
           </button>
+          {onSynthesizeBlocks && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                if (mergeSelected.size === 0) return;
+                onSynthesizeBlocks([...mergeSelected]);
+                cancelMerge();
+              }}
+              disabled={mergeSelected.size === 0}
+              title={ko ? '선택 블록만 wiki 문서로 정제' : 'Synthesize selected blocks into wiki docs'}
+            >
+              <Sparkle size={12} weight="fill" /> {ko ? 'Wiki로 정리' : 'To wiki'}
+            </button>
+          )}
           <button
             className="btn btn-primary btn-sm"
             onClick={confirmMerge}
             disabled={mergeSelected.size < 2}
+            title={ko ? '가장 이른 블록 아래로 합치기' : 'Merge into the earliest block'}
           >
             {ko ? '머지' : 'Merge'}
           </button>

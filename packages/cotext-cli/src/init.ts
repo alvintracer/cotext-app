@@ -226,9 +226,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+
+      - name: Fetch + build cotext compiler
+        run: |
+          set -e
+          git clone --depth 1 https://github.com/alvin358/cotext-app.git /tmp/cotext-src
+          cd /tmp/cotext-src/packages/cotext-cli
+          npm install --no-audit --no-fund --silent
+          npm run build --silent
 
       - name: Compile wiki → neural graph
-        run: npx -y cotext compile --repo "\${{ github.repository }}"
+        run: node /tmp/cotext-src/packages/cotext-cli/dist/index.js compile --repo "\${{ github.repository }}"
 
       - name: Commit graph if changed
         run: |

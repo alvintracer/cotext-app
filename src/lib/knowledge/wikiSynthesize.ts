@@ -8,8 +8,8 @@
 // The user reviews + edits + selects in WikiSynthesisModal before anything is
 // pushed — this is the human-in-the-loop safety net against hallucination.
 
-import { runChat } from '../agent/providers';
-import { getProvider, type ProviderId } from '../agent/models';
+import { runChat } from '../agent/providers.ts';
+import { getProvider, type ProviderId } from '../agent/models.ts';
 
 const WIKI_CATEGORIES = ['decisions', 'concepts', 'errors', 'projects', 'design', 'dev-tasks'] as const;
 export type WikiCategory = typeof WIKI_CATEGORIES[number];

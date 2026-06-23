@@ -198,6 +198,29 @@ export default function WorkspaceDetailPage() {
     }
   }, [workspace, language]);
 
+  // Repair the neural-compile workflow yml only — for workspaces that were
+  // initialized BEFORE the self-contained workflow fix (their yml refers to
+  // an un-published `cotext` npm package and the Action silently fails).
+  const handleRepairWorkflow = useCallback(async () => {
+    if (!workspace) return;
+    setWikiInitBusy(true);
+    setWikiInitMsg(null);
+    try {
+      const res = await wikiInitApi.init(
+        workspace.github_owner, workspace.github_repo, workspace.default_branch || 'main',
+        false,
+        ['.github/workflows/neural-compile.yml'],
+      );
+      setWikiInitMsg(language === 'ko'
+        ? `✓ 워크플로 yml 갱신 (${res.created}개 변경). 다음 markdown push부터 그래프가 자동 갱신됩니다.`
+        : `✓ Workflow yml updated (${res.created} change). Graph auto-update resumes on next markdown push.`);
+    } catch (err) {
+      setWikiInitMsg(err instanceof Error ? err.message : String(err));
+    } finally {
+      setWikiInitBusy(false);
+    }
+  }, [workspace, language]);
+
   // Persist the active chat so it survives app re-opens / browser sessions.
   useEffect(() => {
     if (!workspaceId) return;
@@ -493,6 +516,33 @@ export default function WorkspaceDetailPage() {
             </div>
             {wikiInitMsg && <div className="wiki-init-banner-msg">{wikiInitMsg}</div>}
           </div>
+        )}
+
+        {/* Repair workflow — for workspaces initialized BEFORE the self-contained
+            yml fix. Their .github/workflows/neural-compile.yml refers to a missing
+            `npx -y cotext` package so the Action silently fails and the graph never
+            updates. One click overwrites the yml with the working version. */}
+        {wikiPresent === true && (
+          <details className="wiki-repair-row">
+            <summary>
+              {language === 'ko'
+                ? 'wiki 셋업됨 · 그래프가 갱신 안 되면?'
+                : 'Wiki is set up · graph not refreshing?'}
+            </summary>
+            <button
+              className="btn btn-ghost btn-xs btn-full"
+              onClick={handleRepairWorkflow}
+              disabled={wikiInitBusy}
+              style={{ marginTop: 8 }}
+            >
+              {wikiInitBusy
+                ? (language === 'ko' ? '갱신 중...' : 'Repairing...')
+                : (language === 'ko' ? '🔧 neural-compile 워크플로 갱신' : '🔧 Repair neural-compile workflow')}
+            </button>
+            {wikiInitMsg && (
+              <div className="wiki-init-banner-msg" style={{ marginTop: 6 }}>{wikiInitMsg}</div>
+            )}
+          </details>
         )}
 
         <div className="room-list">

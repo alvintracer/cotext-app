@@ -94,6 +94,50 @@ export const neuralApi = {
   },
 };
 
+// Server-side wiki synthesis (Cotext Model — managed LLM, debits credits).
+// Same prompt + sanitize logic as client-side synthesizeWikiDocs() so output
+// shapes match; modal can swap providers (BYOK vs managed) transparently.
+export interface ManagedSynthesizeResponse {
+  ok: boolean;
+  proposals: Array<{
+    category: string;
+    slug: string;
+    title: string;
+    tags: string[];
+    body: string;
+    rationale: string;
+  }>;
+  managed: {
+    providerId: string;
+    model: string;
+    billingMode: string;
+    requestChars: number;
+    chargedCredits: number;
+    chargeSkipped?: boolean;
+    chargeError?: string | null;
+    balance?: {
+      balanceCredits: number;
+      reservedCredits: number;
+      lifetimeUsedCredits: number;
+      monthlyGrantCredits: number;
+      billingState: string;
+      updatedAt: string;
+      transactionId?: string | null;
+    } | null;
+  };
+}
+export const wikiSynthesizeApi = {
+  managed(opts: {
+    workspace_id: string;
+    room_content: string;
+    existing_index?: string;
+    repo_label: string;
+    room_label: string;
+  }) {
+    return invokeFunction<ManagedSynthesizeResponse>('wiki-synthesize-managed', opts);
+  },
+};
+
 // Batch push multiple files in one git commit (Trees API). Used by the
 // wiki-synthesize flow so a synthesis session produces ONE clean repo entry
 // and the neural-compile workflow fires exactly once.
@@ -122,7 +166,7 @@ export const wikiBatchApi = {
 // for users who connected the repo via Cotext without ever cloning it locally.
 // Same templates as `npx cotext init`, committed in one atomic GitHub commit.
 export const wikiInitApi = {
-  init(owner: string, repo: string, branch = 'main', force = false) {
+  init(owner: string, repo: string, branch = 'main', force = false, force_paths: string[] = []) {
     return invokeFunction<{
       ok: boolean;
       created: number;
@@ -131,7 +175,7 @@ export const wikiInitApi = {
       skipped_paths: string[];
       commit_sha?: string;
       message: string;
-    }>('workspace-init-wiki', { owner, repo, branch, force });
+    }>('workspace-init-wiki', { owner, repo, branch, force, force_paths });
   },
 };
 

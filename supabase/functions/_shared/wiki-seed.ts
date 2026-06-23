@@ -218,8 +218,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: '24'
 
       - name: Fetch + build cotext compiler
         run: |

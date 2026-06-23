@@ -224,7 +224,7 @@ jobs:
       - name: Fetch + build cotext compiler
         run: |
           set -e
-          git clone --depth 1 https://github.com/alvin358/cotext-app.git /tmp/cotext-src
+          git clone --depth 1 https://github.com/alvintracer/cotext-app.git /tmp/cotext-src
           cd /tmp/cotext-src/packages/cotext-cli
           npm install --no-audit --no-fund --silent
           npm run build --silent

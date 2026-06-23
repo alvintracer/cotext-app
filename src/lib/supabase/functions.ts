@@ -173,6 +173,7 @@ export const wikiInitApi = {
       skipped: number;
       created_paths: string[];
       skipped_paths: string[];
+      warnings?: string[];
       commit_sha?: string;
       message: string;
     }>('workspace-init-wiki', { owner, repo, branch, force, force_paths });

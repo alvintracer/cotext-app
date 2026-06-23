@@ -39,6 +39,7 @@
 - [[AI-Sessions/wiki/decisions/cotext-architecture-decisions]]
 - [[AI-Sessions/wiki/decisions/mindsync-knowledge-sync-architecture]] — Wiki→Graph 컴파일 모델(레포=버스, 그래프=파생물, [[wikilink]]→엣지)
 - [[AI-Sessions/wiki/decisions/workspace-wiki-bootstrap]] — 3가지 진입경로(npx cotext init / Cotext 1-click / Studio 업로드) + workflow yml 자동 시드
+- [[AI-Sessions/wiki/decisions/wiki-synthesis-agent]] — 채팅 → 합성 → wiki → 그래프 (BYOK+Managed, 선택 블록 모드, workflow yml self-contained fix)
 
 ## Concepts
 

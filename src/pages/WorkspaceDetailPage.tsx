@@ -160,6 +160,7 @@ export default function WorkspaceDetailPage() {
   // Detected by probing for CLAUDE.md (a unique wiki seed file). If absent, we surface
   // an "Initialize MindSync wiki" button so users can scaffold without cloning locally.
   const [wikiPresent, setWikiPresent] = useState<boolean | null>(null);
+  const [workflowPresent, setWorkflowPresent] = useState<boolean | null>(null);
   const [wikiInitBusy, setWikiInitBusy] = useState(false);
   const [wikiInitMsg, setWikiInitMsg] = useState<string | null>(null);
 
@@ -175,6 +176,17 @@ export default function WorkspaceDetailPage() {
       } catch {
         if (!cancelled) setWikiPresent(false);
       }
+      try {
+        const res = await githubApi.getRoomContent(
+          workspace.github_owner,
+          workspace.github_repo,
+          workspace.default_branch || 'main',
+          '.github/workflows/neural-compile.yml',
+        );
+        if (!cancelled) setWorkflowPresent(!!res.sha);
+      } catch {
+        if (!cancelled) setWorkflowPresent(false);
+      }
     })();
     return () => { cancelled = true; };
   }, [workspace]);
@@ -188,6 +200,7 @@ export default function WorkspaceDetailPage() {
         workspace.github_owner, workspace.github_repo, workspace.default_branch || 'main', false,
       );
       setWikiPresent(true);
+      if (Array.isArray(res.warnings) && res.warnings.length > 0) setWorkflowPresent(false);
       setWikiInitMsg(language === 'ko'
         ? `✓ ${res.created}개 시드 파일 생성 · ${res.skipped}개 스킵. push 시 .cotext/neural.json이 자동 생성됩니다.`
         : `✓ Created ${res.created} seed files (${res.skipped} skipped). The next push auto-builds .cotext/neural.json.`);
@@ -543,6 +556,41 @@ export default function WorkspaceDetailPage() {
               <div className="wiki-init-banner-msg" style={{ marginTop: 6 }}>{wikiInitMsg}</div>
             )}
           </details>
+        )}
+
+        {wikiPresent === true && workflowPresent === false && (
+          <div className="wiki-init-banner">
+            <div className="wiki-init-banner-body">
+              <div className="wiki-init-banner-head">
+                <span className="wiki-init-banner-icon">
+                  <FolderPlus size={14} weight="bold" />
+                </span>
+                <div className="wiki-init-banner-copy">
+                  <strong>{language === 'ko' ? 'neural-compile 워크플로가 아직 없습니다' : 'neural-compile workflow is missing'}</strong>
+                  <span className="wiki-init-banner-kicker">
+                    {language === 'ko' ? '.github/workflows 가 비어 있습니다' : '.github/workflows is missing from this repo'}
+                  </span>
+                </div>
+              </div>
+              <p>
+                {language === 'ko'
+                  ? '지금은 md 파일만 생성되고 노드 컴파일은 전혀 돌지 않는 상태입니다. 보통 이 레포를 연결한 GitHub 토큰에 workflow 권한이 없을 때 이렇게 됩니다.'
+                  : 'Right now only markdown files are being created. Node compilation cannot run because the workflow file is missing, usually due to a GitHub token without workflow scope.'}
+              </p>
+            </div>
+            <div className="wiki-init-banner-actions">
+              <button
+                className="btn btn-primary btn-sm btn-full"
+                onClick={handleRepairWorkflow}
+                disabled={wikiInitBusy}
+              >
+                {wikiInitBusy
+                  ? (language === 'ko' ? '갱신 중..' : 'Repairing...')
+                  : (language === 'ko' ? '워크플로 다시 생성' : 'Create workflow now')}
+              </button>
+            </div>
+            {wikiInitMsg && <div className="wiki-init-banner-msg">{wikiInitMsg}</div>}
+          </div>
         )}
 
         <div className="room-list">

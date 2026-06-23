@@ -18,24 +18,21 @@ When asked about a topic, first match against cluster names below, then fan out 
 
 ## Summary
 
-- Nodes: **54**
+- Nodes: **42**
 - Clusters: **17**
-- Edges: **150**
+- Edges: **78**
 
 ## Clusters
 
-### architecture `architecture` (2 nodes)
+### architecture `architecture` (1 node)
 
 | Node | Label | Room | Block | Source |
 |---|---|---|---|---|
 | `w-ai-sessions-wiki-design-cotext-architecture-overview` | Cotext 전체 아키텍처 — Wiki → Graph → Sync 흐름 | `AI-Sessions/wiki/design/cotext-architecture-overview.md` | `2026-06-20` | wiki |
-| `w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap` | Workspace Wiki Bootstrap — 3가지 진입경로 통합 | `AI-Sessions/wiki/decisions/workspace-wiki-bootstrap.md` | `2026-06-22` | wiki |
 
-### cli `cli` (1 node)
+### cli `cli` (0 nodes)
 
-| Node | Label | Room | Block | Source |
-|---|---|---|---|---|
-| `w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap` | Workspace Wiki Bootstrap — 3가지 진입경로 통합 | `AI-Sessions/wiki/decisions/workspace-wiki-bootstrap.md` | `2026-06-22` | wiki |
+_(no members yet)_
 
 ### Concept `concept` (5 nodes)
 
@@ -47,12 +44,11 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-ai-sessions-wiki-concepts-neural-link-vs-gbrain-synthesis` | Neural Link × GBrain — 합쳐진 최고 모델 (The Synthesis) | `AI-Sessions/wiki/concepts/neural-link-vs-gbrain-synthesis.md` | `2026-06-16` | wiki |
 | `w-ai-sessions-wiki-concepts-neural-link-vs-gbrain` | Neural Link vs GBrain | `AI-Sessions/wiki/concepts/neural-link-vs-gbrain.md` | `2026-06-17` | wiki |
 
-### Decision `decision` (2 nodes)
+### Decision `decision` (1 node)
 
 | Node | Label | Room | Block | Source |
 |---|---|---|---|---|
 | `w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture` | MindSync 지식 동기화 아키텍처 (Wiki → Graph 컴파일 모델) | `AI-Sessions/wiki/decisions/mindsync-knowledge-sync-architecture.md` | `2026-06-20` | wiki |
-| `w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap` | Workspace Wiki Bootstrap — 3가지 진입경로 통합 | `AI-Sessions/wiki/decisions/workspace-wiki-bootstrap.md` | `2026-06-22` | wiki |
 
 ### Design `design` (1 node)
 
@@ -66,11 +62,9 @@ When asked about a topic, first match against cluster names below, then fan out 
 |---|---|---|---|---|
 | `w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log` | 2026-06-19 세션 작업 로그 | `AI-Sessions/wiki/dev-tasks/2026-06-19-session-log.md` | `2026-06-19` | wiki |
 
-### edge-function `edge-function` (1 node)
+### edge-function `edge-function` (0 nodes)
 
-| Node | Label | Room | Block | Source |
-|---|---|---|---|---|
-| `w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap` | Workspace Wiki Bootstrap — 3가지 진입경로 통합 | `AI-Sessions/wiki/decisions/workspace-wiki-bootstrap.md` | `2026-06-22` | wiki |
+_(no members yet)_
 
 ### graph-editor `graph-editor` (1 node)
 
@@ -84,13 +78,12 @@ When asked about a topic, first match against cluster names below, then fan out 
 |---|---|---|---|---|
 | `w-ai-sessions-wiki-design-cotext-architecture-overview` | Cotext 전체 아키텍처 — Wiki → Graph → Sync 흐름 | `AI-Sessions/wiki/design/cotext-architecture-overview.md` | `2026-06-20` | wiki |
 
-### mindsync `mindsync` (3 nodes)
+### mindsync `mindsync` (2 nodes)
 
 | Node | Label | Room | Block | Source |
 |---|---|---|---|---|
 | `w-ai-sessions-wiki-design-cotext-architecture-overview` | Cotext 전체 아키텍처 — Wiki → Graph → Sync 흐름 | `AI-Sessions/wiki/design/cotext-architecture-overview.md` | `2026-06-20` | wiki |
 | `w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration` | MindSync Studio v1.0.35–36 — 통합 리팩터링 | `AI-Sessions/wiki/dev-tasks/mindsync-ws-integration.md` | `2026-06-20` | wiki |
-| `w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap` | Workspace Wiki Bootstrap — 3가지 진입경로 통합 | `AI-Sessions/wiki/decisions/workspace-wiki-bootstrap.md` | `2026-06-22` | wiki |
 
 ### neural-globe `neural-globe` (1 node)
 
@@ -104,11 +97,9 @@ When asked about a topic, first match against cluster names below, then fan out 
 |---|---|---|---|---|
 | `w-ai-sessions-wiki-design-cotext-architecture-overview` | Cotext 전체 아키텍처 — Wiki → Graph → Sync 흐름 | `AI-Sessions/wiki/design/cotext-architecture-overview.md` | `2026-06-20` | wiki |
 
-### onboarding `onboarding` (1 node)
+### onboarding `onboarding` (0 nodes)
 
-| Node | Label | Room | Block | Source |
-|---|---|---|---|---|
-| `w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap` | Workspace Wiki Bootstrap — 3가지 진입경로 통합 | `AI-Sessions/wiki/decisions/workspace-wiki-bootstrap.md` | `2026-06-22` | wiki |
+_(no members yet)_
 
 ### Project `project` (5 nodes)
 
@@ -142,9 +133,6 @@ When asked about a topic, first match against cluster names below, then fan out 
 
 | From | → | To | Type |
 |---|---|---|---|
-| `w-ai-sessions-raw-01-cotext-development-plan` (Cotext 개발 계획서 / 설계서) | → | `w-ai-sessions-wiki-sources-01-cotext-development-plan-summary` (Source Summary: 01_cotext-development-plan.md) | relates |
-| `w-ai-sessions-raw-01-cotext-development-plan` (Cotext 개발 계획서 / 설계서) | → | `w-stub-room` (room) | relates |
-| `w-ai-sessions-raw-01-cotext-development-plan` (Cotext 개발 계획서 / 설계서) | → | `w-stub-wikilink` (wikilink) | relates |
 | `w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain` (Cotext, Neural Link, and the Second-Brain Direction) | → | `w-ai-sessions-wiki-concepts-neural-link-vs-gbrain-synthesis` (Neural Link × GBrain — 합쳐진 최고 모델 (The Synthesis)) | relates |
 | `w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko` (Cotext와 Neural Link, 그리고 세컨드 브레인 방향성) | → | `w-ai-sessions-wiki-projects-mindsync-future-polish` (MindSync — 향후 비주얼·자동화 폴리시 (Jarvis vibe + ambient)) | relates |
 | `w-ai-sessions-wiki-concepts-neural-link-mcp-grounding` (Neural Link — MCP grounding 옵션 (에이전트가 그래프를 이해시키는 방법)) | → | `w-ai-sessions-wiki-decisions-cotext-architecture-decisions` (Decisions: Cotext 아키텍처 핵심 결정) | relates |
@@ -176,10 +164,6 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture` (MindSync 지식 동기화 아키텍처 (Wiki → Graph 컴파일 모델)) | → | `w-stub-links` (links) | relates |
 | `w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture` (MindSync 지식 동기화 아키텍처 (Wiki → Graph 컴파일 모델)) | → | `w-stub-wikilink` (wikilink) | relates |
 | `w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture` (MindSync 지식 동기화 아키텍처 (Wiki → Graph 컴파일 모델)) | → | `w-stub-x` (X) | relates |
-| `w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap` (Workspace Wiki Bootstrap — 3가지 진입경로 통합) | → | `w-ai-sessions-wiki-concepts-neural-link-mcp-grounding` (Neural Link — MCP grounding 옵션 (에이전트가 그래프를 이해시키는 방법)) | relates |
-| `w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap` (Workspace Wiki Bootstrap — 3가지 진입경로 통합) | → | `w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture` (MindSync 지식 동기화 아키텍처 (Wiki → Graph 컴파일 모델)) | relates |
-| `w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap` (Workspace Wiki Bootstrap — 3가지 진입경로 통합) | → | `w-ai-sessions-wiki-design-cotext-architecture-overview` (Cotext 전체 아키텍처 — Wiki → Graph → Sync 흐름) | relates |
-| `w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap` (Workspace Wiki Bootstrap — 3가지 진입경로 통합) | → | `w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration` (MindSync Studio v1.0.35–36 — 통합 리팩터링) | relates |
 | `w-ai-sessions-wiki-design-cotext-architecture-overview` (Cotext 전체 아키텍처 — Wiki → Graph → Sync 흐름) | → | `w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture` (MindSync 지식 동기화 아키텍처 (Wiki → Graph 컴파일 모델)) | relates |
 | `w-ai-sessions-wiki-design-cotext-architecture-overview` (Cotext 전체 아키텍처 — Wiki → Graph → Sync 흐름) | → | `w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration` (MindSync Studio v1.0.35–36 — 통합 리팩터링) | relates |
 | `w-ai-sessions-wiki-design-cotext-architecture-overview` (Cotext 전체 아키텍처 — Wiki → Graph → Sync 흐름) | → | `w-stub-link` (link) | relates |
@@ -197,21 +181,21 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-ai-sessions-wiki-dev-tasks-android-release-signing-and-bundle` (Dev Task: Android Release Signing and Bundle) | → | `w-ai-sessions-wiki-projects-cotext-mvp` (Project: Cotext MVP) | relates |
 | `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | → | `w-ai-sessions-wiki-projects-chatgpt-share-02-structure` (ChatGPT Share Pack 02 - Structure) | relates |
 | `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | → | `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | relates |
-| `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | → | `w-readme` (React + TypeScript + Vite) | relates |
-| `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | → | `w-start-here` (Obsidian AI 업무 위키 템플릿) | relates |
-| `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | → | `w-template-manifest` (Template Manifest) | relates |
+| `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | → | `w-stub-readme` (README) | relates |
+| `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | → | `w-stub-start-here` (START_HERE) | relates |
+| `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | → | `w-stub-template-manifest` (TEMPLATE_MANIFEST) | relates |
 | `w-ai-sessions-wiki-projects-chatgpt-share-02-structure` (ChatGPT Share Pack 02 - Structure) | → | `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | relates |
-| `w-ai-sessions-wiki-projects-chatgpt-share-02-structure` (ChatGPT Share Pack 02 - Structure) | → | `w-index` (AI Agent Wiki Index) | relates |
-| `w-ai-sessions-wiki-projects-chatgpt-share-02-structure` (ChatGPT Share Pack 02 - Structure) | → | `w-readme` (React + TypeScript + Vite) | relates |
-| `w-ai-sessions-wiki-projects-chatgpt-share-02-structure` (ChatGPT Share Pack 02 - Structure) | → | `w-template-manifest` (Template Manifest) | relates |
-| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-agents` (AGENTS.md) | relates |
-| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-claude` (CLAUDE.md) | relates |
-| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-prompts-first-setup` (First Setup Prompt) | relates |
-| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-prompts-ingest` (Ingest Prompt) | relates |
-| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-prompts-lint` (Lint Prompt) | relates |
-| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-prompts-query` (Query Prompt) | relates |
-| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-prompts-save` (Save Prompt) | relates |
-| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-start-here` (Obsidian AI 업무 위키 템플릿) | relates |
+| `w-ai-sessions-wiki-projects-chatgpt-share-02-structure` (ChatGPT Share Pack 02 - Structure) | → | `w-stub-index` (index) | relates |
+| `w-ai-sessions-wiki-projects-chatgpt-share-02-structure` (ChatGPT Share Pack 02 - Structure) | → | `w-stub-readme` (README) | relates |
+| `w-ai-sessions-wiki-projects-chatgpt-share-02-structure` (ChatGPT Share Pack 02 - Structure) | → | `w-stub-template-manifest` (TEMPLATE_MANIFEST) | relates |
+| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-stub-agents` (AGENTS) | relates |
+| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-stub-claude` (CLAUDE) | relates |
+| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-stub-prompts-first-setup` (prompts/first-setup) | relates |
+| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-stub-prompts-ingest` (prompts/ingest) | relates |
+| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-stub-prompts-lint` (prompts/lint) | relates |
+| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-stub-prompts-query` (prompts/query) | relates |
+| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-stub-prompts-save` (prompts/save) | relates |
+| `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | → | `w-stub-start-here` (START_HERE) | relates |
 | `w-ai-sessions-wiki-projects-cotext-knowledge-studio` (Project Note: Cotext Knowledge Studio) | → | `w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain` (Cotext, Neural Link, and the Second-Brain Direction) | relates |
 | `w-ai-sessions-wiki-projects-cotext-knowledge-studio` (Project Note: Cotext Knowledge Studio) | → | `w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko` (Cotext와 Neural Link, 그리고 세컨드 브레인 방향성) | relates |
 | `w-ai-sessions-wiki-projects-cotext-knowledge-studio` (Project Note: Cotext Knowledge Studio) | → | `w-ai-sessions-wiki-concepts-neural-link-overview` (Neural Link — Cotext의 그래프 컨텍스트 레이어) | relates |
@@ -227,85 +211,14 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-ai-sessions-wiki-projects-mindsync-future-polish` (MindSync — 향후 비주얼·자동화 폴리시 (Jarvis vibe + ambient)) | → | `w-ai-sessions-wiki-decisions-cotext-architecture-decisions` (Decisions: Cotext 아키텍처 핵심 결정) | relates |
 | `w-ai-sessions-wiki-projects-mindsync-future-polish` (MindSync — 향후 비주얼·자동화 폴리시 (Jarvis vibe + ambient)) | → | `w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan` (Cotext Knowledge Studio — GBrain-level 진화 수행 계획) | relates |
 | `w-ai-sessions-wiki-sources-01-cotext-development-plan-summary` (Source Summary: 01_cotext-development-plan.md) | → | `w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan` (Cotext Knowledge Studio — GBrain-level 진화 수행 계획) | supports |
-| `w-cotext-development-plan` (Cotext 개발 계획서 / 설계서) | → | `w-stub-room` (room) | relates |
-| `w-cotext-development-plan` (Cotext 개발 계획서 / 설계서) | → | `w-stub-wikilink` (wikilink) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-agents` (AGENTS.md) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-conversations-2026-06-14-mcp-api-publish-handoff` (Session Handoff: MCP API & npm Publish) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain` (Cotext, Neural Link, and the Second-Brain Direction) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko` (Cotext와 Neural Link, 그리고 세컨드 브레인 방향성) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-concepts-neural-link-mcp-grounding` (Neural Link — MCP grounding 옵션 (에이전트가 그래프를 이해시키는 방법)) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-concepts-neural-link-overview` (Neural Link — Cotext의 그래프 컨텍스트 레이어) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-concepts-neural-link-vs-gbrain` (Neural Link vs GBrain) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-decisions-cotext-architecture-decisions` (Decisions: Cotext 아키텍처 핵심 결정) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture` (MindSync 지식 동기화 아키텍처 (Wiki → Graph 컴파일 모델)) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap` (Workspace Wiki Bootstrap — 3가지 진입경로 통합) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-design-cotext-architecture-overview` (Cotext 전체 아키텍처 — Wiki → Graph → Sync 흐름) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-design-cotext-brand-and-landing` (Design: Cotext 브랜드 · 디자인 시스템 · 랜딩) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-design-managed-credits-billing-plan` (Managed Credits Billing Plan) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-design-public-pricing-and-policy-surface` (Design: Public Pricing and Policy Surface) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-dev-tasks-android-release-signing-and-bundle` (Dev Task: Android Release Signing and Bundle) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration` (MindSync Studio v1.0.35–36 — 통합 리팩터링) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-errors-01-npm-bin-quirk-and-publish` (Error: npm bin field quirk and publish authorization) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-projects-cotext-knowledge-studio` (Project Note: Cotext Knowledge Studio) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan` (Cotext Knowledge Studio — GBrain-level 진화 수행 계획) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-projects-cotext-mvp` (Project: Cotext MVP) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-ai-sessions-wiki-sources-01-cotext-development-plan-summary` (Source Summary: 01_cotext-development-plan.md) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-claude` (CLAUDE.md) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-log` (Agent Work Log) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-prompts-first-setup` (First Setup Prompt) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-prompts-ingest` (Ingest Prompt) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-prompts-lint` (Lint Prompt) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-prompts-query` (Query Prompt) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-prompts-save` (Save Prompt) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-readme` (React + TypeScript + Vite) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-start-here` (Obsidian AI 업무 위키 템플릿) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-stub-wikilink` (wikilink) | relates |
-| `w-index` (AI Agent Wiki Index) | → | `w-template-manifest` (Template Manifest) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-conversations-2026-06-14-mcp-api-publish-handoff` (Session Handoff: MCP API & npm Publish) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain` (Cotext, Neural Link, and the Second-Brain Direction) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko` (Cotext와 Neural Link, 그리고 세컨드 브레인 방향성) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-concepts-neural-link-mcp-grounding` (Neural Link — MCP grounding 옵션 (에이전트가 그래프를 이해시키는 방법)) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-concepts-neural-link-overview` (Neural Link — Cotext의 그래프 컨텍스트 레이어) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-concepts-neural-link-vs-gbrain` (Neural Link vs GBrain) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-decisions-cotext-architecture-decisions` (Decisions: Cotext 아키텍처 핵심 결정) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture` (MindSync 지식 동기화 아키텍처 (Wiki → Graph 컴파일 모델)) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap` (Workspace Wiki Bootstrap — 3가지 진입경로 통합) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-design-cotext-brand-and-landing` (Design: Cotext 브랜드 · 디자인 시스템 · 랜딩) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-design-managed-credits-billing-plan` (Managed Credits Billing Plan) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-design-public-pricing-and-policy-surface` (Design: Public Pricing and Policy Surface) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-dev-tasks-2026-06-19-session-log` (2026-06-19 세션 작업 로그) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-dev-tasks-android-release-signing-and-bundle` (Dev Task: Android Release Signing and Bundle) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration` (MindSync Studio v1.0.35–36 — 통합 리팩터링) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-errors-01-npm-bin-quirk-and-publish` (Error: npm bin field quirk and publish authorization) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-projects-chatgpt-share-01-overview` (ChatGPT Share Pack 01 - Overview) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-projects-chatgpt-share-02-structure` (ChatGPT Share Pack 02 - Structure) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-projects-chatgpt-share-03-rules-and-prompts` (ChatGPT Share Pack 03 - Rules And Prompts) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-projects-cotext-knowledge-studio` (Project Note: Cotext Knowledge Studio) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-projects-cotext-knowledge-studio-plan` (Cotext Knowledge Studio — GBrain-level 진화 수행 계획) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-projects-cotext-mvp` (Project: Cotext MVP) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-projects-mindsync-future-polish` (MindSync — 향후 비주얼·자동화 폴리시 (Jarvis vibe + ambient)) | relates |
-| `w-log` (Agent Work Log) | → | `w-ai-sessions-wiki-sources-01-cotext-development-plan-summary` (Source Summary: 01_cotext-development-plan.md) | relates |
-| `w-log` (Agent Work Log) | → | `w-cotext-development-plan` (Cotext 개발 계획서 / 설계서) | relates |
-| `w-log` (Agent Work Log) | → | `w-stub-app-tsx` (App.tsx) | relates |
-| `w-log` (Agent Work Log) | → | `w-stub-src-components-connectmindsyncmodal-tsx` (src/components/ConnectMindSyncModal.tsx) | relates |
-| `w-log` (Agent Work Log) | → | `w-stub-src-index-css` (src/index.css) | relates |
-| `w-log` (Agent Work Log) | → | `w-stub-wikilink` (wikilink) | relates |
 
 ## Unclustered nodes
 
 | Node | Label | Room | Block |
 |---|---|---|---|
-| `w-log` | Agent Work Log | `log.md` | `` |
-| `w-agents` | AGENTS.md | `AGENTS.md` | `` |
-| `w-index` | AI Agent Wiki Index | `index.md` | `` |
-| `w-stub-app-tsx` | App.tsx | `(unresolved)` | `` |
+| `w-stub-agents` | AGENTS | `(unresolved)` | `` |
 | `w-stub-b` | B | `(unresolved)` | `` |
-| `w-chatgpt` | CHATGPT.md | `CHATGPT.md` | `` |
-| `w-claude` | CLAUDE.md | `CLAUDE.md` | `` |
-| `w-ai-sessions-raw-01-cotext-development-plan` | Cotext 개발 계획서 / 설계서 | `AI-Sessions/raw/01_cotext-development-plan.md` | `` |
-| `w-cotext-development-plan` | Cotext 개발 계획서 / 설계서 | `cotext-development-plan.md` | `` |
+| `w-stub-claude` | CLAUDE | `(unresolved)` | `` |
 | `w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain` | Cotext, Neural Link, and the Second-Brain Direction | `AI-Sessions/wiki/concepts/cotext-neural-link-second-brain.md` | `` |
 | `w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko` | Cotext와 Neural Link, 그리고 세컨드 브레인 방향성 | `AI-Sessions/wiki/concepts/cotext-neural-link-second-brain-ko.md` | `` |
 | `w-ai-sessions-wiki-decisions-cotext-architecture-decisions` | Decisions: Cotext 아키텍처 핵심 결정 | `AI-Sessions/wiki/decisions/cotext-architecture-decisions.md` | `` |
@@ -313,27 +226,22 @@ When asked about a topic, first match against cluster names below, then fan out 
 | `w-ai-sessions-wiki-design-public-pricing-and-policy-surface` | Design: Public Pricing and Policy Surface | `AI-Sessions/wiki/design/public-pricing-and-policy-surface.md` | `` |
 | `w-ai-sessions-wiki-dev-tasks-android-release-signing-and-bundle` | Dev Task: Android Release Signing and Bundle | `AI-Sessions/wiki/dev-tasks/android-release-signing-and-bundle.md` | `` |
 | `w-ai-sessions-wiki-errors-01-npm-bin-quirk-and-publish` | Error: npm bin field quirk and publish authorization | `AI-Sessions/wiki/errors/01_npm-bin-quirk-and-publish.md` | `` |
-| `w-prompts-first-setup` | First Setup Prompt | `prompts/first-setup.md` | `` |
-| `w-ai-sessions-raw-g-brain-reference` | g-brain-reference | `AI-Sessions/raw/g-brain-reference.md` | `` |
-| `w-prompts-ingest` | Ingest Prompt | `prompts/ingest.md` | `` |
-| `w-license` | License | `LICENSE.md` | `` |
+| `w-stub-index` | index | `(unresolved)` | `` |
 | `w-stub-link` | link | `(unresolved)` | `` |
 | `w-stub-links` | links | `(unresolved)` | `` |
-| `w-prompts-lint` | Lint Prompt | `prompts/lint.md` | `` |
 | `w-ai-sessions-wiki-design-managed-credits-billing-plan` | Managed Credits Billing Plan | `AI-Sessions/wiki/design/managed-credits-billing-plan.md` | `` |
 | `w-stub-name` | name | `(unresolved)` | `` |
-| `w-start-here` | Obsidian AI 업무 위키 템플릿 | `START_HERE.md` | `` |
 | `w-ai-sessions-wiki-projects-cotext-knowledge-studio` | Project Note: Cotext Knowledge Studio | `AI-Sessions/wiki/projects/cotext-knowledge-studio.md` | `` |
 | `w-ai-sessions-wiki-projects-cotext-mvp` | Project: Cotext MVP | `AI-Sessions/wiki/projects/cotext_mvp.md` | `` |
-| `w-prompts-query` | Query Prompt | `prompts/query.md` | `` |
-| `w-readme` | React + TypeScript + Vite | `README.md` | `` |
-| `w-stub-room` | room | `(unresolved)` | `` |
-| `w-prompts-save` | Save Prompt | `prompts/save.md` | `` |
-| `w-ai-sessions-conversations-2026-06-14-mcp-api-publish-handoff` | Session Handoff: MCP API & npm Publish | `AI-Sessions/conversations/2026-06-14-mcp-api-publish-handoff.md` | `` |
+| `w-stub-prompts-first-setup` | prompts/first-setup | `(unresolved)` | `` |
+| `w-stub-prompts-ingest` | prompts/ingest | `(unresolved)` | `` |
+| `w-stub-prompts-lint` | prompts/lint | `(unresolved)` | `` |
+| `w-stub-prompts-query` | prompts/query | `(unresolved)` | `` |
+| `w-stub-prompts-save` | prompts/save | `(unresolved)` | `` |
+| `w-stub-readme` | README | `(unresolved)` | `` |
 | `w-ai-sessions-wiki-sources-01-cotext-development-plan-summary` | Source Summary: 01_cotext-development-plan.md | `AI-Sessions/wiki/sources/01_cotext-development-plan_summary.md` | `` |
-| `w-stub-src-components-connectmindsyncmodal-tsx` | src/components/ConnectMindSyncModal.tsx | `(unresolved)` | `` |
-| `w-stub-src-index-css` | src/index.css | `(unresolved)` | `` |
-| `w-template-manifest` | Template Manifest | `TEMPLATE_MANIFEST.md` | `` |
+| `w-stub-start-here` | START_HERE | `(unresolved)` | `` |
+| `w-stub-template-manifest` | TEMPLATE_MANIFEST | `(unresolved)` | `` |
 | `w-stub-wikilink` | wikilink | `(unresolved)` | `` |
 | `w-stub-x` | X | `(unresolved)` | `` |
 

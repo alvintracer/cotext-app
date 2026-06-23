@@ -2,8 +2,9 @@
 type: decision
 date: 2026-06-22
 status: active
+graph: false
 tags: [architecture, mindsync, onboarding, cli, edge-function]
----
+--- 
 
 # Workspace Wiki Bootstrap — 3가지 진입경로 통합
 

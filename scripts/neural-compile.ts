@@ -68,11 +68,12 @@ function collectMarkdown(root: string): string[] {
     }
   };
   walk(root);
-  // Keep only: top-level *.md, AI-Sessions/**, prompts/**
+  // Keep only curated wiki documents. System scaffold docs (CLAUDE.md,
+  // START_HERE.md, index.md, log.md, prompts/*, conversations/*) stay useful
+  // for humans/agents but should not pollute the knowledge graph itself.
   return out.filter((abs) => {
     const rel = toRel(root, abs);
-    if (!rel.includes('/')) return true; // top-level doc (CLAUDE.md, log.md, ...)
-    return rel.startsWith('AI-Sessions/') || rel.startsWith('prompts/');
+    return rel.startsWith('AI-Sessions/wiki/');
   });
 }
 
@@ -80,7 +81,7 @@ function toRel(root: string, abs: string): string {
   return path.relative(root, abs).replace(/\\/g, '/');
 }
 
-interface Frontmatter { type?: string; tags?: string[]; status?: string; title?: string; date?: string }
+interface Frontmatter { type?: string; tags?: string[]; status?: string; title?: string; date?: string; graph?: boolean }
 
 /** Minimal frontmatter parser (scalar keys + inline/block `tags`). */
 function parseFrontmatter(raw: string): { fm: Frontmatter; body: string } {
@@ -107,6 +108,10 @@ function parseFrontmatter(raw: string): { fm: Frontmatter; body: string } {
         }
         if (tags.length) fm.tags = tags;
       }
+    } else if (key === 'graph') {
+      const lowered = val.replace(/^['"]|['"]$/g, '').toLowerCase();
+      if (lowered === 'false') fm.graph = false;
+      else if (lowered === 'true') fm.graph = true;
     } else if (key === 'type' || key === 'status' || key === 'title' || key === 'date') {
       (fm as Record<string, string>)[key] = val.replace(/^['"]|['"]$/g, '');
     }
@@ -169,6 +174,7 @@ function buildWikiGraph(root: string, files: string[]): NeuralGraph {
     let raw: string;
     try { raw = fs.readFileSync(info.abs, 'utf-8').replace(/\r\n/g, '\n'); } catch { continue; }
     const { fm, body } = parseFrontmatter(raw);
+    if (fm.graph === false) continue;
 
     const nodeClusters: string[] = [];
     if (fm.type) nodeClusters.push(ensureCluster(capitalize(fm.type)));

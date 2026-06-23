@@ -48,8 +48,7 @@ function collectMarkdown(root: string): string[] {
   walk(root);
   return out.filter((abs) => {
     const rel = toRel(root, abs);
-    if (!rel.includes('/')) return true;
-    return rel.startsWith('AI-Sessions/') || rel.startsWith('prompts/');
+    return rel.startsWith('AI-Sessions/wiki/');
   });
 }
 
@@ -57,7 +56,7 @@ function toRel(root: string, abs: string): string {
   return path.relative(root, abs).replace(/\\/g, '/');
 }
 
-interface Frontmatter { type?: string; tags?: string[]; status?: string; title?: string; date?: string }
+interface Frontmatter { type?: string; tags?: string[]; status?: string; title?: string; date?: string; graph?: boolean }
 
 function parseFrontmatter(raw: string): { fm: Frontmatter; body: string } {
   if (!raw.startsWith('---')) return { fm: {}, body: raw };
@@ -83,6 +82,10 @@ function parseFrontmatter(raw: string): { fm: Frontmatter; body: string } {
         }
         if (tags.length) fm.tags = tags;
       }
+    } else if (key === 'graph') {
+      const lowered = val.replace(/^['"]|['"]$/g, '').toLowerCase();
+      if (lowered === 'false') fm.graph = false;
+      else if (lowered === 'true') fm.graph = true;
     } else if (key === 'type' || key === 'status' || key === 'title' || key === 'date') {
       (fm as Record<string, string>)[key] = val.replace(/^['"]|['"]$/g, '');
     }
@@ -138,6 +141,7 @@ function buildWikiGraph(root: string, files: string[]): NeuralGraph {
     let raw: string;
     try { raw = fs.readFileSync(info.abs, 'utf-8').replace(/\r\n/g, '\n'); } catch { continue; }
     const { fm, body } = parseFrontmatter(raw);
+    if (fm.graph === false) continue;
     const nodeClusters: string[] = [];
     if (fm.type) nodeClusters.push(ensureCluster(capitalize(fm.type)));
     for (const tag of fm.tags ?? []) nodeClusters.push(ensureCluster(tag));

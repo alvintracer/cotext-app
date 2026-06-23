@@ -13,6 +13,8 @@ import CommitBar from './CommitBar';
 import CotextEditor from './CotextEditor';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import WikiSynthesisModal from './WikiSynthesisModal';
+import { Sparkle } from '@phosphor-icons/react';
 import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X, PencilSimple, CodepenLogo, ArrowDown, Graph, Tag, Plus, MagnifyingGlass, LinkSimple, ArrowSquareOut, Brain, Stack } from '@phosphor-icons/react';
 import { generateCotextGuide, generateCotextIndex, generateAgentsPointerBlock, upsertPointerBlock } from '../lib/contextGuide';
 import {
@@ -60,6 +62,7 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
   const [error, setError] = useState<string | null>(null);
   const [copiedPack, setCopiedPack] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showWikiSynth, setShowWikiSynth] = useState(false);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [shareExpiry, setShareExpiry] = useState<string>('24h');
   const [shareCreating, setShareCreating] = useState(false);
@@ -976,6 +979,13 @@ ${filteredContent}
             >
               <Graph size={14} /> {language === 'ko' ? '뉴런 검색' : 'Neural'}
             </button>
+            <button
+              className="btn btn-ghost btn-sm context-pack-btn"
+              onClick={() => setShowWikiSynth(true)}
+              title={language === 'ko' ? '채팅을 wiki 문서로 정제 → 자동 그래프 갱신' : 'Synthesize captures into wiki docs → auto graph update'}
+            >
+              <Sparkle size={14} weight="fill" /> {language === 'ko' ? 'Wiki로 정리' : 'To wiki'}
+            </button>
           </div>
           <div className="room-mode-rail">
             <div className="view-mode-tabs">
@@ -996,6 +1006,16 @@ ${filteredContent}
           </div>
         </div>
       </div>
+
+      {/* Wiki synthesis modal */}
+      <WikiSynthesisModal
+        open={showWikiSynth}
+        onClose={() => setShowWikiSynth(false)}
+        workspace={workspace}
+        roomContent={content}
+        roomLabel={room.path}
+        language={language === 'ko' ? 'ko' : 'en'}
+      />
 
       {/* Share Modal */}
       {showShareModal && (

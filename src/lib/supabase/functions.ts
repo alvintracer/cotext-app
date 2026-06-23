@@ -94,6 +94,30 @@ export const neuralApi = {
   },
 };
 
+// Batch push multiple files in one git commit (Trees API). Used by the
+// wiki-synthesize flow so a synthesis session produces ONE clean repo entry
+// and the neural-compile workflow fires exactly once.
+export const wikiBatchApi = {
+  pushBatch(opts: {
+    owner: string;
+    repo: string;
+    branch?: string;
+    files: Array<{ path: string; content: string }>;
+    message?: string;
+    force?: boolean;
+  }) {
+    return invokeFunction<{
+      ok: boolean;
+      created: number;
+      skipped: number;
+      created_paths: string[];
+      skipped_paths: string[];
+      commit_sha?: string;
+      message: string;
+    }>('wiki-push-batch', opts);
+  },
+};
+
 // Workspace wiki initialization — scaffolds the LLM-wiki structure server-side
 // for users who connected the repo via Cotext without ever cloning it locally.
 // Same templates as `npx cotext init`, committed in one atomic GitHub commit.

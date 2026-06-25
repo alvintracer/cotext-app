@@ -4,8 +4,9 @@ import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase/client';
-import { githubApi, wikiInitApi } from '../lib/supabase/functions';
+import { githubApi, wikiInitApi, compileTriggerApi } from '../lib/supabase/functions';
 import type { Room } from '../types/room';
+import type { BlockRefMeta } from '../lib/markdown/index';
 import RoomView from '../components/RoomView';
 import ApiKeyManager from '../components/ApiKeyManager';
 import AgentPanel from '../components/AgentPanel';
@@ -13,8 +14,10 @@ import ManagedCreditsPanel from '../components/ManagedCreditsPanel';
 import {
   FolderOpen, Plus, CaretLeft as ChevronLeft, MagnifyingGlass as Search, ChatText as MessageSquare,
   TreeStructure as FolderTree, CaretRight as ChevronRight, List as Menu, X,
-  Link as LinkIcon, Copy, Check, Users, UserPlus, Robot, CodepenLogo, FolderPlus
+  Link as LinkIcon, Copy, Check, Users, UserPlus, Robot, CodepenLogo, FolderPlus, Folders,
 } from '@phosphor-icons/react';
+import RepoTreeView from '../components/RepoTreeView';
+import FileViewer from '../components/FileViewer';
 
 interface TreeItem {
   name: string;
@@ -64,6 +67,19 @@ export default function WorkspaceDetailPage() {
   const [chatName, setChatName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Sidebar tab — 'chats' (default) shows the room list; 'folders' shows the
+  // repo's directory tree so the user can see/navigate the broader code surface
+  // and create chats inside specific folders.
+  const [sidebarTab, setSidebarTab] = useState<'chats' | 'folders'>('chats');
+  // Phase B: when set, the main pane shows FileViewer for an arbitrary repo file
+  // (md = editable, non-md = read-only). Mutually exclusive with selectedRoom.
+  const [selectedFile, setSelectedFile] = useState<{ path: string; name: string; focusRef?: BlockRefMeta } | null>(null);
+  const [pendingComposerSeed, setPendingComposerSeed] = useState<{
+    roomId: string;
+    text: string;
+    ref?: BlockRefMeta;
+    nonce: number;
+  } | null>(null);
   const [agentOpen, setAgentOpen] = useState(false);
   const [agentSaveKey, setAgentSaveKey] = useState(0);
   const [agentSeed, setAgentSeed] = useState<{ text: string; nonce: number } | null>(null);
@@ -211,6 +227,28 @@ export default function WorkspaceDetailPage() {
     }
   }, [workspace, language]);
 
+  // Force the neural-compile workflow to run NOW (workflow_dispatch).
+  // Use when the graph is stale — e.g. an earlier compile included files the
+  // new compiler now excludes (CLAUDE.md / log.md / prompts/*) and the user
+  // wants those system-md nodes gone without waiting for the next wiki push.
+  const handleRecompileNow = useCallback(async () => {
+    if (!workspace) return;
+    setWikiInitBusy(true);
+    setWikiInitMsg(null);
+    try {
+      const res = await compileTriggerApi.trigger(
+        workspace.github_owner, workspace.github_repo, workspace.default_branch || 'main',
+      );
+      setWikiInitMsg(language === 'ko'
+        ? `✓ ${res.message}`
+        : `✓ ${res.message}`);
+    } catch (err) {
+      setWikiInitMsg(err instanceof Error ? err.message : String(err));
+    } finally {
+      setWikiInitBusy(false);
+    }
+  }, [workspace, language]);
+
   // Repair the neural-compile workflow yml only — for workspaces that were
   // initialized BEFORE the self-contained workflow fix (their yml refers to
   // an un-published `cotext` npm package and the Action silently fails).
@@ -344,6 +382,36 @@ export default function WorkspaceDetailPage() {
     }
   }, [workspace, user, selectedPath, chatName]);
 
+  const ensureRoomForPath = useCallback(async (folderPath: string): Promise<Room> => {
+    if (!workspace || !user) throw new Error('Workspace not ready');
+    const normalizedPath = folderPath.trim() || 'root';
+    const existing = rooms.find((room) => room.path === normalizedPath && room.name.toLowerCase() === 'cotext')
+      || rooms.find((room) => room.path === normalizedPath);
+    if (existing) return existing;
+
+    const cotextFolder = workspace.cotext_folder_name || '.cotext';
+    const cotextFilePath = normalizedPath === 'root'
+      ? `${cotextFolder}/cotext.md`
+      : `${normalizedPath}/${cotextFolder}/cotext.md`;
+
+    const { data, error } = await supabase
+      .from('rooms')
+      .insert({
+        workspace_id: workspace.id,
+        user_id: user.id,
+        path: normalizedPath,
+        name: 'cotext',
+        cotext_folder: cotextFolder,
+        cotext_file_path: cotextFilePath,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    setRooms((prev) => [data, ...prev]);
+    return data;
+  }, [workspace, user, rooms]);
+
   // Generate invite link
   const handleGenerateInvite = useCallback(async () => {
     if (!workspace || !user) return;
@@ -473,6 +541,30 @@ export default function WorkspaceDetailPage() {
           </button>
         </div>
 
+        {/* Tab toggle: chats (room list, default) vs folders (repo tree).
+            Lets users browse the broader repo structure without leaving the sidebar
+            and create chats inside any folder (the .cotext-bearing folders glow blue). */}
+        <div className="sidebar-tabs" role="tablist">
+          <button
+            role="tab"
+            aria-selected={sidebarTab === 'chats'}
+            className={`sidebar-tab ${sidebarTab === 'chats' ? 'active' : ''}`}
+            onClick={() => setSidebarTab('chats')}
+          >
+            <MessageSquare size={13} weight={sidebarTab === 'chats' ? 'fill' : 'regular'} />
+            <span>{language === 'ko' ? '채팅' : 'Chats'}</span>
+          </button>
+          <button
+            role="tab"
+            aria-selected={sidebarTab === 'folders'}
+            className={`sidebar-tab ${sidebarTab === 'folders' ? 'active' : ''}`}
+            onClick={() => setSidebarTab('folders')}
+          >
+            <Folders size={13} weight={sidebarTab === 'folders' ? 'fill' : 'regular'} />
+            <span>{language === 'ko' ? '폴더' : 'Folders'}</span>
+          </button>
+        </div>
+
         <div className="sidebar-search">
           <Search size={14} />
           <input
@@ -544,6 +636,19 @@ export default function WorkspaceDetailPage() {
             </summary>
             <button
               className="btn btn-ghost btn-xs btn-full"
+              onClick={handleRecompileNow}
+              disabled={wikiInitBusy}
+              style={{ marginTop: 8 }}
+              title={language === 'ko'
+                ? '지금 GitHub Action을 실행해 그래프를 새로 빌드합니다. 시스템 md(CLAUDE.md, log.md 등)는 자동으로 제외됩니다.'
+                : 'Run the GitHub Action now to rebuild the graph. System md (CLAUDE.md, log.md, etc.) is auto-excluded.'}
+            >
+              {wikiInitBusy
+                ? (language === 'ko' ? '실행 중...' : 'Running...')
+                : (language === 'ko' ? '🔄 지금 그래프 재컴파일' : '🔄 Recompile graph now')}
+            </button>
+            <button
+              className="btn btn-ghost btn-xs btn-full"
               onClick={handleRepairWorkflow}
               disabled={wikiInitBusy}
               style={{ marginTop: 8 }}
@@ -593,37 +698,72 @@ export default function WorkspaceDetailPage() {
           </div>
         )}
 
-        <div className="room-list">
-          {loadingRooms ? (
-            <div className="loading-state-sm">
-              <div className="spinner-sm" />
-            </div>
-          ) : filteredRooms.length === 0 ? (
-            <div className="empty-state-sm">
-              <p className="text-muted">{t('sidebar.emptyChats')}</p>
-            </div>
-          ) : (
-            filteredRooms.map((room) => (
-              <button
-                key={room.id}
-                className={`room-item ${selectedRoom?.id === room.id ? 'active' : ''}`}
-                onClick={() => {
-                  setSelectedRoom(room);
+        {sidebarTab === 'chats' && (
+          <div className="room-list">
+            {loadingRooms ? (
+              <div className="loading-state-sm">
+                <div className="spinner-sm" />
+              </div>
+            ) : filteredRooms.length === 0 ? (
+              <div className="empty-state-sm">
+                <p className="text-muted">{t('sidebar.emptyChats')}</p>
+              </div>
+            ) : (
+              filteredRooms.map((room) => (
+                <button
+                  key={room.id}
+                  className={`room-item ${selectedRoom?.id === room.id ? 'active' : ''}`}
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setSelectedRoom(room);
+                    setSidebarOpen(false);
+                  }}
+                >
+                  <MessageSquare size={14} />
+                  <div className="room-item-info">
+                    <span className="room-item-dir">{room.path === 'root' ? '/' : room.path}</span>
+                    <span className="room-item-path">{room.name || room.path.split('/').pop() || room.path}</span>
+                  </div>
+                  {room.last_known_sha && (
+                    <span className="room-synced-dot" title="Synced" />
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+
+        {sidebarTab === 'folders' && (
+          <div className="repo-tree-host">
+            <RepoTreeView
+              workspace={{
+                github_owner: workspace.github_owner,
+                github_repo: workspace.github_repo,
+                default_branch: workspace.default_branch || 'main',
+              }}
+              currentFolderPath={selectedRoom?.path && selectedRoom.path !== 'root' ? selectedRoom.path : null}
+              onNewChatInFolder={(folderPath) => {
+                // Pre-fill the existing add-room modal with the picked folder so
+                // the chat lands inside the directory the user clicked.
+                setSelectedPath(folderPath);
+                setShowAddRoom(true);
+                loadTree();
+              }}
+              onFileClick={(filePath, fileName) => {
+                const matchingRoom = rooms.find((r) => r.cotext_file_path === filePath);
+                if (matchingRoom) {
+                  setSelectedFile(null);
+                  setSelectedRoom(matchingRoom);
                   setSidebarOpen(false);
-                }}
-              >
-                <MessageSquare size={14} />
-                <div className="room-item-info">
-                  <span className="room-item-dir">{room.path === 'root' ? '/' : room.path}</span>
-                  <span className="room-item-path">{room.name || room.path.split('/').pop() || room.path}</span>
-                </div>
-                {room.last_known_sha && (
-                  <span className="room-synced-dot" title="Synced" />
-                )}
-              </button>
-            ))
-          )}
-        </div>
+                  return;
+                }
+                setSelectedRoom(null);
+                setSelectedFile({ path: filePath, name: fileName });
+                setSidebarOpen(false);
+              }}
+            />
+          </div>
+        )}
 
         {/* Team section */}
         <div className="sidebar-team">
@@ -673,7 +813,37 @@ export default function WorkspaceDetailPage() {
 
       {/* Main Content */}
       <main className="workspace-main">
-        {selectedRoom ? (
+        {selectedFile ? (
+          <FileViewer
+            key={selectedFile.path}
+            workspace={{
+              github_owner: workspace.github_owner,
+              github_repo: workspace.github_repo,
+              default_branch: workspace.default_branch || 'main',
+            }}
+            filePath={selectedFile.path}
+            fileName={selectedFile.name}
+            language={language === 'ko' ? 'ko' : 'en'}
+            rooms={rooms}
+            onAddSelectionToChat={async ({ folderPath, text, ref }) => {
+              const room = await ensureRoomForPath(folderPath);
+              setSelectedFile(null);
+              setSelectedRoom(room);
+              setPendingComposerSeed({ roomId: room.id, text, ref, nonce: Date.now() });
+              setSidebarOpen(false);
+            }}
+            onOpenReference={(roomPath, blockTs) => {
+              const room = rooms.find((item) => item.path === roomPath);
+              if (!room) return;
+              setSelectedFile(null);
+              setSelectedRoom(room);
+              setFocusTs(blockTs);
+              setSidebarOpen(false);
+            }}
+            initialFocusRef={selectedFile.focusRef}
+            onClose={() => setSelectedFile(null)}
+          />
+        ) : selectedRoom ? (
           <RoomView
             key={`${selectedRoom.id}-${agentSaveKey}`}
             room={selectedRoom}
@@ -693,12 +863,21 @@ export default function WorkspaceDetailPage() {
             onNavigateRoom={(path, ts) => {
               const target = rooms.find((r) => r.path === path);
               if (target) {
+                setSelectedFile(null);
                 setSelectedRoom(target);
                 setFocusTs(ts);
               }
             }}
             focusBlockTs={focusTs}
             rooms={rooms}
+            composerSeed={pendingComposerSeed?.roomId === selectedRoom.id ? pendingComposerSeed : null}
+            onOpenFileReference={(ref, roomPath) => {
+              const fullPath = roomPath && roomPath !== 'root' ? `${roomPath}/${ref.path}` : ref.path;
+              const fileName = fullPath.split('/').pop() || ref.path;
+              setSelectedRoom(null);
+              setSelectedFile({ path: fullPath, name: fileName, focusRef: ref });
+              setSidebarOpen(false);
+            }}
           />
         ) : (
           <div className="empty-room-state">

@@ -4,16 +4,19 @@ import { githubApi, fetchAssetBlobUrl, neuralApi, type NeuralClusterHit, type Ne
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { appendMessage, createInitialContent, createImageLink, createFileLink, formatBlockMeta, generateAssetFileName, parseBlockMeta, parseBlocks } from '../lib/markdown/index';
+import { appendMessage, createInitialContent, createImageLink, createFileLink, formatBlockMeta, generateAssetFileName, parseBlockMeta, parseBlockRef, parseBlocks, type BlockRefMeta } from '../lib/markdown/index';
 import { compressImage, formatFileSize, isImageFile, MAX_FILE_SIZE } from '../lib/image/compress';
 import type { Room, LocalDraft, SyncStatus } from '../types/room';
 import type { Workspace } from '../types/workspace';
 import MorphingComposer from './MorphingComposer';
 import CommitBar from './CommitBar';
 import CotextEditor from './CotextEditor';
+import CotextMarkdown from './CotextMarkdown';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import WikiSynthesisModal from './WikiSynthesisModal';
+import MermaidBlock from './MermaidBlock';
+import DiagramEditorModal from './DiagramEditorModal';
 import { Sparkle } from '@phosphor-icons/react';
 import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X, PencilSimple, CodepenLogo, ArrowDown, Graph, Tag, Plus, MagnifyingGlass, LinkSimple, ArrowSquareOut, Brain, Stack } from '@phosphor-icons/react';
 import { generateCotextGuide, generateCotextIndex, generateAgentsPointerBlock, upsertPointerBlock } from '../lib/contextGuide';
@@ -39,11 +42,13 @@ interface RoomViewProps {
   focusBlockTs?: string | null;
   /** All rooms in this workspace — used by the graph view to fetch cross-room block text. */
   rooms?: Room[];
+  composerSeed?: { text: string; ref?: BlockRefMeta; nonce: number } | null;
+  onOpenFileReference?: (ref: BlockRefMeta, roomPath: string) => void;
 }
 
 type ViewMode = 'chat' | 'editor' | 'split' | 'preview';
 
-export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent, apply, onNavigateRoom, focusBlockTs, rooms: _rooms }: RoomViewProps) {
+export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent, apply, onNavigateRoom, focusBlockTs, rooms: _rooms, composerSeed, onOpenFileReference }: RoomViewProps) {
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const navigate = useNavigate();
@@ -357,7 +362,7 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
   }, [applyNonce]);
 
   // Append chat message
-  const handleSendMessage = useCallback(async (message: string, files?: File[]) => {
+  const handleSendMessage = useCallback(async (message: string, files?: File[], ref?: BlockRefMeta) => {
     let attachments: string[] = [];
 
     // Handle file uploads
@@ -404,7 +409,11 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
       }
     }
 
-    const newContent = appendMessage(content, message, attachments.length > 0 ? attachments : undefined, { source: 'me', author: currentAuthor });
+    const newContent = appendMessage(content, message, attachments.length > 0 ? attachments : undefined, {
+      source: 'me',
+      author: currentAuthor,
+      ref,
+    });
     handleContentChange(newContent);
 
     // Scroll to bottom
@@ -1173,6 +1182,7 @@ ${filteredContent}
               onJump={jumpToBlock}
               onNavigateRoom={onNavigateRoom}
               onOpenCluster={(id) => setClusterView(id)}
+              onOpenFileReference={onOpenFileReference ? (ref) => onOpenFileReference(ref, room.path) : undefined}
               onNodify={(ts, meta) => setNodeEditor({ ts, meta })}
               onRemoveNode={(ts) => handleRemoveNode(ts)}
               onLinkNode={(id, label) => setLinkEditor({ id, label })}
@@ -1218,6 +1228,7 @@ ${filteredContent}
               content={content}
               onChange={handleContentChange}
               readOnly={false}
+              annotationAuthor={currentAuthor}
             />
           </div>
         )}
@@ -1225,7 +1236,7 @@ ${filteredContent}
         {viewMode === 'preview' && (
           <div className="room-preview">
             <div className="markdown-preview">
-              <BlockContent text={content} workspace={workspace} room={room} />
+              <AnnotatedBlockContent text={content} workspace={workspace} room={room} />
             </div>
           </div>
         )}
@@ -1233,7 +1244,7 @@ ${filteredContent}
 
       {/* Composer */}
       {(viewMode === 'chat' || viewMode === 'split') && (
-        <MorphingComposer onSend={handleSendMessage} />
+        <MorphingComposer onSend={handleSendMessage} seed={composerSeed} />
       )}
 
       {/* Syncing overlay toast */}
@@ -1265,7 +1276,7 @@ ${filteredContent}
 }
 
 // Simple timeline renderer
-function TimelineView({ content, remoteContent, workspace, room, graph, onDeleteBlock, onEditBlock, onMergeBlocks, onSynthesizeBlocks, onChangeSource, onFixWithAgent, onNodify, onRemoveNode, onLinkNode, onJump, onNavigateRoom, onOpenCluster, onToMindSync }: {
+function TimelineView({ content, remoteContent, workspace, room, graph, onDeleteBlock, onEditBlock, onMergeBlocks, onSynthesizeBlocks, onChangeSource, onFixWithAgent, onNodify, onRemoveNode, onLinkNode, onJump, onNavigateRoom, onOpenCluster, onOpenFileReference, onToMindSync }: {
   content: string;
   remoteContent: string;
   workspace: Workspace;
@@ -1284,6 +1295,7 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
   onJump?: (timestamp: string) => void;
   onNavigateRoom?: (roomPath: string, blockTs: string) => void;
   onOpenCluster?: (clusterId: string) => void;
+  onOpenFileReference?: (ref: BlockRefMeta) => void;
   onToMindSync?: (nodeId: string) => void;
 }) {
   const { language } = useLanguage();
@@ -1312,7 +1324,13 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
     onMergeBlocks([...mergeSelected]);
     cancelMerge();
   }, [mergeSelected, onMergeBlocks, cancelMerge]);
-  type Block = { lines: string[]; rawLines: string[]; rawText: string; isPushed: boolean; timestamp?: string; source?: string; author?: string; node?: InlineNodeMeta };
+
+  // Phase C: re-edit an existing mermaid block in the visual editor.
+  // `blockTs` identifies the block, `originalCode` is the literal mermaid
+  // source. The save handler reads from the current `content` (not a stale
+  // closure) to find the block and string-replace the mermaid fence.
+  const [editingDiagram, setEditingDiagram] = useState<{ blockTs: string; originalCode: string } | null>(null);
+  type Block = { lines: string[]; rawLines: string[]; rawText: string; isPushed: boolean; timestamp?: string; source?: string; author?: string; node?: InlineNodeMeta; ref?: BlockRefMeta };
 
   function readBlocks(src: string): Block[] {
     const out: Block[] = [];
@@ -1329,11 +1347,13 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
         current.rawLines.push(line);
         const blockMeta = parseBlockMeta(line);
         const nodeMeta = parseNodeComment(line);
+        const blockRef = parseBlockRef(line);
         if (blockMeta && !current.source) {
           current.source = blockMeta.source;
           current.author = blockMeta.author;
         }
         else if (nodeMeta) current.node = nodeMeta;
+        else if (blockRef && !current.ref) current.ref = blockRef;
         else current.lines.push(line);
       }
     }
@@ -1469,6 +1489,16 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
                     </button>
                   ))}
                 </span>
+              )}
+              {block.ref && onOpenFileReference && (
+                <button
+                  className="ref-badge"
+                  onClick={() => onOpenFileReference(block.ref!)}
+                  title={ko ? '코드 위치 열기' : 'Open code reference'}
+                >
+                  <Code size={10} />
+                  <span>{block.ref.path}:{block.ref.startLine}-{block.ref.endLine}</span>
+                </button>
               )}
               {/* Three-dot menu (all blocks share the same local-edit workflow) */}
               {block.timestamp && (
@@ -1622,7 +1652,20 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
                 </div>
               </div>
             ) : (
-              <BlockContent text={block.lines.join('\n')} workspace={workspace} room={room} />
+              <AnnotatedBlockContent
+                text={block.lines.join('\n')}
+                workspace={workspace}
+                room={room}
+                onAgentFix={onFixWithAgent && block.timestamp
+                  ? (code) => onFixWithAgent(
+                      `이 mermaid 도식도를 다음 요청에 맞게 수정해줘. 결과는 \`\`\`mermaid ... \`\`\` 블록 한 개만 반환해.\n\n\`\`\`mermaid\n${code}\n\`\`\``,
+                      block.timestamp!,
+                    )
+                  : undefined}
+                onEditDiagram={onEditBlock && block.timestamp
+                  ? (code) => setEditingDiagram({ blockTs: block.timestamp!, originalCode: code })
+                  : undefined}
+              />
             )}
           </div>
           {block.node && graph && (
@@ -1638,6 +1681,29 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
           )}
         </div>
       ))}
+      <DiagramEditorModal
+        open={!!editingDiagram}
+        initialCode={editingDiagram?.originalCode}
+        language={ko ? 'ko' : 'en'}
+        onClose={() => setEditingDiagram(null)}
+        onInsert={(newCode) => {
+          // Resolve the latest block body from the current parse so we don't
+          // close over a stale snapshot (the user may have edited surrounding
+          // text since opening the modal).
+          if (!editingDiagram || !onEditBlock) { setEditingDiagram(null); return; }
+          const target = blocks.find((b) => b.timestamp === editingDiagram.blockTs);
+          if (!target) { setEditingDiagram(null); return; }
+          const body = target.lines.join('\n');
+          const oldFenced = `\`\`\`mermaid\n${editingDiagram.originalCode.trim()}\n\`\`\``;
+          const newFenced = `\`\`\`mermaid\n${newCode.trim()}\n\`\`\``;
+          const nextBody = body.includes(oldFenced)
+            ? body.replace(oldFenced, newFenced)
+            // Fallback: replace the first mermaid fence (covers whitespace drift).
+            : body.replace(/```mermaid\n[\s\S]*?\n```/, newFenced);
+          onEditBlock(editingDiagram.blockTs, nextBody);
+          setEditingDiagram(null);
+        }}
+      />
     </div>
   );
 }
@@ -1705,7 +1771,7 @@ function RelatedStrip({ graph, nodeId, room, ko, clusterName, onJump, onNavigate
 //
 // Images with relative `./assets/...` paths (private-repo assets) are routed through
 // GitHubImage via a custom `img` component override; other images render normally.
-function BlockContent({ text, workspace, room }: { text: string; workspace: Workspace; room: Room }) {
+export function BlockContent({ text, workspace, room }: { text: string; workspace: Workspace; room: Room }) {
   const basePath = room.cotext_file_path.replace(/[^/]+$/, '');
   return (
     <div className="timeline-md">
@@ -1731,11 +1797,41 @@ function BlockContent({ text, workspace, room }: { text: string; workspace: Work
           a: ({ href, children }) => (
             <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
           ),
+          // ```mermaid fenced blocks render as real diagrams (lazy-loaded mermaid).
+          code: ({ className, children, ...rest }: { className?: string; children?: React.ReactNode; inline?: boolean }) => {
+            const lang = /language-(\w+)/.exec(className || '')?.[1];
+            const codeStr = String(children).replace(/\n$/, '');
+            if (!rest.inline && lang === 'mermaid') {
+              return <MermaidBlock code={codeStr} />;
+            }
+            return <code className={className} {...rest}>{children}</code>;
+          },
         }}
       >
         {text}
       </ReactMarkdown>
     </div>
+  );
+}
+
+function AnnotatedBlockContent({
+  text, workspace, room, onAgentFix, onEditDiagram,
+}: {
+  text: string;
+  workspace: Workspace;
+  room: Room;
+  onAgentFix?: (code: string) => void;
+  onEditDiagram?: (code: string) => void;
+}) {
+  return (
+    <CotextMarkdown
+      text={text}
+      filePath={room.cotext_file_path}
+      workspace={workspace}
+      className="timeline-md"
+      onAgentFix={onAgentFix}
+      onEditDiagram={onEditDiagram}
+    />
   );
 }
 

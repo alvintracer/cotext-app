@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-23T23:15:49.639Z",
+  "updatedAt": "2026-06-24T00:05:50.403Z",
   "clusters": [
     {
       "id": "concept",
@@ -86,6 +86,21 @@
       "id": "edge-function",
       "name": "edge-function",
       "color": "#db2777"
+    },
+    {
+      "id": "sidebar",
+      "name": "sidebar",
+      "color": "#dc2626"
+    },
+    {
+      "id": "code-comments",
+      "name": "code-comments",
+      "color": "#7c3aed"
+    },
+    {
+      "id": "file-reference",
+      "name": "file-reference",
+      "color": "#db2777"
     }
   ],
   "nodes": [
@@ -152,6 +167,21 @@
       "label": "Neural Link vs GBrain",
       "clusters": [
         "concept"
+      ],
+      "source": "wiki"
+    },
+    {
+      "id": "w-ai-sessions-wiki-decisions-code-reference-comments",
+      "room": "AI-Sessions/wiki/decisions/code-reference-comments.md",
+      "blockTs": "2026-06-24",
+      "label": "Repo Folder View + Code Line Comments (4-Phase Plan)",
+      "clusters": [
+        "decision",
+        "architecture",
+        "mindsync",
+        "sidebar",
+        "code-comments",
+        "file-reference"
       ],
       "source": "wiki"
     },
@@ -605,6 +635,18 @@
     {
       "from": "w-ai-sessions-wiki-concepts-neural-link-vs-gbrain",
       "to": "w-ai-sessions-wiki-concepts-cotext-neural-link-second-brain-ko",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-code-reference-comments",
+      "to": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
+      "type": "relates",
+      "source": "wiki"
+    },
+    {
+      "from": "w-ai-sessions-wiki-decisions-code-reference-comments",
+      "to": "w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration",
       "type": "relates",
       "source": "wiki"
     },

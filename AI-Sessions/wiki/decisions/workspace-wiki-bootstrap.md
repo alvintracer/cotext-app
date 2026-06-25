@@ -85,6 +85,23 @@ tags: [architecture, mindsync, onboarding, cli, edge-function]
 - **워크스페이스 생성 흐름에 통합**: "Initialize as MindSync wiki" 체크박스를 신규
   워크스페이스 생성 모달에 추가 (현재는 사후 셋업만)
 
+## 운영 보강 (2026-06-24)
+
+- **실패 패턴 분리:** 실제 운영에서 `CLAUDE.md` 는 생성됐지만
+  `.github/workflows/neural-compile.yml` 만 빠지는 케이스가 확인됐다. 이 경우
+  wiki markdown 은 생기지만 graph 컴파일은 끝까지 돌지 않는다.
+- **주요 원인:** 연결된 GitHub 토큰에 workflow 생성 권한이 없으면
+  `workspace-init-wiki` 가 문서 시드는 만들더라도 workflow 파일 생성에서 404 또는 권한
+  오류를 맞을 수 있다.
+- **클라이언트 probe 분리:** `WorkspaceDetailPage` 는 이제 `CLAUDE.md` 존재 여부와
+  `.github/workflows/neural-compile.yml` 존재 여부를 각각 별도 상태로 본다.
+  그래서 "wiki 있음" 과 "자동 컴파일 가능" 을 혼동하지 않는다.
+- **경고 전달:** `wikiInitApi.init()` 응답 타입에 `warnings?: string[]` 를 추가해,
+  서버가 workflow 누락을 감지했을 때 클라이언트가 즉시 후속 배너를 띄울 수 있게 했다.
+- **복구 UX:** wiki 는 있지만 workflow 가 없으면 좌측 패널 안에 별도 경고 배너를 노출하고,
+  `.github/workflows/neural-compile.yml` 만 다시 시드하는 "워크플로 다시 생성" 경로로
+  유도한다.
+
 ## Links
 
 - [[mindsync-knowledge-sync-architecture]] — 4경로 수렴 원칙 (이 결정이 경로 A/B를 강화)

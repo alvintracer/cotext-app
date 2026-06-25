@@ -165,6 +165,19 @@ export const wikiBatchApi = {
 // Workspace wiki initialization — scaffolds the LLM-wiki structure server-side
 // for users who connected the repo via Cotext without ever cloning it locally.
 // Same templates as `npx cotext init`, committed in one atomic GitHub commit.
+// Manually trigger the neural-compile workflow on a workspace's GitHub repo.
+// Used to refresh a stale graph (e.g. one that still has nodes the new compiler
+// would filter out) without waiting for the next markdown push.
+export const compileTriggerApi = {
+  trigger(owner: string, repo: string, branch = 'main') {
+    return invokeFunction<{
+      ok: boolean;
+      message: string;
+      actionsUrl: string;
+    }>('trigger-neural-compile', { owner, repo, branch });
+  },
+};
+
 export const wikiInitApi = {
   init(owner: string, repo: string, branch = 'main', force = false, force_paths: string[] = []) {
     return invokeFunction<{

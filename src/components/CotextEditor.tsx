@@ -1,22 +1,30 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type MouseEvent } from 'react';
 import { EditorView, basicSetup } from 'codemirror';
-import { EditorState } from '@codemirror/state';
+import { EditorState, RangeSetBuilder } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
-import { keymap } from '@codemirror/view';
+import { Decoration, type DecorationSet, keymap, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { search } from '@codemirror/search';
 import {
   TextHOne as Heading1, TextHTwo as Heading2, TextHThree as Heading3,
   TextB as Bold, TextItalic as Italic, ListBullets as List, ListNumbers as ListOrdered,
-  Code, Quotes as Quote, Table, Link, Minus, CaretUp as ChevronUp, X, CheckSquare
+  Code, Quotes as Quote, Table, Link, Minus, CaretUp as ChevronUp, X, CheckSquare,
+  ChatCircleText, HighlighterCircle,
 } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  buildCotextAnnotation,
+  createAnnotationId,
+  parseCotextAnnotationStart,
+  type CotextAnnotationColor,
+} from '../lib/markdown/cotextAnnotations';
 
 interface CotextEditorProps {
   content: string;
   onChange: (content: string) => void;
   readOnly?: boolean;
+  annotationAuthor?: string;
 }
 
 interface ToolbarAction {
@@ -26,7 +34,18 @@ interface ToolbarAction {
   action: (view: EditorView) => void;
 }
 
-// Insert text at cursor or wrap selection
+interface SelectionBubbleState {
+  top: number;
+  left: number;
+}
+
+const annotationColorClass: Record<CotextAnnotationColor, string> = {
+  amber: 'cm-cotext-mark-amber',
+  mint: 'cm-cotext-mark-mint',
+  sky: 'cm-cotext-mark-sky',
+  rose: 'cm-cotext-mark-rose',
+};
+
 function insertOrWrap(view: EditorView, before: string, after: string = '') {
   const { from, to } = view.state.selection.main;
   const selected = view.state.sliceDoc(from, to);
@@ -45,7 +64,6 @@ function insertOrWrap(view: EditorView, before: string, after: string = '') {
   view.focus();
 }
 
-// Insert at beginning of current line(s)
 function insertAtLineStart(view: EditorView, prefix: string) {
   const { from, to } = view.state.selection.main;
   const doc = view.state.doc;
@@ -53,7 +71,7 @@ function insertAtLineStart(view: EditorView, prefix: string) {
   const endLine = doc.lineAt(to);
 
   const changes: Array<{ from: number; to: number; insert: string }> = [];
-  for (let i = startLine.number; i <= endLine.number; i++) {
+  for (let i = startLine.number; i <= endLine.number; i += 1) {
     const line = doc.line(i);
     changes.push({ from: line.from, to: line.from, insert: prefix });
   }
@@ -62,7 +80,6 @@ function insertAtLineStart(view: EditorView, prefix: string) {
   view.focus();
 }
 
-// Insert block (new line if needed + content)
 function insertBlock(view: EditorView, block: string) {
   const { from } = view.state.selection.main;
   const doc = view.state.doc;
@@ -77,92 +94,103 @@ function insertBlock(view: EditorView, block: string) {
   view.focus();
 }
 
+function applyAnnotation(view: EditorView, author: string, color: CotextAnnotationColor, note?: string) {
+  const { from, to } = view.state.selection.main;
+  if (from === to) return;
+  const selected = view.state.sliceDoc(from, to);
+  const wrapped = buildCotextAnnotation(selected, {
+    id: createAnnotationId(),
+    author,
+    color,
+    note: note?.trim() || '',
+  });
+  view.dispatch({
+    changes: { from, to, insert: wrapped },
+    selection: { anchor: from, head: from + wrapped.length },
+  });
+  view.focus();
+}
+
+function buildAnnotationDecorations(docText: string): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>();
+  let cursor = 0;
+  while (cursor < docText.length) {
+    const startIdx = docText.indexOf('<!-- cotext:mark', cursor);
+    if (startIdx === -1) break;
+    const startEnd = docText.indexOf('-->', startIdx);
+    if (startEnd === -1) break;
+    const startComment = docText.slice(startIdx, startEnd + 3);
+    const meta = parseCotextAnnotationStart(startComment);
+    const endIdx = docText.indexOf('<!-- /cotext:mark -->', startEnd + 3);
+    if (!meta || endIdx === -1) {
+      cursor = startEnd + 3;
+      continue;
+    }
+    const endEnd = endIdx + '<!-- /cotext:mark -->'.length;
+    builder.add(startIdx, startEnd + 3, Decoration.replace({}));
+    builder.add(endIdx, endEnd, Decoration.replace({}));
+    if (startEnd + 3 < endIdx) {
+      builder.add(
+        startEnd + 3,
+        endIdx,
+        Decoration.mark({
+          class: `cm-cotext-mark ${annotationColorClass[meta.color]}${meta.resolved ? ' is-resolved' : ''}${meta.note ? ' has-note' : ''}`,
+          attributes: {
+            'data-author': meta.author,
+            'data-note': meta.note || '',
+          },
+        }),
+      );
+    }
+    cursor = endEnd;
+  }
+  return builder.finish();
+}
+
+const annotationPlugin = ViewPlugin.fromClass(class {
+  decorations: DecorationSet;
+
+  constructor(view: EditorView) {
+    this.decorations = buildAnnotationDecorations(view.state.doc.toString());
+  }
+
+  update(update: ViewUpdate) {
+    if (update.docChanged || update.viewportChanged) {
+      this.decorations = buildAnnotationDecorations(update.state.doc.toString());
+    }
+  }
+}, {
+  decorations: (value) => value.decorations,
+});
+
 const toolbarActions: ToolbarAction[] = [
-  {
-    icon: <Heading1 size={16} />,
-    label: 'Heading 1',
-    group: '제목',
-    action: (v) => insertAtLineStart(v, '# '),
-  },
-  {
-    icon: <Heading2 size={16} />,
-    label: 'Heading 2',
-    group: '제목',
-    action: (v) => insertAtLineStart(v, '## '),
-  },
-  {
-    icon: <Heading3 size={16} />,
-    label: 'Heading 3',
-    group: '제목',
-    action: (v) => insertAtLineStart(v, '### '),
-  },
-  {
-    icon: <Bold size={16} />,
-    label: '굵게',
-    group: '서식',
-    action: (v) => insertOrWrap(v, '**', '**'),
-  },
-  {
-    icon: <Italic size={16} />,
-    label: '기울임',
-    group: '서식',
-    action: (v) => insertOrWrap(v, '*', '*'),
-  },
-  {
-    icon: <Code size={16} />,
-    label: '코드',
-    group: '서식',
-    action: (v) => insertOrWrap(v, '`', '`'),
-  },
-  {
-    icon: <List size={16} />,
-    label: '글머리',
-    group: '리스트',
-    action: (v) => insertAtLineStart(v, '- '),
-  },
-  {
-    icon: <ListOrdered size={16} />,
-    label: '번호',
-    group: '리스트',
-    action: (v) => insertAtLineStart(v, '1. '),
-  },
-  {
-    icon: <CheckSquare size={16} />,
-    label: '체크',
-    group: '리스트',
-    action: (v) => insertAtLineStart(v, '- [ ] '),
-  },
-  {
-    icon: <Quote size={16} />,
-    label: '인용',
-    group: '블록',
-    action: (v) => insertAtLineStart(v, '> '),
-  },
-  {
-    icon: <Minus size={16} />,
-    label: '구분선',
-    group: '블록',
-    action: (v) => insertBlock(v, '---'),
-  },
-  {
-    icon: <Link size={16} />,
-    label: '링크',
-    group: '블록',
-    action: (v) => insertOrWrap(v, '[', '](url)'),
-  },
-  {
-    icon: <Table size={16} />,
-    label: '표',
-    group: '블록',
-    action: (v) => insertBlock(v, '| 항목 | 내용 |\n| --- | --- |\n| | |'),
-  },
+  { icon: <Heading1 size={16} />, label: 'Heading 1', group: 'Headings', action: (v) => insertAtLineStart(v, '# ') },
+  { icon: <Heading2 size={16} />, label: 'Heading 2', group: 'Headings', action: (v) => insertAtLineStart(v, '## ') },
+  { icon: <Heading3 size={16} />, label: 'Heading 3', group: 'Headings', action: (v) => insertAtLineStart(v, '### ') },
+  { icon: <Bold size={16} />, label: 'Bold', group: 'Inline', action: (v) => insertOrWrap(v, '**', '**') },
+  { icon: <Italic size={16} />, label: 'Italic', group: 'Inline', action: (v) => insertOrWrap(v, '*', '*') },
+  { icon: <Code size={16} />, label: 'Code', group: 'Inline', action: (v) => insertOrWrap(v, '`', '`') },
+  { icon: <List size={16} />, label: 'Bullet', group: 'Lists', action: (v) => insertAtLineStart(v, '- ') },
+  { icon: <ListOrdered size={16} />, label: 'Numbered', group: 'Lists', action: (v) => insertAtLineStart(v, '1. ') },
+  { icon: <CheckSquare size={16} />, label: 'Checklist', group: 'Lists', action: (v) => insertAtLineStart(v, '- [ ] ') },
+  { icon: <Quote size={16} />, label: 'Quote', group: 'Blocks', action: (v) => insertAtLineStart(v, '> ') },
+  { icon: <Minus size={16} />, label: 'Divider', group: 'Blocks', action: (v) => insertBlock(v, '---') },
+  { icon: <Link size={16} />, label: 'Link', group: 'Blocks', action: (v) => insertOrWrap(v, '[', '](url)') },
+  { icon: <Table size={16} />, label: 'Table', group: 'Blocks', action: (v) => insertBlock(v, '| Column | Value |\n| --- | --- |\n| | |') },
 ];
 
-export default function CotextEditor({ content, onChange, readOnly = false }: CotextEditorProps) {
+export default function CotextEditor({
+  content,
+  onChange,
+  readOnly = false,
+  annotationAuthor = 'teammate',
+}: CotextEditorProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const isUpdating = useRef(false);
   const [showMobileSheet, setShowMobileSheet] = useState(false);
+  const [selectionBubble, setSelectionBubble] = useState<SelectionBubbleState | null>(null);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -207,10 +235,29 @@ export default function CotextEditor({ content, onChange, readOnly = false }: Co
       },
     });
 
-    const updateListener = EditorView.updateListener.of((update: any) => {
+    const updateListener = EditorView.updateListener.of((update: ViewUpdate) => {
       if (update.docChanged && !isUpdating.current) {
         onChange(update.state.doc.toString());
       }
+      if (readOnly || !update.selectionSet) return;
+      const main = update.state.selection.main;
+      if (main.empty) {
+        setSelectionBubble(null);
+        return;
+      }
+      const wrapper = wrapperRef.current;
+      const view = viewRef.current;
+      if (!wrapper || !view) return;
+      const head = view.coordsAtPos(main.to);
+      if (!head) {
+        setSelectionBubble(null);
+        return;
+      }
+      const wrapperBox = wrapper.getBoundingClientRect();
+      setSelectionBubble({
+        top: head.top - wrapperBox.top - 44,
+        left: Math.max(12, Math.min(head.left - wrapperBox.left - 110, wrapperBox.width - 232)),
+      });
     });
 
     const state = EditorState.create({
@@ -222,8 +269,15 @@ export default function CotextEditor({ content, onChange, readOnly = false }: Co
         search(),
         theme,
         updateListener,
+        annotationPlugin,
         EditorState.readOnly.of(readOnly),
         EditorView.lineWrapping,
+        EditorView.domEventHandlers({
+          blur: () => {
+            setSelectionBubble(null);
+            return false;
+          },
+        }),
       ],
     });
 
@@ -238,9 +292,8 @@ export default function CotextEditor({ content, onChange, readOnly = false }: Co
       view.destroy();
       viewRef.current = null;
     };
-  }, [readOnly]);
+  }, [annotationAuthor, onChange, readOnly]);
 
-  // Sync external content changes
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
@@ -266,7 +319,19 @@ export default function CotextEditor({ content, onChange, readOnly = false }: Co
     }
   }, []);
 
-  // Group actions
+  const handleAnnotation = useCallback((color: CotextAnnotationColor, withComment: boolean) => {
+    const view = viewRef.current;
+    if (!view) return;
+    const note = withComment ? window.prompt('Comment note') ?? '' : '';
+    if (withComment && !note.trim()) return;
+    applyAnnotation(view, annotationAuthor, color, note);
+    setSelectionBubble(null);
+  }, [annotationAuthor]);
+
+  const keepSelectionBubbleAlive = useCallback((event: MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+  }, []);
+
   const groups = toolbarActions.reduce((acc, action) => {
     if (!acc[action.group]) acc[action.group] = [];
     acc[action.group].push(action);
@@ -274,8 +339,7 @@ export default function CotextEditor({ content, onChange, readOnly = false }: Co
   }, {} as Record<string, ToolbarAction[]>);
 
   return (
-    <div className="cotext-editor-wrapper">
-      {/* Desktop toolbar */}
+    <div ref={wrapperRef} className="cotext-editor-wrapper">
       {!readOnly && (
         <div className="md-toolbar md-toolbar-desktop">
           {toolbarActions.map((action, i) => (
@@ -291,10 +355,32 @@ export default function CotextEditor({ content, onChange, readOnly = false }: Co
         </div>
       )}
 
-      {/* Editor */}
       <div ref={editorRef} className="cotext-editor" />
 
-      {/* Mobile: floating trigger button */}
+      {!readOnly && selectionBubble && (
+        <div
+          className="cotext-selection-bubble"
+          style={{ top: selectionBubble.top, left: selectionBubble.left }}
+          onMouseDown={keepSelectionBubbleAlive}
+        >
+          <button className="cotext-selection-bubble-chip is-amber" onMouseDown={keepSelectionBubbleAlive} onClick={() => handleAnnotation('amber', false)} title="Amber highlight">
+            <HighlighterCircle size={14} /> Amber
+          </button>
+          <button className="cotext-selection-bubble-chip is-mint" onMouseDown={keepSelectionBubbleAlive} onClick={() => handleAnnotation('mint', false)} title="Mint highlight">
+            <HighlighterCircle size={14} /> Mint
+          </button>
+          <button className="cotext-selection-bubble-chip is-sky" onMouseDown={keepSelectionBubbleAlive} onClick={() => handleAnnotation('sky', false)} title="Sky highlight">
+            <HighlighterCircle size={14} /> Sky
+          </button>
+          <button className="cotext-selection-bubble-chip is-rose" onMouseDown={keepSelectionBubbleAlive} onClick={() => handleAnnotation('rose', false)} title="Rose highlight">
+            <HighlighterCircle size={14} /> Rose
+          </button>
+          <button className="cotext-selection-bubble-chip is-comment" onMouseDown={keepSelectionBubbleAlive} onClick={() => handleAnnotation('amber', true)} title="Comment">
+            <ChatCircleText size={14} /> Comment
+          </button>
+        </div>
+      )}
+
       {!readOnly && (
         <button
           className="md-mobile-trigger"
@@ -306,7 +392,6 @@ export default function CotextEditor({ content, onChange, readOnly = false }: Co
         </button>
       )}
 
-      {/* Mobile: bottom sheet */}
       <AnimatePresence>
         {showMobileSheet && (
           <>

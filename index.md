@@ -40,6 +40,7 @@
 - [[AI-Sessions/wiki/decisions/mindsync-knowledge-sync-architecture]] — Wiki→Graph 컴파일 모델(레포=버스, 그래프=파생물, [[wikilink]]→엣지)
 - [[AI-Sessions/wiki/decisions/workspace-wiki-bootstrap]] — 3가지 진입경로(npx cotext init / Cotext 1-click / Studio 업로드) + workflow yml 자동 시드
 - [[AI-Sessions/wiki/decisions/wiki-synthesis-agent]] — 채팅 → 합성 → wiki → 그래프 (BYOK+Managed, 선택 블록 모드, workflow yml self-contained fix)
+- [[AI-Sessions/wiki/decisions/code-reference-comments]] — 사이드바 폴더 탭 (Phase A 완료) + non-md 파일 읽기 + 코드 라인 코멘트 (Phase B/C/D 기획)
 
 ## Concepts
 

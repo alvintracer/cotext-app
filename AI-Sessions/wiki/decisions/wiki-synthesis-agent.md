@@ -155,6 +155,20 @@ MindSync 글로브에 새 노드 + [[link]] 엣지 등장
 - **여러 룸 cross-synthesis**: 한 주제가 여러 룸에 흩어진 경우
 - **npm `cotext` 패키지 publish**: workflow yml을 한 줄(`npx -y cotext compile`)로 단순화
 
+### 후속 운영 보강 (2026-06-24)
+
+- **문제 재정의:** 실제로는 "위키 합성은 성공했는데 노드가 안 생김" 이 아니라,
+  대상 워크스페이스 레포에 `neural-compile` workflow 파일이 없어서 그 다음 단계가
+  아예 실행되지 않는 경우가 있었다.
+- **관찰 지점 명확화:** 이 workflow 는 `cotext-app` 레포의 GitHub Actions 가 아니라,
+  사용자가 wiki 로 정리한 **대상 워크스페이스 레포의 Actions** 에서 돌아야 한다.
+- **UX 보강:** sidebar 는 `CLAUDE.md` 와 workflow 파일을 따로 probe 하고,
+  workflow 만 빠진 상태면 별도 경고 카드로 "md 생성만 되고 graph 는 안 돈다"는 점을
+  명시한다.
+- **산출물 노이즈 축소:** graph 컴파일러는 후속 수정으로 top-level 시스템 문서 대신
+  `AI-Sessions/wiki/**` 슬라이스를 중심으로 읽고, 운영/시스템 성격 문서는
+  `graph: false` 로 opt-out 할 수 있게 정리했다.
+
 ## Links
 
 - [[mindsync-knowledge-sync-architecture]] — 4경로 수렴 원칙 (이 결정이 채팅→wiki 경로 강화)

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { PaperPlaneRight as Send, Paperclip, Camera, Plus, X, TextT as Type, FileText } from '@phosphor-icons/react';
+import { PaperPlaneRight as Send, Paperclip, Camera, Plus, X, TextT as Type, FileText, FlowArrow } from '@phosphor-icons/react';
+import DiagramEditorModal from './DiagramEditorModal';
 import { getPlatformServices } from '../lib/platform/index';
 import { isImageFile, compressImage, formatFileSize } from '../lib/image/compress';
 import { recognizeText } from '../lib/ocr';
@@ -7,14 +8,41 @@ import { extractText, isExtractable } from '../lib/extract';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../contexts/LanguageContext';
 import TurndownService from 'turndown';
+import type { BlockRefMeta } from '../lib/markdown/index';
 
 interface MorphingComposerProps {
-  onSend: (message: string, files?: File[]) => void;
+  onSend: (message: string, files?: File[], ref?: BlockRefMeta) => void;
+  seed?: {
+    text: string;
+    ref?: BlockRefMeta;
+    nonce: number;
+  } | null;
 }
 
-export default function MorphingComposer({ onSend }: MorphingComposerProps) {
+export default function MorphingComposer({ onSend, seed }: MorphingComposerProps) {
   const { t, language } = useLanguage();
   const [text, setText] = useState('');
+  const [activeRef, setActiveRef] = useState<BlockRefMeta | undefined>(seed?.ref);
+  // Diagram editor modal (draw.io-style canvas → mermaid code block).
+  const [diagramOpen, setDiagramOpen] = useState(false);
+
+  const insertDiagram = useCallback((mermaidCode: string) => {
+    setDiagramOpen(false);
+    const fenced = `\n\n\`\`\`mermaid\n${mermaidCode.trim()}\n\`\`\`\n\n`;
+    setText((prev) => {
+      const ta = textareaRef.current;
+      if (ta && document.activeElement === ta) {
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        return prev.slice(0, start) + fenced + prev.slice(end);
+      }
+      // Append at end if textarea isn't focused.
+      return prev ? `${prev}${fenced}` : fenced.trim() + '\n';
+    });
+    // Let the composer take focus after insert so the user can immediately type
+    // surrounding context for the diagram.
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, []);
   const [files, setFiles] = useState<File[]>([]);
   const [filePreview, setFilePreview] = useState<Array<{ name: string; size: string; preview?: string; isImage?: boolean; extractable?: boolean }>>([]);
   const [compressing, setCompressing] = useState(false);
@@ -25,6 +53,12 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const platform = getPlatformServices();
+
+  useEffect(() => {
+    if (!seed) return;
+    setActiveRef(seed.ref);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [seed?.nonce]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -137,12 +171,13 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
 
   const handleSend = useCallback(() => {
     if (!text.trim() && files.length === 0) return;
-    onSend(text.trim(), files.length > 0 ? files : undefined);
+    onSend(text.trim(), files.length > 0 ? files : undefined, activeRef);
     setText('');
+    setActiveRef(undefined);
     setFiles([]);
     setFilePreview([]);
     filePreview.forEach((fp) => { if (fp.preview) URL.revokeObjectURL(fp.preview); });
-  }, [text, files, onSend, filePreview]);
+  }, [text, files, onSend, filePreview, activeRef]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     // Guard against CJK IME composition (fixes duplicate last char on Mac)
@@ -331,10 +366,34 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
           >
             <Camera size={16} />
           </button>
+          <button
+            className="icon-button"
+            onClick={() => setDiagramOpen(true)}
+            title={language === 'ko' ? '도식도 그리기' : 'Draw a diagram'}
+          >
+            <FlowArrow size={16} />
+          </button>
         </div>
 
         {/* Input wrapper — on mobile, + button sits inside */}
         <div className="composer-input-wrapper">
+          {activeRef && (
+            <div className="composer-reply-chip">
+              <div className="composer-reply-chip-text">
+                <span className="composer-reply-chip-label">
+                  {language === 'ko' ? '코드 참조' : 'Code ref'}
+                </span>
+                <code>{activeRef.path}:{activeRef.startLine}-{activeRef.endLine}</code>
+              </div>
+              <button
+                className="composer-reply-chip-close"
+                onClick={() => setActiveRef(undefined)}
+                title={language === 'ko' ? '참조 제거' : 'Remove reference'}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
           {/* Mobile: + button inside input */}
           <div className="composer-attach-wrapper composer-mobile-only" ref={attachMenuRef}>
             <button
@@ -374,6 +433,16 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
                     <Camera size={14} />
                     <span>{t('composer.photo')}</span>
                   </button>
+                  <button
+                    className="attach-popup-item"
+                    onClick={() => {
+                      setShowAttachMenu(false);
+                      setDiagramOpen(true);
+                    }}
+                  >
+                    <FlowArrow size={14} />
+                    <span>{language === 'ko' ? '도식도' : 'Diagram'}</span>
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -409,6 +478,13 @@ export default function MorphingComposer({ onSend }: MorphingComposerProps) {
           <span>Compressing image...</span>
         </div>
       )}
+
+      <DiagramEditorModal
+        open={diagramOpen}
+        language={language === 'ko' ? 'ko' : 'en'}
+        onClose={() => setDiagramOpen(false)}
+        onInsert={insertDiagram}
+      />
     </motion.div>
   );
 }

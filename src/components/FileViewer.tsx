@@ -9,7 +9,7 @@ import {
   Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split,
   Code, ArrowSquareOut, Lock, PencilSimple, ChatText as ChatIcon,
 } from '@phosphor-icons/react';
-import { githubApi } from '../lib/supabase/functions';
+import { githubApi, wikiBatchApi } from '../lib/supabase/functions';
 import { parseBlocks, type BlockRefMeta } from '../lib/markdown/index';
 import type { Room, SyncStatus } from '../types/room';
 import type { Workspace } from '../types/workspace';
@@ -17,6 +17,7 @@ import CotextEditor from './CotextEditor';
 import CommitBar from './CommitBar';
 import CotextMarkdown from './CotextMarkdown';
 import { useAuth } from '../contexts/AuthContext';
+import { extractDiagramEmbedsForCommit, normalizeDiagramRepoPath } from '../lib/markdown/cotextDiagrams';
 
 interface Props {
   workspace: Pick<Workspace, 'github_owner' | 'github_repo' | 'default_branch'>;
@@ -311,17 +312,42 @@ export default function FileViewer({
     setError(null);
     try {
       const message = commitMessage.trim() || `cotext: update ${filePath}`;
-      const result = await githubApi.pushRoom(
-        workspace.github_owner,
-        workspace.github_repo,
-        branch,
-        filePath,
-        content,
-        remoteSha,
-        message,
-      );
-      setRemoteContent(content);
-      setRemoteSha(result.sha);
+      const diagramCommit = extractDiagramEmbedsForCommit(content);
+      const normalizedContent = diagramCommit.content;
+      let nextSha = remoteSha;
+
+      if (diagramCommit.files.length > 0) {
+        await wikiBatchApi.pushBatch({
+          owner: workspace.github_owner,
+          repo: workspace.github_repo,
+          branch,
+          message,
+          files: [
+            { path: filePath, content: normalizedContent },
+            ...diagramCommit.files.map((file) => ({
+              path: normalizeDiagramRepoPath(file.path, filePath),
+              content: file.code,
+            })),
+          ],
+        });
+        const refreshed = await githubApi.getRoomContent(workspace.github_owner, workspace.github_repo, branch, filePath);
+        nextSha = refreshed.sha;
+      } else {
+        const result = await githubApi.pushRoom(
+          workspace.github_owner,
+          workspace.github_repo,
+          branch,
+          filePath,
+          normalizedContent,
+          remoteSha,
+          message,
+        );
+        nextSha = result.sha;
+      }
+
+      setContent(normalizedContent);
+      setRemoteContent(normalizedContent);
+      setRemoteSha(nextSha);
       setCommitMessage('');
       setSyncStatus('synced');
     } catch (err) {

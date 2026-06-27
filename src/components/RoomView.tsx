@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { supabase } from '../lib/supabase/client';
 import { githubApi, fetchAssetBlobUrl, neuralApi, type NeuralClusterHit, type NeuralNodeHit } from '../lib/supabase/functions';
 import { useNavigate } from 'react-router-dom';
@@ -15,8 +15,11 @@ import CotextMarkdown from './CotextMarkdown';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import WikiSynthesisModal from './WikiSynthesisModal';
+import type { MermaidEditPayload } from './MermaidBlock';
+import type { DiagramInsertResult } from './DiagramEditorModal';
+import { extractDiagramEmbedsForCommit, normalizeDiagramRepoPath } from '../lib/markdown/cotextDiagrams';
+import { wikiBatchApi } from '../lib/supabase/functions';
 import MermaidBlock from './MermaidBlock';
-import DiagramEditorModal from './DiagramEditorModal';
 import { Sparkle } from '@phosphor-icons/react';
 import { Warning as AlertTriangle, Check, Spinner as Loader2, Eye, Columns as Split, ChatText as MessageSquare, Code, Clock, DotsThreeVertical as MoreVertical, Trash as Trash2, Export, ShareNetwork, Link as LinkIcon, X, PencilSimple, CodepenLogo, ArrowDown, Graph, Tag, Plus, MagnifyingGlass, LinkSimple, ArrowSquareOut, Brain, Stack } from '@phosphor-icons/react';
 import { generateCotextGuide, generateCotextIndex, generateAgentsPointerBlock, upsertPointerBlock } from '../lib/contextGuide';
@@ -27,6 +30,8 @@ import {
   type Cluster, type InlineNodeMeta, type NeuralGraph, type NeuralNode,
 } from '../lib/neural';
 import '../styles/neural.css';
+
+const DiagramEditorModal = lazy(() => import('./DiagramEditorModal'));
 
 interface RoomViewProps {
   room: Room;
@@ -636,19 +641,47 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
     setError(null);
     try {
       const message = commitMessage.trim() || `cotext: update ${room.path}`;
+      const diagramCommit = extractDiagramEmbedsForCommit(content);
+      const normalizedContent = diagramCommit.content;
+      let nextSha = remoteSha;
 
-      const result = await githubApi.pushRoom(
-        workspace.github_owner,
-        workspace.github_repo,
-        workspace.default_branch,
-        room.cotext_file_path,
-        content,
-        remoteSha,
-        message
-      );
+      if (diagramCommit.files.length > 0) {
+        await wikiBatchApi.pushBatch({
+          owner: workspace.github_owner,
+          repo: workspace.github_repo,
+          branch: workspace.default_branch,
+          message,
+          files: [
+            { path: room.cotext_file_path, content: normalizedContent },
+            ...diagramCommit.files.map((file) => ({
+              path: normalizeDiagramRepoPath(file.path, room.cotext_file_path),
+              content: file.code,
+            })),
+          ],
+        });
+        const refreshed = await githubApi.getRoomContent(
+          workspace.github_owner,
+          workspace.github_repo,
+          workspace.default_branch,
+          room.cotext_file_path,
+        );
+        nextSha = refreshed.sha;
+      } else {
+        const result = await githubApi.pushRoom(
+          workspace.github_owner,
+          workspace.github_repo,
+          workspace.default_branch,
+          room.cotext_file_path,
+          normalizedContent,
+          remoteSha,
+          message,
+        );
+        nextSha = result.sha;
+      }
 
-      setRemoteContent(content);
-      setRemoteSha(result.sha);
+      setContent(normalizedContent);
+      setRemoteContent(normalizedContent);
+      setRemoteSha(nextSha);
       setDirty(false);
       setSyncStatus('synced');
       setCommitMessage('');
@@ -659,18 +692,18 @@ export default function RoomView({ room, workspace, onRoomUpdate, onFixWithAgent
         .upsert({
           room_id: room.id,
           user_id: user!.id,
-          content,
-          base_sha: result.sha,
+          content: normalizedContent,
+          base_sha: nextSha,
           dirty: false,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'room_id,user_id' });
 
       await supabase
         .from('rooms')
-        .update({ last_known_sha: result.sha })
+        .update({ last_known_sha: nextSha })
         .eq('id', room.id);
 
-      onRoomUpdate({ ...room, last_known_sha: result.sha });
+      onRoomUpdate({ ...room, last_known_sha: nextSha });
 
       // Sync guide files (best-effort, non-blocking)
       syncGuideFiles().catch(err => console.error('Guide sync failed:', err));
@@ -1329,7 +1362,7 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
   // `blockTs` identifies the block, `originalCode` is the literal mermaid
   // source. The save handler reads from the current `content` (not a stale
   // closure) to find the block and string-replace the mermaid fence.
-  const [editingDiagram, setEditingDiagram] = useState<{ blockTs: string; originalCode: string } | null>(null);
+  const [editingDiagram, setEditingDiagram] = useState<{ blockTs: string; originalCode: string; externalPath?: string } | null>(null);
   type Block = { lines: string[]; rawLines: string[]; rawText: string; isPushed: boolean; timestamp?: string; source?: string; author?: string; node?: InlineNodeMeta; ref?: BlockRefMeta };
 
   function readBlocks(src: string): Block[] {
@@ -1663,7 +1696,11 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
                     )
                   : undefined}
                 onEditDiagram={onEditBlock && block.timestamp
-                  ? (code) => setEditingDiagram({ blockTs: block.timestamp!, originalCode: code })
+                  ? (payload: MermaidEditPayload) => setEditingDiagram({
+                      blockTs: block.timestamp!,
+                      originalCode: payload.code,
+                      externalPath: payload.path,
+                    })
                   : undefined}
               />
             )}
@@ -1681,29 +1718,35 @@ function TimelineView({ content, remoteContent, workspace, room, graph, onDelete
           )}
         </div>
       ))}
-      <DiagramEditorModal
-        open={!!editingDiagram}
-        initialCode={editingDiagram?.originalCode}
-        language={ko ? 'ko' : 'en'}
-        onClose={() => setEditingDiagram(null)}
-        onInsert={(newCode) => {
-          // Resolve the latest block body from the current parse so we don't
-          // close over a stale snapshot (the user may have edited surrounding
-          // text since opening the modal).
-          if (!editingDiagram || !onEditBlock) { setEditingDiagram(null); return; }
-          const target = blocks.find((b) => b.timestamp === editingDiagram.blockTs);
-          if (!target) { setEditingDiagram(null); return; }
-          const body = target.lines.join('\n');
-          const oldFenced = `\`\`\`mermaid\n${editingDiagram.originalCode.trim()}\n\`\`\``;
-          const newFenced = `\`\`\`mermaid\n${newCode.trim()}\n\`\`\``;
-          const nextBody = body.includes(oldFenced)
-            ? body.replace(oldFenced, newFenced)
-            // Fallback: replace the first mermaid fence (covers whitespace drift).
-            : body.replace(/```mermaid\n[\s\S]*?\n```/, newFenced);
-          onEditBlock(editingDiagram.blockTs, nextBody);
-          setEditingDiagram(null);
-        }}
-      />
+      <Suspense fallback={null}>
+        <DiagramEditorModal
+          open={!!editingDiagram}
+          initialCode={editingDiagram?.originalCode}
+          initialExternalPath={editingDiagram?.externalPath}
+          language={ko ? 'ko' : 'en'}
+          onClose={() => setEditingDiagram(null)}
+          onInsert={(result: DiagramInsertResult) => {
+            // Resolve the latest block body from the current parse so we don't
+            // close over a stale snapshot (the user may have edited surrounding
+            // text since opening the modal).
+            if (!editingDiagram || !onEditBlock) { setEditingDiagram(null); return; }
+            const target = blocks.find((b) => b.timestamp === editingDiagram.blockTs);
+            if (!target) { setEditingDiagram(null); return; }
+            const body = target.lines.join('\n');
+            const oldFenced = `\`\`\`mermaid\n${editingDiagram.originalCode.trim()}\n\`\`\``;
+            const nextBody = editingDiagram.externalPath
+              ? body.replace(
+                  new RegExp(`::diagram\\[${editingDiagram.externalPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\](?:\\n\\n\`\`\`mermaid\\n[\\s\\S]*?\\n\`\`\`)?`),
+                  result.markdown.trim(),
+                )
+              : (body.includes(oldFenced)
+                ? body.replace(oldFenced, result.markdown.trim())
+                : body.replace(/```mermaid\n[\s\S]*?\n```/, result.markdown.trim()));
+            onEditBlock(editingDiagram.blockTs, nextBody);
+            setEditingDiagram(null);
+          }}
+        />
+      </Suspense>
     </div>
   );
 }
@@ -1821,7 +1864,7 @@ function AnnotatedBlockContent({
   workspace: Workspace;
   room: Room;
   onAgentFix?: (code: string) => void;
-  onEditDiagram?: (code: string) => void;
+  onEditDiagram?: (payload: MermaidEditPayload) => void;
 }) {
   return (
     <CotextMarkdown

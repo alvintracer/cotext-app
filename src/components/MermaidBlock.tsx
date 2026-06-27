@@ -12,6 +12,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 
 let mermaidPromise: Promise<typeof import('mermaid').default> | null = null;
+const MERMAID_FONT_STACK = 'Pretendard Variable, Pretendard, "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif';
+
 function loadMermaid() {
   if (!mermaidPromise) {
     mermaidPromise = import('mermaid').then((mod) => mod.default);
@@ -20,19 +22,44 @@ function loadMermaid() {
 }
 
 let counter = 0;
+export interface MermaidEditPayload {
+  code: string;
+  path?: string;
+}
 function nextId() {
   counter += 1;
   return `mermaid-${counter}-${Date.now().toString(36)}`;
 }
 
+function normalizeRenderedSvg(svgElement: SVGSVGElement) {
+  const viewBox = svgElement.getAttribute('viewBox');
+  if (!viewBox) return;
+  const parts = viewBox.trim().split(/\s+/).map(Number);
+  if (parts.length !== 4 || parts.some((value) => Number.isNaN(value))) return;
+  const [, , width, height] = parts;
+  if (width <= 0 || height <= 0) return;
+
+  // Mermaid often emits `width="100%"`, which makes tiny flowcharts balloon
+  // to the full chat width. Prefer the intrinsic SVG size from the viewBox and
+  // let CSS scale it down only when needed.
+  svgElement.removeAttribute('width');
+  svgElement.removeAttribute('height');
+  svgElement.style.width = `${width}px`;
+  svgElement.style.height = `${height}px`;
+  svgElement.style.maxWidth = '100%';
+  svgElement.style.maxHeight = 'none';
+  svgElement.style.overflow = 'visible';
+}
+
 interface Props {
   code: string;
+  path?: string;
   /** Called when the user clicks an action button rendered next to the diagram. */
-  onEdit?: (code: string) => void;
+  onEdit?: (payload: MermaidEditPayload) => void;
   onAgentFix?: (code: string) => void;
 }
 
-export default function MermaidBlock({ code, onEdit, onAgentFix }: Props) {
+export default function MermaidBlock({ code, path, onEdit, onAgentFix }: Props) {
   const { theme } = useTheme();
   const isDark = theme === 'dark'
     || (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -52,11 +79,27 @@ export default function MermaidBlock({ code, onEdit, onAgentFix }: Props) {
           startOnLoad: false,
           theme: isDark ? 'dark' : 'default',
           securityLevel: 'strict',
-          fontFamily: 'inherit',
+          fontFamily: MERMAID_FONT_STACK,
+          flowchart: {
+            useMaxWidth: true,
+            htmlLabels: false,
+            curve: 'basis',
+          },
+          sequence: {
+            useMaxWidth: true,
+            wrap: true,
+          },
+          themeVariables: {
+            fontFamily: MERMAID_FONT_STACK,
+          },
         });
         const { svg } = await mermaid.render(nextId(), code.trim());
         if (cancelled) return;
         host.innerHTML = svg;
+        const svgElement = host.querySelector('svg');
+        if (svgElement) {
+          normalizeRenderedSvg(svgElement);
+        }
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : String(err));
@@ -79,7 +122,7 @@ export default function MermaidBlock({ code, onEdit, onAgentFix }: Props) {
       {(onEdit || onAgentFix) && !error && (
         <div className="mermaid-block-actions">
           {onEdit && (
-            <button type="button" className="btn btn-ghost btn-xs" onClick={() => onEdit(code)}>
+            <button type="button" className="btn btn-ghost btn-xs" onClick={() => onEdit({ code, path })}>
               🖊 편집
             </button>
           )}

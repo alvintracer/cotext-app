@@ -1,11 +1,13 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChatCircleText, CheckCircle } from '@phosphor-icons/react';
-import { fetchAssetBlobUrl } from '../lib/supabase/functions';
+import { fetchAssetBlobUrl, githubApi } from '../lib/supabase/functions';
 import type { Workspace } from '../types/workspace';
 import { useEffect, useState } from 'react';
 import { remarkCotextAnnotations } from '../lib/markdown/cotextAnnotations';
 import MermaidBlock from './MermaidBlock';
+import type { MermaidEditPayload } from './MermaidBlock';
+import { normalizeDiagramRepoPath, remarkCotextDiagrams } from '../lib/markdown/cotextDiagrams';
 
 interface Props {
   text: string;
@@ -18,7 +20,7 @@ interface Props {
   /** When set, mermaid code blocks get a "🖊 편집" button — the parent should
    *  open the visual editor seeded with the original code, then string-replace
    *  the block on save. */
-  onEditDiagram?: (code: string) => void;
+  onEditDiagram?: (payload: MermaidEditPayload) => void;
 }
 
 function initialsOf(author: string): string {
@@ -35,7 +37,7 @@ export default function CotextMarkdown({ text, filePath, workspace, className, o
   return (
     <div className={className ?? 'timeline-md'}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkCotextAnnotations]}
+        remarkPlugins={[remarkGfm, remarkCotextAnnotations, remarkCotextDiagrams]}
         components={{
           img: ({ src, alt }: any) => {
             if (typeof src === 'string' && /^\.\/assets\//.test(src)) {
@@ -64,6 +66,16 @@ export default function CotextMarkdown({ text, filePath, workspace, className, o
             }
             return <code className={className} {...rest}>{children}</code>;
           },
+          'cotext-diagram': ({ path, code }: any) => (
+            <DiagramEmbedBlock
+              path={String(path || '')}
+              fallbackCode={String(code || '')}
+              filePath={filePath}
+              workspace={workspace}
+              onAgentFix={onAgentFix}
+              onEditDiagram={onEditDiagram}
+            />
+          ),
           'cotext-mark': ({ children, ...props }: any) => {
             const author = String(props.author ?? 'teammate');
             const note = String(props.note ?? '');
@@ -105,6 +117,78 @@ export default function CotextMarkdown({ text, filePath, workspace, className, o
       >
         {text}
       </ReactMarkdown>
+    </div>
+  );
+}
+
+function DiagramEmbedBlock({
+  path,
+  fallbackCode,
+  filePath,
+  workspace,
+  onAgentFix,
+  onEditDiagram,
+}: {
+  path: string;
+  fallbackCode: string;
+  filePath: string;
+  workspace: Pick<Workspace, 'github_owner' | 'github_repo' | 'default_branch'>;
+  onAgentFix?: (code: string) => void;
+  onEditDiagram?: (payload: MermaidEditPayload) => void;
+}) {
+  const normalizedPath = normalizeDiagramRepoPath(path, filePath);
+  const [remoteCode, setRemoteCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const code = fallbackCode.trim() || remoteCode.trim();
+
+  useEffect(() => {
+    let cancelled = false;
+    if (fallbackCode.trim()) {
+      setRemoteCode('');
+      setError(null);
+      return () => { cancelled = true; };
+    }
+    githubApi.getRoomContent(
+      workspace.github_owner,
+      workspace.github_repo,
+      workspace.default_branch || 'main',
+      normalizedPath,
+    )
+      .then((res) => {
+        if (!cancelled) {
+          setRemoteCode(res.content);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setRemoteCode('');
+          setError(err instanceof Error ? err.message : 'Failed to load diagram');
+        }
+      });
+    return () => { cancelled = true; };
+  }, [fallbackCode, normalizedPath, workspace.github_owner, workspace.github_repo, workspace.default_branch]);
+
+  if (!code) {
+    return (
+      <div className="mermaid-block mermaid-block-missing">
+        <div className="mermaid-block-error">
+          <summary>{normalizedPath}</summary>
+          <pre>{error || 'Diagram file not found yet.'}</pre>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="diagram-embed-block">
+      <div className="diagram-embed-label">{normalizedPath}</div>
+      <MermaidBlock
+        code={code}
+        path={normalizedPath}
+        onAgentFix={onAgentFix}
+        onEdit={onEditDiagram}
+      />
     </div>
   );
 }

@@ -30,6 +30,38 @@ import type { NeuralGraph, NeuralNode, Cluster, Edge } from '../src/lib/neural/t
 
 const WIKI_SOURCE = 'wiki';
 const PALETTE = ['#2563eb', '#d97706', '#0891b2', '#16a34a', '#dc2626', '#7c3aed', '#db2777', '#4f46e5'];
+const IGNORED_STUB_LINKS = new Set([
+  'claude',
+  'claude.md',
+  'agents',
+  'agents.md',
+  'chatgpt',
+  'chatgpt.md',
+  'start_here',
+  'start-here',
+  'start here',
+  'start_here.md',
+  'start-here.md',
+  'index',
+  'index.md',
+  'log',
+  'log.md',
+  'template_manifest',
+  'template-manifest',
+  'template manifest',
+  'template_manifest.md',
+  'template-manifest.md',
+  'prompts/first-setup',
+  'prompts/first-setup.md',
+  'prompts/save',
+  'prompts/save.md',
+  'prompts/query',
+  'prompts/query.md',
+  'prompts/ingest',
+  'prompts/ingest.md',
+  'prompts/lint',
+  'prompts/lint.md',
+]);
 
 // Directories we never scan for wiki content.
 const IGNORE_DIRS = new Set([
@@ -79,6 +111,12 @@ function collectMarkdown(root: string): string[] {
 
 function toRel(root: string, abs: string): string {
   return path.relative(root, abs).replace(/\\/g, '/');
+}
+
+function shouldIgnoreStubLink(target: string): boolean {
+  const clean = target.split('|')[0].split('#')[0].trim().replace(/\\/g, '/').replace(/\.md$/i, '');
+  const lowered = clean.toLowerCase();
+  return IGNORED_STUB_LINKS.has(lowered) || lowered.startsWith('prompts/');
 }
 
 interface Frontmatter { type?: string; tags?: string[]; status?: string; title?: string; date?: string; graph?: boolean }
@@ -159,6 +197,7 @@ function buildWikiGraph(root: string, files: string[]): NeuralGraph {
     const clean = target.split('|')[0].split('#')[0].trim().replace(/\.md$/i, '');
     const hit = aliasToId.get(clean.toLowerCase()) ?? aliasToId.get(path.basename(clean).toLowerCase());
     if (hit) return hit;
+    if (shouldIgnoreStubLink(target)) return null;
     // Deterministic stub slug (NOT slugifyClusterId — it randomizes on empty).
     // Degenerate links like the literal example `[[...]]` slugify to '' → skip.
     const slug = clean.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '');

@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react';
 import { PaperPlaneRight as Send, Paperclip, Camera, Plus, X, TextT as Type, FileText, FlowArrow } from '@phosphor-icons/react';
-import DiagramEditorModal from './DiagramEditorModal';
+import type { DiagramInsertResult } from './DiagramEditorModal';
 import { getPlatformServices } from '../lib/platform/index';
 import { isImageFile, compressImage, formatFileSize } from '../lib/image/compress';
 import { recognizeText } from '../lib/ocr';
@@ -19,6 +19,8 @@ interface MorphingComposerProps {
   } | null;
 }
 
+const DiagramEditorModal = lazy(() => import('./DiagramEditorModal'));
+
 export default function MorphingComposer({ onSend, seed }: MorphingComposerProps) {
   const { t, language } = useLanguage();
   const [text, setText] = useState('');
@@ -26,9 +28,9 @@ export default function MorphingComposer({ onSend, seed }: MorphingComposerProps
   // Diagram editor modal (draw.io-style canvas → mermaid code block).
   const [diagramOpen, setDiagramOpen] = useState(false);
 
-  const insertDiagram = useCallback((mermaidCode: string) => {
+  const insertDiagram = useCallback((result: DiagramInsertResult) => {
     setDiagramOpen(false);
-    const fenced = `\n\n\`\`\`mermaid\n${mermaidCode.trim()}\n\`\`\`\n\n`;
+    const fenced = `\n\n${result.markdown.trim()}\n\n`;
     setText((prev) => {
       const ta = textareaRef.current;
       if (ta && document.activeElement === ta) {
@@ -479,12 +481,14 @@ export default function MorphingComposer({ onSend, seed }: MorphingComposerProps
         </div>
       )}
 
-      <DiagramEditorModal
-        open={diagramOpen}
-        language={language === 'ko' ? 'ko' : 'en'}
-        onClose={() => setDiagramOpen(false)}
-        onInsert={insertDiagram}
-      />
+      <Suspense fallback={null}>
+        <DiagramEditorModal
+          open={diagramOpen}
+          language={language === 'ko' ? 'ko' : 'en'}
+          onClose={() => setDiagramOpen(false)}
+          onInsert={insertDiagram}
+        />
+      </Suspense>
     </motion.div>
   );
 }

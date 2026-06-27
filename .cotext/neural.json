@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-27T11:42:53.595Z",
+  "updatedAt": "2026-06-27T11:46:21.632Z",
   "clusters": [
     {
       "id": "concept",
@@ -224,37 +224,6 @@
       "source": "wiki"
     },
     {
-      "id": "w-ai-sessions-wiki-decisions-wiki-synthesis-agent",
-      "room": "AI-Sessions/wiki/decisions/wiki-synthesis-agent.md",
-      "blockTs": "2026-06-23",
-      "label": "Wiki Synthesis Agent — 채팅 → 정제 wiki → 그래프",
-      "clusters": [
-        "decision",
-        "architecture",
-        "mindsync",
-        "synthesis",
-        "llm",
-        "agent",
-        "managed-credits"
-      ],
-      "source": "wiki"
-    },
-    {
-      "id": "w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap",
-      "room": "AI-Sessions/wiki/decisions/workspace-wiki-bootstrap.md",
-      "blockTs": "2026-06-22",
-      "label": "Workspace Wiki Bootstrap — 3가지 진입경로 통합",
-      "clusters": [
-        "decision",
-        "architecture",
-        "mindsync",
-        "onboarding",
-        "cli",
-        "edge-function"
-      ],
-      "source": "wiki"
-    },
-    {
       "id": "w-ai-sessions-wiki-design-cotext-architecture-overview",
       "room": "AI-Sessions/wiki/design/cotext-architecture-overview.md",
       "blockTs": "2026-06-20",
@@ -448,14 +417,6 @@
       "source": "wiki"
     },
     {
-      "id": "w-stub-slug",
-      "room": "(unresolved)",
-      "blockTs": "",
-      "label": "slug",
-      "clusters": [],
-      "source": "wiki"
-    },
-    {
       "id": "w-stub-name",
       "room": "(unresolved)",
       "blockTs": "",
@@ -547,18 +508,6 @@
     },
     {
       "from": "w-ai-sessions-wiki-decisions-code-reference-comments",
-      "to": "w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap",
-      "type": "relates",
-      "source": "wiki"
-    },
-    {
-      "from": "w-ai-sessions-wiki-decisions-code-reference-comments",
-      "to": "w-ai-sessions-wiki-decisions-wiki-synthesis-agent",
-      "type": "relates",
-      "source": "wiki"
-    },
-    {
-      "from": "w-ai-sessions-wiki-decisions-code-reference-comments",
       "to": "w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration",
       "type": "relates",
       "source": "wiki"
@@ -626,72 +575,6 @@
     {
       "from": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
       "to": "w-ai-sessions-wiki-decisions-cotext-architecture-decisions",
-      "type": "relates",
-      "source": "wiki"
-    },
-    {
-      "from": "w-ai-sessions-wiki-decisions-wiki-synthesis-agent",
-      "to": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
-      "type": "relates",
-      "source": "wiki"
-    },
-    {
-      "from": "w-ai-sessions-wiki-decisions-wiki-synthesis-agent",
-      "to": "w-stub-link",
-      "type": "relates",
-      "source": "wiki"
-    },
-    {
-      "from": "w-ai-sessions-wiki-decisions-wiki-synthesis-agent",
-      "to": "w-stub-slug",
-      "type": "relates",
-      "source": "wiki"
-    },
-    {
-      "from": "w-ai-sessions-wiki-decisions-wiki-synthesis-agent",
-      "to": "w-ai-sessions-wiki-design-managed-credits-billing-plan",
-      "type": "relates",
-      "source": "wiki"
-    },
-    {
-      "from": "w-ai-sessions-wiki-decisions-wiki-synthesis-agent",
-      "to": "w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap",
-      "type": "relates",
-      "source": "wiki"
-    },
-    {
-      "from": "w-ai-sessions-wiki-decisions-wiki-synthesis-agent",
-      "to": "w-ai-sessions-wiki-design-cotext-architecture-overview",
-      "type": "relates",
-      "source": "wiki"
-    },
-    {
-      "from": "w-ai-sessions-wiki-decisions-wiki-synthesis-agent",
-      "to": "w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration",
-      "type": "relates",
-      "source": "wiki"
-    },
-    {
-      "from": "w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap",
-      "to": "w-ai-sessions-wiki-decisions-mindsync-knowledge-sync-architecture",
-      "type": "relates",
-      "source": "wiki"
-    },
-    {
-      "from": "w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap",
-      "to": "w-ai-sessions-wiki-design-cotext-architecture-overview",
-      "type": "relates",
-      "source": "wiki"
-    },
-    {
-      "from": "w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap",
-      "to": "w-ai-sessions-wiki-dev-tasks-mindsync-ws-integration",
-      "type": "relates",
-      "source": "wiki"
-    },
-    {
-      "from": "w-ai-sessions-wiki-decisions-workspace-wiki-bootstrap",
-      "to": "w-ai-sessions-wiki-concepts-neural-link-mcp-grounding",
       "type": "relates",
       "source": "wiki"
     },

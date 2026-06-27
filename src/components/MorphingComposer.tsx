@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react';
-import { PaperPlaneRight as Send, Paperclip, Camera, Plus, X, TextT as Type, FileText, FlowArrow } from '@phosphor-icons/react';
+import { PaperPlaneRight as Send, Paperclip, Camera, DotsThree, X, TextT as Type, FileText, FlowArrow, YoutubeLogo } from '@phosphor-icons/react';
 import type { DiagramInsertResult } from './DiagramEditorModal';
 import { getPlatformServices } from '../lib/platform/index';
 import { isImageFile, compressImage, formatFileSize } from '../lib/image/compress';
@@ -20,6 +20,7 @@ interface MorphingComposerProps {
 }
 
 const DiagramEditorModal = lazy(() => import('./DiagramEditorModal'));
+const YouTubeImportModal = lazy(() => import('./YouTubeImportModal'));
 
 export default function MorphingComposer({ onSend, seed }: MorphingComposerProps) {
   const { t, language } = useLanguage();
@@ -27,6 +28,23 @@ export default function MorphingComposer({ onSend, seed }: MorphingComposerProps
   const [activeRef, setActiveRef] = useState<BlockRefMeta | undefined>(seed?.ref);
   // Diagram editor modal (draw.io-style canvas → mermaid code block).
   const [diagramOpen, setDiagramOpen] = useState(false);
+  const [youtubeOpen, setYoutubeOpen] = useState(false);
+
+  const insertText = useCallback((snippet: string) => {
+    const block = snippet.trim();
+    if (!block) return;
+    setText((prev) => {
+      const ta = textareaRef.current;
+      const wrap = `\n\n${block}\n\n`;
+      if (ta && document.activeElement === ta) {
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        return prev.slice(0, start) + wrap + prev.slice(end);
+      }
+      return prev ? `${prev}${wrap}` : block + '\n';
+    });
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, []);
 
   const insertDiagram = useCallback((result: DiagramInsertResult) => {
     setDiagramOpen(false);
@@ -347,37 +365,72 @@ export default function MorphingComposer({ onSend, seed }: MorphingComposerProps
 
       {/* Input area */}
       <div className="composer-input-area">
-        {/* Desktop: inline tool buttons */}
-        <div className="composer-tools composer-desktop-only">
+        {/* Unified attach menu (desktop + mobile) — single 3-dot trigger */}
+        <div className="composer-attach-wrapper composer-attach-unified" ref={attachMenuRef}>
           <button
-            className="icon-button"
-            onClick={async () => {
-              const f = await platform.pickFile();
-              if (f.length > 0) handleFileSelect(f);
-            }}
+            className="composer-inline-plus"
+            onClick={() => setShowAttachMenu(!showAttachMenu)}
+            aria-label={t('composer.attach')}
             title={t('composer.attach')}
           >
-            <Paperclip size={16} />
+            {showAttachMenu ? <X size={18} /> : <DotsThree size={20} weight="bold" />}
           </button>
-          <button
-            className="icon-button"
-            onClick={async () => {
-              try { const photo = await platform.takePhoto(); handleFileSelect([photo]); } catch { /* cancelled */ }
-            }}
-            title={t('composer.photo')}
-          >
-            <Camera size={16} />
-          </button>
-          <button
-            className="icon-button"
-            onClick={() => setDiagramOpen(true)}
-            title={language === 'ko' ? '도식도 그리기' : 'Draw a diagram'}
-          >
-            <FlowArrow size={16} />
-          </button>
+          <AnimatePresence>
+            {showAttachMenu && (
+              <motion.div
+                className="attach-popup"
+                initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+              >
+                <button
+                  className="attach-popup-item"
+                  onClick={async () => {
+                    setShowAttachMenu(false);
+                    const f = await platform.pickFile();
+                    if (f.length > 0) handleFileSelect(f);
+                  }}
+                >
+                  <Paperclip size={14} />
+                  <span>{t('composer.attach')}</span>
+                </button>
+                <button
+                  className="attach-popup-item"
+                  onClick={async () => {
+                    setShowAttachMenu(false);
+                    try { const photo = await platform.takePhoto(); handleFileSelect([photo]); } catch { /* cancelled */ }
+                  }}
+                >
+                  <Camera size={14} />
+                  <span>{t('composer.photo')}</span>
+                </button>
+                <button
+                  className="attach-popup-item"
+                  onClick={() => {
+                    setShowAttachMenu(false);
+                    setDiagramOpen(true);
+                  }}
+                >
+                  <FlowArrow size={14} />
+                  <span>{language === 'ko' ? '도식도' : 'Diagram'}</span>
+                </button>
+                <button
+                  className="attach-popup-item"
+                  onClick={() => {
+                    setShowAttachMenu(false);
+                    setYoutubeOpen(true);
+                  }}
+                >
+                  <YoutubeLogo size={14} weight="fill" style={{ color: '#ff0000' }} />
+                  <span>{language === 'ko' ? 'YouTube' : 'YouTube'}</span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* Input wrapper — on mobile, + button sits inside */}
+        {/* Input wrapper */}
         <div className="composer-input-wrapper">
           {activeRef && (
             <div className="composer-reply-chip">
@@ -396,60 +449,6 @@ export default function MorphingComposer({ onSend, seed }: MorphingComposerProps
               </button>
             </div>
           )}
-          {/* Mobile: + button inside input */}
-          <div className="composer-attach-wrapper composer-mobile-only" ref={attachMenuRef}>
-            <button
-              className="composer-inline-plus"
-              onClick={() => setShowAttachMenu(!showAttachMenu)}
-              aria-label="Attach"
-            >
-              {showAttachMenu ? <X size={18} /> : <Plus size={18} />}
-            </button>
-            <AnimatePresence>
-              {showAttachMenu && (
-                <motion.div
-                  className="attach-popup"
-                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <button
-                    className="attach-popup-item"
-                    onClick={async () => {
-                      setShowAttachMenu(false);
-                      const f = await platform.pickFile();
-                      if (f.length > 0) handleFileSelect(f);
-                    }}
-                  >
-                    <Paperclip size={14} />
-                    <span>{t('composer.attach')}</span>
-                  </button>
-                  <button
-                    className="attach-popup-item"
-                    onClick={async () => {
-                      setShowAttachMenu(false);
-                      try { const photo = await platform.takePhoto(); handleFileSelect([photo]); } catch { /* cancelled */ }
-                    }}
-                  >
-                    <Camera size={14} />
-                    <span>{t('composer.photo')}</span>
-                  </button>
-                  <button
-                    className="attach-popup-item"
-                    onClick={() => {
-                      setShowAttachMenu(false);
-                      setDiagramOpen(true);
-                    }}
-                  >
-                    <FlowArrow size={14} />
-                    <span>{language === 'ko' ? '도식도' : 'Diagram'}</span>
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
           <textarea
             ref={textareaRef}
             className="composer-textarea"
@@ -487,6 +486,14 @@ export default function MorphingComposer({ onSend, seed }: MorphingComposerProps
           language={language === 'ko' ? 'ko' : 'en'}
           onClose={() => setDiagramOpen(false)}
           onInsert={insertDiagram}
+        />
+      </Suspense>
+      <Suspense fallback={null}>
+        <YouTubeImportModal
+          open={youtubeOpen}
+          language={language === 'ko' ? 'ko' : 'en'}
+          onClose={() => setYoutubeOpen(false)}
+          onInsert={insertText}
         />
       </Suspense>
     </motion.div>

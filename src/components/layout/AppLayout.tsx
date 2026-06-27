@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { Outlet, useNavigate } from 'react-router-dom';
-import { Sun, Moon, Monitor, SignOut as LogOut, User, ArrowsClockwise, Brain } from '@phosphor-icons/react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Sun, Moon, Monitor, SignOut as LogOut, User, ArrowsClockwise, Brain, SquaresFour } from '@phosphor-icons/react';
 import { supabase } from '../../lib/supabase/client';
 import { Capacitor } from '@capacitor/core';
 
@@ -13,8 +13,12 @@ export default function AppLayout() {
   const { theme, setTheme } = useTheme();
   const { language, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const isMindSyncRoute = location.pathname.startsWith('/mindsync');
+  const secondaryNavLabel = isMindSyncRoute ? 'Workspace' : 'MindSync';
+  const secondaryNavTarget = isMindSyncRoute ? '/workspaces' : '/mindsync';
 
   const themeIcon = theme === 'dark' ? <Moon size={16} /> : theme === 'light' ? <Sun size={16} /> : <Monitor size={16} />;
   const nextTheme = theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark';
@@ -69,9 +73,9 @@ export default function AppLayout() {
             <span className="app-logo-mark">:&gt;</span>
             <span className="app-logo-text">Cotext</span>
           </button>
-          <button className="app-header-link" onClick={() => navigate('/mindsync')}>
-            <Brain size={14} weight="fill" />
-            <span>MindSync</span>
+          <button className="app-header-link" onClick={() => navigate(secondaryNavTarget)}>
+            {isMindSyncRoute ? <SquaresFour size={14} weight="fill" /> : <Brain size={14} weight="fill" />}
+            <span>{secondaryNavLabel}</span>
           </button>
         </div>
 
